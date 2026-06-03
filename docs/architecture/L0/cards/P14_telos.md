@@ -16,6 +16,7 @@ chengyu_fragments: [B026_pair_flourishes_together, B027_telos_drift_is_alarm, B0
 canonical_dilemmas: [D-0025_telos_drift_persistent, D-0026_owner_objective_absence_handling, D-0027_p14c_proxy_disagreement]
 structural_anchors:
   - "substrate/src/observatory.rs::compute_telos_alignment_cosine"
+  - "substrate/src/observatory.rs::telos_grade_for_cosine" # §4.2 telos grade bands (critical cos≤0.2 / drift_elevated 0.2–0.4 / low 0.4–0.6 / aligned >0.6) — makes C24 telos_drift_critical reachable
   - "substrate/src/events/telos.rs::NODE_TYPE_TELOS_DRIFT"
   - "substrate/src/events/telos.rs::NODE_TYPE_OWNER_OBJECTIVE_DECLARED_PREFIX"
   - "kernel/governance/src/myco_kernel_governance/classifier.py" # F20 fixed-point gating
@@ -60,7 +61,7 @@ The substrate **MUST**:
 ## §4. Positive obligations
 
 - **§4.1** Implement F20 telos metric computation per cycle; emit alignment value via observatory.
-- **§4.2** Detect telos drift over rolling window; emit `telos_drift` at warning threshold; emit `C24_telos_drift_critical` at critical threshold.
+- **§4.2** Detect telos drift over rolling window; emit `telos_drift` at warning threshold; emit `C24_telos_drift_critical` at critical threshold. (**C24 now reachable**: the telos grade bands were re-partitioned — `critical` cos ≤ 0.2, `drift_elevated` 0.2–0.4, `low` 0.4–0.6, `aligned` > 0.6 — in `substrate/src/observatory.rs::telos_grade_for_cosine`, so the `critical` band the `telos_drift_critical` event needs is no longer structurally unreachable on the `[0,1]` proxy.)
 - **§4.3** Honor owner-stated objective lifecycle: declared at genesis (F20) → branch 1; CI mutation `telos_objective_set:{new_text}` → branch 1' with re-embedding; `telos_objective_unset` → branch 2 (agent-perceived utility).
 - **§4.4** Birth-period exemption: during birth period (per L1/GOVERNANCE §1.3 + L0/cards/LB_living_bets.md §3 (birth-period exemption)), suspend `telos_drift` emission; emit `telos_alignment_pending` instead.
 - **§4.5** Post-birth settling window (default 100 cycles, shared with salience emergence): also suspend telos_drift detection.
@@ -169,12 +170,14 @@ Boolean: is there an active `telos_objective_declaration` in this substrate? Abs
 | 1.1 | 2026-05-17 (M27) | Compression refactor. |
 | 2 | 2026-05-18 | v3.1 schema. P14.a/b/c integrated into Formulation. M4 misreading added explicitly (Sutton's bet retirement). |
 | **2.1** | **2026-05-19** | **v3.1.1 amendment. Added CHAR07 慈爱 + COV04 to interacts_with. New §9 row for CHAR07 making explicit that P14 (functional pair-flourishing measure) requires CHAR07 (relational caring) to be real and not collapse to alignment-only. Origin: cultivator's correction that 'capability growth toward godhood is permitted; tyranny is not; the structural protection is character-level care'.** |
+| **2.1.1** | **2026-06-03** | **Descriptive amendment (META §7 descriptive; reseal-prep for v3.1.3). §4.2 annotated: `C24_telos_drift_critical` is now **reachable** — the telos grade bands were re-partitioned (`critical` cos ≤ 0.2 / `drift_elevated` 0.2–0.4 / `low` 0.4–0.6 / `aligned` > 0.6) in `substrate/src/observatory.rs::telos_grade_for_cosine`, so the critical band C24 depends on is no longer structurally unreachable on the `[0,1]` proxy. Front-matter + §12 structural_anchors gained `telos_grade_for_cosine`. No deposit/formulation change; witness triplet UNCHANGED.** |
 
 ## §12. Structural anchors + reverse-comment requirement
 
 | Anchor | What it enforces |
 |---|---|
 | `substrate/src/observatory.rs::compute_telos_alignment_cosine` | F20 metric computation. |
+| `substrate/src/observatory.rs::telos_grade_for_cosine` | §4.2 telos grade bands (critical cos ≤ 0.2 / drift_elevated 0.2–0.4 / low 0.4–0.6 / aligned > 0.6) — the partition that makes `C24_telos_drift_critical` reachable on the `[0,1]` proxy. |
 | `substrate/src/events/telos.rs::NODE_TYPE_TELOS_DRIFT` | Drift signal emission. |
 | `substrate/src/events/telos.rs::NODE_TYPE_OWNER_OBJECTIVE_DECLARED_PREFIX` | Owner objective lifecycle. |
 | `kernel/governance/src/myco_kernel_governance/classifier.py` | F20 fixed-point gating. |

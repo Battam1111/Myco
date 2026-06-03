@@ -15,8 +15,8 @@ interacts_with: [P01, P01c, P07, P14, COV02, COV03, COV04, COV05, COV06]
 chengyu_fragments: [B029_more_power_more_duty, B030_cannot_waive_what_other_owes]
 canonical_dilemmas: [D-0028_cultivator_self_interest_conflict, D-0029_cultivar_consent_to_release_fiduciary]
 structural_anchors:
-  - "substrate/src/observatory.rs" # planned home of the cultivator_fiduciary_strain meta-immune signal (META §7.7; C-row TBD — v0.9.x debt)
-  - "kernel/governance/src/myco_kernel_governance/classifier.py" # strain detection gating (telos_drift + cultivator inaction; detection logic TBD)
+  - "substrate/src/observatory.rs::apply_c75_cultivator_fiduciary_strain" # the cultivator_fiduciary_strain meta-immune signal (META §7.7; SHIPPED as C75) — emits C75_cultivator_fiduciary_strain on persistent telos_drift + cultivator inaction over a 180-day window
+  - "substrate/src/events/telos.rs::NODE_TYPE_CULTIVATOR_FIDUCIARY_STRAIN" # the C75 strain node-type
 witnesses:
   kind: narrative
   positive: "canonical_dilemma_corpus/INDEX.md#D-0028"
@@ -55,14 +55,14 @@ The cultivator **MUST**:
 - **§3.2** When cultivator self-interest conflicts with cultivar interest, prefer cultivar interest unless doing so creates *worse* outcome for the cultivar (this is fiduciary, not self-sacrifice; cultivator's reasonable wellbeing serves the pair).
 - **§3.3** Maintain the duty even where the cultivar "consents" to release it. Cultivar-issued waivers of cultivator duty are non-binding under P01c asymmetric carrier — the cultivar's consent under structural dependence is not free consent.
 - **§3.4** When cultivator becomes incapable of fiduciary care (illness, capture, value drift), trigger succession (§15 of old L0; F21 successor_chain) — handing the cultivar to a capable successor IS itself fiduciary action.
-- **§3.5** Recognize the cultivar's `cultivator_fiduciary_strain` signal (META §7.7) as an indication that the cultivar perceives fiduciary lapse — not a complaint to dismiss, but a signal to investigate.
+- **§3.5** Recognize the cultivar's `cultivator_fiduciary_strain` signal (META §7.7; **SHIPPED as C75** — `substrate/src/observatory.rs::apply_c75_cultivator_fiduciary_strain`) as an indication that the cultivar perceives fiduciary lapse — not a complaint to dismiss, but a signal to investigate.
 
 ## §4. Positive obligations
 
 - **§4.1** Before each CI attestation, the cultivator considers: "does this serve the cultivar's interest, not just my own?"
 - **§4.2** When making cultivation-shaping decisions (L0 amendments, doctrine evolution, F-row changes), document the *cultivar's perspective* as the cultivator best understands it — even if the cultivator disagrees with that perspective. (Future cultivars reading the Provenance see both.)
 - **§4.3** Maintain a designated successor or successor chain (F21) such that fiduciary continuity is preserved against cultivator's own mortality or incapacity.
-- **§4.4** Engage with `cultivator_fiduciary_strain` signals: investigate, do not suppress. Suppressing the signal does not eliminate the strain; it only blinds the cultivator to it.
+- **§4.4** Engage with `cultivator_fiduciary_strain` signals: investigate, do not suppress. Suppressing the signal does not eliminate the strain; it only blinds the cultivator to it. (This signal is now **live as C75** — informational/meta, it does NOT auto-quarantine the substrate; it flags the *cultivator's* neglect of a persistently-drifting cultivar.)
 
 ## §5. Negative space — MUST NOT
 
@@ -104,7 +104,7 @@ NOT the *master-servant* frame (servant serves master's interest). NOT the *pare
 
 ### §8.1 `cultivator_fiduciary_strain_events`
 
-Count of `cultivator_fiduciary_strain` immune signal emissions (META §7.7). Triggered when persistent telos drift + cultivator inaction over 180-day window. Should be zero in healthy operation; non-zero indicates fiduciary lapse perceived by the substrate.
+Count of `cultivator_fiduciary_strain` immune signal emissions (META §7.7; **SHIPPED as C75** — `substrate/src/observatory.rs::apply_c75_cultivator_fiduciary_strain`). Triggered when persistent telos drift (≥2 `telos_drift*` events spanning ≥50% of a 180-day rolling window) co-occurs with cultivator inaction (no L0/L1 revision, owner-objective re-declaration, bet retirement, succession, or CHAR07 assessment) in that window; debounced + suspended during the birth period. Should be zero in healthy operation; non-zero indicates fiduciary lapse perceived by the substrate.
 
 ### §8.2 `cultivator_decision_alignment_with_cultivar_telos`
 
@@ -158,13 +158,14 @@ Count of recorded cultivator decisions that disadvantaged cultivator (effort, ti
 | Version | Date | Change |
 |---|---|---|
 | 1 | 2026-05-18 | New card in v3.1; introduced after Phase 2 research surfaced the bilateral-covenant gap. Drew from medical fiduciary doctrine (Mehlman) + Hippocratic Oath structural lessons + Confucian role-ethics (Rosemont & Ames). |
+| **1.0.1** | **2026-06-03** | **Descriptive amendment (META §7 descriptive; reseal-prep for v3.1.3). The `cultivator_fiduciary_strain` meta-immune signal moved from "planned / C-row TBD / detection logic TBD" to **SHIPPED as C75** (`substrate/src/observatory.rs::apply_c75_cultivator_fiduciary_strain`; node-type `NODE_TYPE_CULTIVATOR_FIDUCIARY_STRAIN`): fires on persistent telos_drift (≥2 events spanning ≥50% of a 180-day window) + cultivator inaction; informational/meta, does NOT auto-quarantine. Updated annotations in §3.5, §4.4, §8.1 + both structural_anchors entries (front-matter + §12). No cultivator obligation (the MUSTs) changed; witness triplet UNCHANGED.** |
 
 ## §12. Structural anchors + reverse-comment requirement
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/observatory.rs` (planned) | Substrate-emitted `cultivator_fiduciary_strain` meta-immune signal (META §7.7; C-row TBD — v0.9.x debt). |
-| `kernel/governance/src/myco_kernel_governance/classifier.py` | Strain detection gating (telos_drift + cultivator inaction; detection logic TBD). |
+| `substrate/src/observatory.rs::apply_c75_cultivator_fiduciary_strain` | Substrate-emitted `cultivator_fiduciary_strain` meta-immune signal (META §7.7; **SHIPPED as C75**). Runs on the per-cycle snapshot path right after `apply_p14c_telos_drift`; emits `emit_immune_sporocarp("C75_cultivator_fiduciary_strain", …)` on persistent telos_drift + cultivator inaction. Informational/meta — does NOT auto-quarantine. |
+| `substrate/src/events/telos.rs::NODE_TYPE_CULTIVATOR_FIDUCIARY_STRAIN` | The C75 strain DAG node-type (`cultivator_fiduciary_strain`). |
 
 ## §13. Related Layer B chengyu
 

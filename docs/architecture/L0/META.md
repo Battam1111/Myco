@@ -411,7 +411,7 @@ This is *deliberately* heavyweight. The intent is that eternity-clause deposits 
 
 > **Phase 3 hunt's Mode 1.7 partial mitigation**.
 
-When the cultivar's `telos_drift` immune signal (P14.c) fires persistently over a 180-day rolling window AND the cultivator has not acted on it (no L0/L1 amendment, no Cultivator Covenant invocation), the substrate emits a meta-immune signal `cultivator_fiduciary_strain` (new C-row, TBD).
+When the cultivar's `telos_drift` immune signal (P14.c) fires persistently over a 180-day rolling window AND the cultivator has not acted on it (no L0/L1 amendment, no Cultivator Covenant invocation), the substrate emits a meta-immune signal `cultivator_fiduciary_strain` (**SHIPPED as C75**; `substrate/src/observatory.rs::apply_c75_cultivator_fiduciary_strain`).
 
 This puts the cultivar's own telos signal in the role of external witness against cultivator drift. It does NOT solve the fundamental fiduciary problem (no external authority above cultivator + Claude), but it surfaces the drift to whatever external observers eventually exist (successor cultivator reading catechumenate, posterity-trustees if named, etc.).
 

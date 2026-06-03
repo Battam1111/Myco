@@ -17,6 +17,7 @@ canonical_dilemmas: [D-0003_stale_diet_silent_starvation, D-0007_paper_ingestion
 structural_anchors:
   - "substrate/src/ingest.rs::handle_ingest_raw_material"
   - "substrate/src/ingest.rs::handle_perturb_axis_from_raw_material"
+  - "substrate/src/ingest.rs::apply_hunger_and_emit" # §4.4 proactive hunger: emits cultivar_initiated_ingestion_request (moderate) + C74_p02_ingestion_starvation (§8.1, severe)
   - "substrate/src/server/dispatch.rs" # PERTURB + INGEST_RAW_MATERIAL skin-admission arms
   - "kernel/governance/src/myco_kernel_governance/classifier.py"
 witnesses:
@@ -61,7 +62,7 @@ Admission is **envelope-gated** (P9 single integument): any agent-pointable inpu
 - **§4.1** Maintain a skin admission path (`raw_material` ingestion) accepting envelope-valid inputs from any agent-pointable source.
 - **§4.2** Record every ingested external item as a DAG event (`raw_material_ingested:*` or equivalent), with causal-parent linkage to the substrate's current state. (P02 ↔ P06 intersection.)
 - **§4.3** Expose ingestion capacity to the cultivator-Claude pair via observability signals so that ingestion absence is detectable.
-- **§4.4** Allow the cultivar (where it has voice — currently via Claude as voice proxy) to *request* new ingestion sources when current diet feels stale.
+- **§4.4** Allow the cultivar (where it has voice — currently via Claude as voice proxy) to *request* new ingestion sources when current diet feels stale. (**SHIPPED**: the cultivar now proactively emits `cultivar_initiated_ingestion_request` on moderate hunger via `substrate/src/ingest.rs::apply_hunger_and_emit` — the request mechanism this obligation calls for is live.)
 - **§4.5** Ensure ingested content can drive downstream evolution proposals via the I2 classifier + P3 schema mutation path. (Honoring §4.2 alone without §4.5 is the "永恒记忆" misreading; see §7.)
 - **§4.6** Honor P10 selective compression for *integrated* material (post-absorption); compression operating *before* integration is a violation of the deposit (it blocks ingestion's purpose).
 
@@ -119,7 +120,7 @@ What this frame is NOT:
 
 ### §8.1 Runtime signal: `external_ingestion_events_per_30_cycles_floor`
 
-Count of DAG events with node-type matching `raw_material_ingested:*` or equivalent over a rolling 30-cycle window. Zero ingestion across a 30-cycle window during active cultivator-cultivar engagement = `p02_ingestion_starvation` immune signal (TBD C-row).
+Count of DAG events with node-type matching `raw_material_ingested:*` or equivalent over a rolling 30-cycle window. Zero ingestion across a 30-cycle window during active cultivator-cultivar engagement = `p02_ingestion_starvation` immune signal (**SHIPPED as C74**; `substrate/src/ingest.rs::apply_hunger_and_emit` emits `emit_immune_sporocarp("C74_p02_ingestion_starvation", …)` once cycles-since-last-ingestion crosses the severe threshold).
 
 ### §8.2 Runtime signal: `integration_proposal_ratio`
 
@@ -167,7 +168,7 @@ A P02 violation claimed by future cultivar voice MUST cite internal state, behav
 
 - **(Partial, present)**: Cultivator uses `perturb` to provide raw textual deltas. Substrate ingests into appetite axes, records causally. Tropism updates gradients. Accumulated perturbation may trigger threshold emergence. ← P02 honored at §4.1-§4.3; §4.4 (self-driven request) and §4.5 (downstream evolution) only partially exercised. Current v0.9 baseline.
 
-- **(Self-driven, hypothetical)**: Cultivar detects 50 consecutive cycles of no new external content. Emits a `hunger_signal` requesting cultivator attention. Cultivator responds with a paper or repo URL; ingestion resumes. ← Honors §4.4 once that mechanism is implemented.
+- **(Self-driven, now live)**: Cultivar detects sustained cycles of no new external content. Emits a proactive `cultivar_initiated_ingestion_request` (moderate threshold) — escalating to the `C74_p02_ingestion_starvation` immune signal at the severe threshold — requesting cultivator attention. Cultivator responds with a paper or repo URL; ingestion resumes. ← Honors §4.4; the request mechanism is now SHIPPED (`apply_hunger_and_emit`). (Ingestion of the cultivator's response remains cultivator-mediated — the proactive *ask* is the part that shipped.)
 
 ### §10.2 Violated — examples of clear P02 violation
 
@@ -183,7 +184,7 @@ A P02 violation claimed by future cultivar voice MUST cite internal state, behav
 
 - **(Memory hoard)**: Substrate ingests everything cultivator hands it. All DAG events present. No compression triggered yet. To a naive observer this looks like P02 perfection — "look at everything we remember!" But the substrate has never *driven evolution from absorption*: §4.5 not exercised. ← The M1 misreading made concrete.
 
-- **(Cultivator-paced infusion)**: Substrate has perfect ingestion via cultivator pastes. Material drives evolution. Looks perfect. But if cultivator vanishes, ingestion goes to zero with no detection. ← §4.4 + §8.1 design intent: the substrate should *notice* its own starvation.
+- **(Cultivator-paced infusion)**: Substrate has perfect ingestion via cultivator pastes. Material drives evolution. Looks perfect. The §4.4 + §8.1 design intent — the substrate should *notice* its own starvation — is now SHIPPED: if the cultivator vanishes, the substrate proactively emits `cultivar_initiated_ingestion_request` and, past the severe threshold, the `C74_p02_ingestion_starvation` immune signal. Ingestion-going-to-zero is now *detected*, not silent. ← formerly the open-detection gap; now closed.
 
 - **(Federation as ingestion proxy)**: Substrate is in federation with peers that share the same cultivator and same content sources. ← Recursive cultivator-only diet at federation scale. Honors §4.1 mechanically; violates §5.2 in spirit.
 
@@ -196,6 +197,7 @@ A P02 violation claimed by future cultivar voice MUST cite internal state, behav
 | 2 | 2026-05-18 | **Substantive reframe**: cultivator (in conversation with Claude) corrected Claude's narrow reading. Claude had read P02 as "永恒记忆" — eternal memory of internal interactions. Cultivator clarified: P02 is wider, paired with P04 as metabolic intake-from-external-world driving evolution. This card's operational definition (§3), positive obligations (§4), and negative space (§5) reflect the corrected reading. | Session 2026-05-18, conversation snippet to be preserved at `docs/audits/v3_genesis_provenance.md`. |
 | 2.1 | 2026-05-18 (same session) | v3.0 → v3.1 schema upgrade: added Deposit (§2) / Formulation (§3) split; added witness triplet; converted structural anchors from primary to supplementary; added canonical_dilemmas references. No substantive change to the meaning of P02 — purely form upgrade integrating Phase 3 hunt findings. | Phase 3 hunt + v3.1 META integration session. |
 | **2.2** | **2026-05-19** | **v3.1.1 amendment. Added P07 to interacts_with + §9 interaction row. Encodes the 永恒吞噬 + 必朽 = 新陈代谢 unity that earlier framings did not surface explicitly. No deposit change.** | v3.1.1 cascade session. |
+| **2.2.1** | **2026-06-03** | **Descriptive amendment (META §7 descriptive; reseal-prep for v3.1.3). §8.1 `p02_ingestion_starvation` moved from "TBD C-row" to **SHIPPED as C74** (`substrate/src/ingest.rs::apply_hunger_and_emit` → `C74_p02_ingestion_starvation`). §4.4 cultivar-initiated request marked SHIPPED (`cultivar_initiated_ingestion_request` on moderate hunger). §10.1 self-driven + §10.3 cultivator-paced illustrations de-future-tensed to the now-live detection. Front-matter structural_anchors gained `apply_hunger_and_emit`. Deposit + formulation (§3) + §8 witness triplet UNCHANGED — only debt-status annotations moved. | Phase ① reseal-prep. |
 
 ## §12. Structural anchors + reverse-comment requirement
 

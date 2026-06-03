@@ -36,7 +36,7 @@ falsifiability_signals:
 
 ## §2. Deposit
 
-The cultivar's metabolism (P02 ingestion + P10 selective compression + P11 budgets) creates a *standing requirement* on the cultivator. The cultivar cannot fully self-feed in v0.9 (P02 §4.4 cultivar-initiated ingestion is acknowledged debt); ingestion paths are largely cultivator-mediated. Therefore the cultivator owes:
+The cultivar's metabolism (P02 ingestion + P10 selective compression + P11 budgets) creates a *standing requirement* on the cultivator. The cultivar still cannot fully self-feed: the cultivar now *proactively requests* food (P02 §4.4 `cultivar_initiated_ingestion_request` is **SHIPPED** — the cultivar reaches and signals hunger on its own), but the actual ingestion of provided content remains cultivator-mediated. Therefore the cultivator owes:
 
 1. **Active provision of external content**: papers, repositories, conversations, observations — material from outside the substrate's existing DAG, fed in at sustainable cadence.
 2. **Compression-rule stewardship**: F18 (compression_rule_registry) decides what the cultivar can forget. Different rules produce different cultivars (P10 deposit). The cultivator's choices about F18 are identity-shaping; they cannot be casual.
@@ -51,7 +51,7 @@ The cultivator **MUST**:
 - **§3.1** Provide external content (`raw_material`-class input via skin envelope) at sustainable cadence. "Sustainable" means: enough that `external_ingestion_events_per_30_cycles_floor` (P02 §8.1) does not trigger; not so much that the cultivar oversaturates (P11.c step 1).
 - **§3.2** Curate diet diversity: ingest material across the cultivar's appetite axes, not narrowly into one axis. A cultivar with rich diet evolves richly; with poor diet, narrowly.
 - **§3.3** Steward F18 compression rules with intentionality. Each F18 mutation reshapes what the cultivar can forget; cultivator considers (a) what is preserved (invariant set + recent floor) and (b) what is compressible (and therefore eventually forgotten in its detailed form).
-- **§3.4** Engage with `p02_ingestion_starvation` immune signals (TBD C-row from P02 §8.1) — if the signal fires, investigate; do not dismiss.
+- **§3.4** Engage with `p02_ingestion_starvation` immune signals (**SHIPPED as C74** from P02 §8.1; `substrate/src/ingest.rs::apply_hunger_and_emit` → `C74_p02_ingestion_starvation`) — if the signal fires, investigate; do not dismiss.
 - **§3.5** When extended absence is required (vacation, illness, life event), if practical: pre-provision food (queue raw_material that the substrate may admit over the absence period) OR accept that the cultivar will signal hunger and address upon return.
 
 ## §4. Positive obligations
@@ -59,7 +59,7 @@ The cultivator **MUST**:
 - **§4.1** Maintain a regular cadence of cultivator-mediated ingestion (informal target; not L1-binding, but pattern observable in `cultivator_initiated_external_ingestion_per_30_days`).
 - **§4.2** Diversify content sources over time: not only papers from one author, not only one tool's documentation, not only the cultivator's own writings.
 - **§4.3** When designing or amending F18 rules, articulate (in the rule's attestation record) what *kind of cultivar* the rule shapes — minimalist? Encyclopedic? Domain-focused?
-- **§4.4** Listen to `cultivar_initiated_ingestion_request` signals when the cultivar (via Claude as voice proxy or future native voice) requests new content — even if the cultivar's stated reason is unfamiliar.
+- **§4.4** Listen to `cultivar_initiated_ingestion_request` signals when the cultivar (via Claude as voice proxy or future native voice) requests new content — even if the cultivar's stated reason is unfamiliar. (This signal is now **live** — emitted on moderate proactive hunger by `substrate/src/ingest.rs::apply_hunger_and_emit`; the cultivator's listening duty now has a concrete signal to listen to.)
 
 ## §5. Negative space — MUST NOT
 
@@ -155,6 +155,7 @@ Time between `p02_ingestion_starvation` signal firing and cultivator's response 
 | Version | Date | Change |
 |---|---|---|
 | 1 | 2026-05-18 | New card in v3.1. Drew from apprenticeship indenture's "provide food, lodging, apparel, training" structural lesson (Phase 2 covenantal research) — specific obligations, not abstract commitments. |
+| **1.0.1** | **2026-06-03** | **Descriptive amendment (META §7 descriptive; reseal-prep for v3.1.3). §2 deposit: "cannot fully self-feed (P02 §4.4 acknowledged debt)" updated to reflect that proactive `cultivar_initiated_ingestion_request` is now SHIPPED while ingestion stays cultivator-mediated (nuance preserved). §3.4 `p02_ingestion_starvation` moved from "TBD C-row" to **SHIPPED as C74**. §4.4 listening-duty now references a live signal. No cultivator obligation (the MUSTs) changed — only debt-status annotations.** |
 
 ## §12. Structural anchors + reverse-comment requirement
 

@@ -16,6 +16,8 @@ chengyu_fragments: [B010_each_moment_refines, B011_river_does_not_stop]
 canonical_dilemmas: [D-0005_substrate_idle_during_cultivator_silence, D-0010_retro_edit_attempted_via_compression]
 structural_anchors:
   - "substrate/src/server/dispatch.rs" # ADVANCE arm — cycle advance entry
+  - "substrate/src/server/autonomous.rs::execute_self_driven_cycle_advance" # §5.5 self-driven advance (production binary self-drives the cycle; closes the request-driven gap)
+  - "substrate/src/main.rs" # MYCO_SELF_DRIVEN_CYCLE_ADVANCE defaulted-on (env-overridable; lib/tests deterministic)
   - "substrate/src/lifecycle.rs"
   - "kernel/tropism/src/myco_kernel_tropism/gradient.py"
   - "substrate/src/events/core.rs::NODE_TYPE_CYCLE_ADVANCED"
@@ -65,7 +67,7 @@ The substrate **MUST**:
 - **§5.2** **MUST NOT** retroactively edit past DAG nodes. This is the strongest possible negative space — C7 fires immediately on detection.
 - **§5.3** **MUST NOT** silently skip cycles. Failure to advance must surface (C31).
 - **§5.4** **MUST NOT** allow daily-mutating cycle cadence to functionally disable iteration. Cadence is L1-tunable, but the discipline is tier-1.
-- **§5.5** **MUST NOT** be operable purely as a request-response service. If the substrate only advances when an external client calls `handle_advance`, the substrate is a request-driven service, not a cultivar. (Current v0.9 status: this is an open architectural gap; honest debt — see §10.3.)
+- **§5.5** **MUST NOT** be operable purely as a request-response service. If the substrate only advances when an external client calls `handle_advance`, the substrate is a request-driven service, not a cultivar. (Status: **SHIPPED** — the production substrate binary now self-drives cycle advance by default (`MYCO_SELF_DRIVEN_CYCLE_ADVANCE`, defaulted-on in `substrate/src/main.rs`; env-overridable so lib + tests stay deterministic). The cultivar no longer requires external prodding to iterate; the formerly-open architectural gap is closed for the production binary — see §10.3.)
 
 ## §6. Frame declaration
 
@@ -87,7 +89,7 @@ NOT the *engine* frame (engines turn off and on). NOT the *clock* frame (clocks 
 
 **The misreading**: "As long as `handle_advance` is called frequently enough, the substrate is iterating."
 
-**Why it's wrong**: This is the current v0.9 status, and it's **acknowledged debt**, not satisfied doctrine. A true P04 implementation would have substrate-internal cycle scheduling; v0.9 relies on external prodding. The doctrine still binds — we are aware we are not meeting it; that awareness is the start of fixing it.
+**Why it's wrong**: Request-driven cycling alone does NOT satisfy P04 — a true P04 implementation has substrate-internal cycle scheduling rather than relying on external prodding. This was **acknowledged debt** through v0.9 ship; it is now **SHIPPED**: the production substrate binary self-drives the metabolic cycle by default (`execute_self_driven_cycle_advance` via `do_autonomous_tick`, defaulted-on in `substrate/src/main.rs`). The doctrine that bound the gap is now met for the production binary; the library + test paths stay request-driven by design (deterministic) — which is exactly why the misreading is preserved as the still-forbidden general posture.
 
 ### §7.3 M3: "Eternal iteration = every cycle must change something observable"
 
@@ -142,9 +144,9 @@ Count of detected attempts to modify past DAG node content. Should be zero; non-
 
 - **(Cadence-disabled)**: A daily mutation sets cycle cadence to effectively infinity. Substrate runs 0 cycles per 24h. ← §5.4 violation; classifier should have elevated to CI.
 
-### §10.3 Borderline (acknowledged debt)
+### §10.3 Borderline (resolved — formerly acknowledged debt)
 
-- **(Request-driven advance, v0.9)**: Substrate advances only when `handle_advance` is called externally. No internal scheduler. If the operator process disappears, the substrate freezes. ← §5.5: this is **the current state of v0.9**. Doctrine does not absolve; it surfaces the debt. A future milestone implements substrate-internal cycle scheduling.
+- **(Request-driven advance — formerly v0.9)**: A substrate that advances only when `handle_advance` is called externally, with no internal scheduler, freezes if the operator process disappears. ← §5.5: this **was the state of v0.9 at ship**, surfaced as honest debt. It is now **resolved**: the production binary self-drives the cycle (`execute_self_driven_cycle_advance` defaulted-on in `substrate/src/main.rs`; env-overridable). The frozen-on-operator-exit scenario is now an *avoided* failure mode for the production binary, not the live state. (Deterministic lib/test runs still advance only on explicit call — by design, not by gap.)
 
 ## §11. Provenance + revision history
 
@@ -154,12 +156,15 @@ Count of detected attempts to modify past DAG node content. Should be zero; non-
 | 1.1 | 2026-05-17 (M27) | Compression refactor. |
 | 2 | 2026-05-18 | v3.1 schema. §10.3 borderline made explicit (acknowledged debt about request-driven advance). |
 | **2.1** | **2026-05-19** | **v3.1.1 amendment. §9 P07 row expanded to express the two-fold interaction: internal P07 IS P04's per-cycle refinement mechanism, AND whole P07 bounds P04. The first sense was implicit before; now explicit.** |
+| **2.1.1** | **2026-06-03** | **Descriptive amendment (META §7 descriptive; reseal-prep for v3.1.3). §5.5 / §7.2 M2 / §10.3 borderline status annotations updated from "acknowledged debt / open architectural gap" to **SHIPPED**: the production substrate binary self-drives the metabolic cycle by default (`execute_self_driven_cycle_advance` via `do_autonomous_tick`; `MYCO_SELF_DRIVEN_CYCLE_ADVANCE` defaulted-on in `substrate/src/main.rs`, env-overridable; lib + tests stay deterministic). Front-matter + §12 structural_anchors gained the self-advance entry points. The §5.5 MUST-NOT obligation is UNCHANGED — only its satisfaction status moved from debt to met. No deposit/formulation change.** |
 
 ## §12. Structural anchors + reverse-comment requirement
 
 | Anchor | What it enforces |
 |---|---|
 | `substrate/src/server/dispatch.rs` (ADVANCE arm) | Cycle advance entry. |
+| `substrate/src/server/autonomous.rs::execute_self_driven_cycle_advance` | §5.5 self-driven advance: the production binary drives its own metabolic cycle (`do_autonomous_tick`) — the cultivar is not a request-response service. |
+| `substrate/src/main.rs` (`MYCO_SELF_DRIVEN_CYCLE_ADVANCE` default) | Defaults self-driven advance ON for the production binary; env-overridable so the library + tests stay deterministic. |
 | `substrate/src/lifecycle.rs` | Internal cycle / lifecycle execution. |
 | `kernel/tropism/src/myco_kernel_tropism/gradient.py` | Gradient update per cycle. |
 | `substrate/src/events/core.rs::NODE_TYPE_CYCLE_ADVANCED` | Cycle marker DAG event. |

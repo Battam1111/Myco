@@ -17,6 +17,7 @@ canonical_dilemmas: [D-0048_bet_weakening_quorum_first_fire, D-0049_owner_rejust
 structural_anchors:
   - "substrate/src/observatory.rs" # the observatory signal set (LB falsifiability signals)
   - "substrate/src/observatory.rs" # bet_weakening_quorum_detected (C40) signal
+  - "substrate/src/observatory.rs::signal_direction_label_ols" # §3.4 rate-based OLS direction test (over first_difference_series) — makes C40 fireable for a decelerating substrate
   - "substrate/src/events/cultivation.rs::NODE_TYPE_BET_RETIRED_PROPOSAL"
   - "docs/architecture/algorithms/bet_weakening_quorum.md"
 witnesses:
@@ -94,9 +95,11 @@ One composite signal:
 
 **Quorum trigger**: 90-day wall-clock window (§13.1); ≥3 of {#1, #2, #3, #4a, #4b, #6} trend against bet (OLS Z ≥ 1.96) AND signal #6 < 1 for ≥50% of samples in the window → emits `bet_weakening_quorum` (C40 immune signal).
 
+The direction test is **rate-based**: the OLS slope + Z-test runs over the *first-difference* series (`substrate/src/observatory.rs::signal_direction_label_ols` over `first_difference_series`), so a *decelerating* substrate — one whose signals are falling, not merely sitting flat-but-low — reaches quorum. (This closes the formerly-**unfireable** quorum: OLS on the raw level series could not detect a sustained adverse trend in a low-but-steady substrate; the rate formulation makes C40 actually FIREABLE.)
+
 **Algorithm**: `docs/architecture/algorithms/bet_weakening_quorum.md`.
 
-**Birth-period exemption**: SUSPENDED during birth period; emits `bet_weakening_evaluation_suspended` (informational, NOT immune).
+**Birth-period exemption**: SUSPENDED during birth period; emits `bet_weakening_evaluation_suspended` (informational, NOT immune). (**SHIPPED** — birth-period suspension is implemented at the same canonical `is_in_birth_period_quarantine` gate; a newborn substrate does not trip the quorum.)
 
 The quorum is **statistical**, not single-event. A bad day does not trigger; sustained 90-day adverse trend does.
 
@@ -121,8 +124,8 @@ The quorum is **statistical**, not single-event. A bad day does not trigger; sus
 ## §4. Positive obligations
 
 - **§4.1** Emit all 10 signals per cycle (or per L1/CONTINUITY cadence per signal class).
-- **§4.2** Compute falsifiability quorum per the published algorithm; emit `bet_weakening_quorum` (C40) when conditions met.
-- **§4.3** During birth period (L1/GOVERNANCE §1.3) + post-birth settling: SUSPEND quorum; emit `bet_weakening_evaluation_suspended`.
+- **§4.2** Compute falsifiability quorum per the published algorithm; emit `bet_weakening_quorum` (C40) when conditions met. (**SHIPPED + now fireable**: the rate-based OLS direction test (`signal_direction_label_ols` over `first_difference_series`) lets a decelerating substrate reach quorum; C40 was previously structurally unfireable on the level series.)
+- **§4.3** During birth period (L1/GOVERNANCE §1.3) + post-birth settling: SUSPEND quorum; emit `bet_weakening_evaluation_suspended`. (**SHIPPED**: birth-period suspension implemented at the `is_in_birth_period_quarantine` gate.)
 - **§4.4** On C40 fire, surface to cultivator; cultivator engages re-justification process (per L0/cards/LB_living_bets.md §4 (retirement); written defense of why the bet still holds).
 - **§4.5** Track re-justification attempts; on 3rd consecutive failure + signal #6 sustained below 0.1, emit `bet_retired_proposal`.
 - **§4.6** On cultivator co-attestation of bet-retired, execute `alive::archived` transition cleanly: anchor-seal final tip, halt cycling, preserve state_dir.
@@ -226,6 +229,7 @@ When `bet_retired` executes, verify all three completion conditions: anchor-seal
 | 1 | 2025-11 | Introduced in L0 DRAFT 1 as §7 with sub-sections §7.1-§7.5. |
 | 1.1 | 2026-05-17 (M27) | Compression refactor. |
 | 2 | 2026-05-18 | v3.1 schema. Consolidated §7 into one specialized card. |
+| **2.0.1** | **2026-06-03** | **Descriptive amendment (META §7 descriptive; reseal-prep for v3.1.3). §3.4 / §4.2 quorum direction test annotated as now **FIREABLE** — the OLS slope + Z-test runs over the first-difference (rate) series (`signal_direction_label_ols` over `first_difference_series`), so a decelerating substrate reaches quorum (formerly structurally unfireable on the level series). §3.4 / §4.3 birth-period suspension annotated **SHIPPED** (`is_in_birth_period_quarantine` gate; emits `bet_weakening_evaluation_suspended`). Front-matter + §12 structural_anchors gained the OLS direction anchor. No deposit/formulation change; witness triplet UNCHANGED.** |
 
 ## §12. Structural anchors
 
@@ -233,6 +237,7 @@ When `bet_retired` executes, verify all three completion conditions: anchor-seal
 |---|---|
 | `substrate/src/observatory.rs::ten_signals` | All 10 signal computations. |
 | `substrate/src/observatory.rs` (`bet_weakening_quorum_detected`) | C40 emission. |
+| `substrate/src/observatory.rs::signal_direction_label_ols` (over `first_difference_series`) | §3.4 rate-based direction test (OLS slope + Z ≥ 1.96 on the first-difference series) — makes C40 fireable for a decelerating substrate. |
 | `substrate/src/events/cultivation.rs::NODE_TYPE_BET_RETIRED_PROPOSAL` | Bet-retirement proposal channel. |
 | `docs/architecture/algorithms/bet_weakening_quorum.md` | Canonical algorithm spec. |
 
