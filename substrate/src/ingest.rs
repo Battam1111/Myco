@@ -487,6 +487,14 @@ pub(crate) fn handle_advance(
     // emit C36_cycle_backlog immune event.
     let cycle_wall_start = std::time::Instant::now();
 
+    // **signal #7 fix**: mark the cost-accumulator's cycle-compute window START
+    // here (cycle-work entry) so `compute_ns` measures in-cycle compute, NOT the
+    // wall-clock gap since the previous cycle. The gap folds in operator
+    // idle/think time (LLM latency alone is >100ms), which would exhaust the
+    // P11.c compute budget every cycle and falsely cascade a healthy substrate
+    // into P02 ingestion refusal → saturation → self_euthanasia_proposal.
+    state.cost_accumulator.mark_cycle_start();
+
     // Extract the requested cycle number (informational; engine has its own counter).
     let _requested_cycle = request.payload.get("current_cycle").and_then(|v| match v {
         Value::Uint(u) => Some(*u),

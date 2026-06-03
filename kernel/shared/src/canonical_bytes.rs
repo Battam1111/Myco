@@ -335,6 +335,18 @@ fn decode_into(buf: &[u8], offset: usize) -> Result<(Value, usize), CanonicalByt
         TAG_ARRAY => {
             let (count, c2) = read_varint(buf, cursor)?;
             cursor = c2;
+            // DoS guard: every array item is >= 1 byte (at minimum a tag byte), so
+            // an array of `count` items requires >= `count` bytes remaining. Reject
+            // + bound the allocation BEFORE `with_capacity`, so a tiny hostile or
+            // corrupt frame (e.g. a 12-byte body claiming count=2^48) cannot request
+            // a multi-TiB allocation and abort the process. Wires the long-defined-
+            // but-unused `ValueTooLarge` guard.
+            let remaining = buf.len().saturating_sub(cursor) as u64;
+            if count > remaining {
+                return Err(CanonicalBytesError::ValueTooLarge(format!(
+                    "array count {count} exceeds remaining input {remaining} bytes"
+                )));
+            }
             let mut items: Vec<Value> = Vec::with_capacity(count as usize);
             for _ in 0..count {
                 let (item, c3) = decode_into(buf, cursor)?;
@@ -346,6 +358,15 @@ fn decode_into(buf: &[u8], offset: usize) -> Result<(Value, usize), CanonicalByt
         TAG_MAP => {
             let (count, c2) = read_varint(buf, cursor)?;
             cursor = c2;
+            // DoS guard (symmetry with TAG_ARRAY): each map entry is >= 2 bytes
+            // (a key value + a mapped value), so `count` cannot exceed the remaining
+            // input. Bounds the per-entry loop on hostile/corrupt input.
+            let remaining = buf.len().saturating_sub(cursor) as u64;
+            if count > remaining {
+                return Err(CanonicalBytesError::ValueTooLarge(format!(
+                    "map count {count} exceeds remaining input {remaining} bytes"
+                )));
+            }
             let mut entries: BTreeMap<String, Value> = BTreeMap::new();
             let mut prev_key_bytes: Option<Vec<u8>> = None;
             for _ in 0..count {
@@ -689,6 +710,24 @@ fn render_exponential(digits: &str, exp: i32) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decode_array_count_exceeding_input_is_value_too_large() {
+        // DoS guard: a corrupt/hostile array header that claims more items than
+        // the input can hold must be rejected as ValueTooLarge BEFORE
+        // `Vec::with_capacity` allocates — never OOM-aborting the process on a
+        // tiny frame that claims a 2^48 count.
+        let arr = Value::Array(vec![Value::Uint(1), Value::Uint(2), Value::Uint(3)]);
+        let full = encode(&arr).expect("encode");
+        // Keep tag + the single-byte count varint (count=3); drop all element
+        // bytes → claimed count (3) now exceeds remaining input (0).
+        let truncated = &full.0[0..2];
+        assert!(
+            matches!(decode(truncated), Err(CanonicalBytesError::ValueTooLarge(_))),
+            "array count exceeding remaining input must be ValueTooLarge, got {:?}",
+            decode(truncated)
+        );
+    }
 
     #[test]
     fn test_null() {

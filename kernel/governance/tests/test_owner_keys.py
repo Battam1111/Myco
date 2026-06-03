@@ -347,6 +347,32 @@ def test_rotation_apply_activation_mutates_history() -> None:
     assert history.active_at(_COOLDOWN_END) == new
 
 
+def test_rotate_active_key_rolls_back_on_predate_failure() -> None:
+    # ATOMICITY: if add_key's chronological guard rejects the successor AFTER
+    # retire_active_key already stamped the old key, the history MUST roll back to
+    # exactly its prior state — never be left with the old key retired and no
+    # successor (zero valid keys = permanent, un-retryable CI lockout). Driven at
+    # the storage primitive with a successor whose valid_from PREDATES the active
+    # key (the failure mode a large prior valid_from + backdated request reaches).
+    old, new = _key(0x01), _key(0x02)
+    history = init_with_genesis_key(old, genesis_anchor_timestamp_unix_seconds=1000)
+    bad_entry = OwnerKeyEntry(public_key=new, valid_from_anchor_timestamp=500)
+    with pytest.raises(OwnerKeyHistoryError):
+        history.rotate_active_key(
+            retired_public_key=old,
+            valid_until_anchor_timestamp=500,
+            cooldown_expired_at_anchor_timestamp=500,
+            new_entry=bad_entry,
+        )
+    # ROLLBACK verified: old key still active and NOT retired; history unchanged.
+    assert history.current_active() == old
+    assert history.total_count() == 1
+    old_entry = next(
+        e for e in history._iter_all() if e.public_key.bytes_ == old.bytes_
+    )
+    assert old_entry.valid_until_anchor_timestamp is None
+
+
 def test_rotation_apply_activation_requires_activated_state() -> None:
     history = init_with_genesis_key(_key(0x01), 100)
     fsm = RotationFSM()

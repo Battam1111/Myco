@@ -350,16 +350,18 @@ def _handle_apply_owner_key_rotation(
         already_active = False
     if not already_active:
         try:
-            state.owner_keys.retire_active_key(
+            # Atomic retire+add (rollback on any failure): a predate rejection
+            # must NOT leave the old key retired with no successor -> zero valid
+            # keys -> permanent, un-retryable CI lockout. See
+            # OwnerKeyHistory.rotate_active_key.
+            state.owner_keys.rotate_active_key(
                 retired_public_key=prior_key,
                 valid_until_anchor_timestamp=activate_ts,
                 cooldown_expired_at_anchor_timestamp=cooldown_expires_at,
-            )
-            state.owner_keys.add_key(
-                OwnerKeyEntry(
+                new_entry=OwnerKeyEntry(
                     public_key=new_key,
                     valid_from_anchor_timestamp=activate_ts,
-                )
+                ),
             )
         except OwnerKeyHistoryError as e:
             raise BridgeProtocolError(

@@ -80,13 +80,30 @@ impl CostAccumulator {
         }
     }
 
-    /// Compute the cost signals for the cycle that just ended, then reset
-    /// the timer + file-size baseline for the next cycle. Reads federation
-    /// egress via `state.federation.drain_bytes_egressed()`.
+    /// Mark the START of a cycle's compute window. Call at the `handle_advance`
+    /// entry (where the cycle work begins) so signal #7 `compute_ns` measures the
+    /// IN-CYCLE compute — NOT the wall-clock gap between cycle advances. Folding
+    /// the inter-cycle idle/think time into `compute_ns` would spuriously exhaust
+    /// the P11.c compute budget on ANY substrate cycling slower than 100ms (the
+    /// entire legitimate cadence range, L1/CONTINUITY §1.2), cascading to false
+    /// P02 ingestion refusal → saturation → `self_euthanasia_proposal` on a
+    /// perfectly healthy organism.
+    pub(crate) fn mark_cycle_start(&mut self) {
+        self.cycle_started_at = Instant::now();
+    }
+
+    /// Compute the cost signals for the cycle that just ended. Signal #7
+    /// `compute_ns` is measured from the most recent [`mark_cycle_start`] (the
+    /// `handle_advance` entry) to now — the cycle's actual in-cycle compute,
+    /// excluding the inter-cycle idle wait. Reads federation egress via
+    /// `state.federation.drain_bytes_egressed()`.
     ///
     /// **Side effects**: zeroes `state.federation.bytes_egressed_since_last_drain`
-    /// (via drain), refreshes `cycle_started_at` to `Instant::now()`, and
-    /// refreshes `last_dag_cb_bytes` + `last_snapshot_cb_bytes` from disk.
+    /// (via drain) and refreshes `last_dag_cb_bytes` + `last_snapshot_cb_bytes`
+    /// from disk. Does NOT reset `cycle_started_at` — that is [`mark_cycle_start`]'s
+    /// job at the next cycle's start.
+    ///
+    /// [`mark_cycle_start`]: Self::mark_cycle_start
     pub(crate) fn snapshot_and_reset(
         &mut self,
         federation: &mut crate::federation::FederationState,
@@ -112,10 +129,13 @@ impl CostAccumulator {
         let snap_delta = cur_snap.saturating_sub(self.last_snapshot_cb_bytes);
         let storage_bytes = dag_delta.saturating_add(snap_delta);
 
-        // Refresh baselines.
+        // Refresh baselines. NOTE: `cycle_started_at` is intentionally NOT reset
+        // here — it is set by `mark_cycle_start` at the next cycle's
+        // `handle_advance` entry, so `compute_ns` measures in-cycle work (not the
+        // inter-cycle idle gap). Resetting here was the signal-#7 idle-misaccount
+        // bug that cascaded a healthy substrate into a self-euthanasia proposal.
         self.last_dag_cb_bytes = cur_dag;
         self.last_snapshot_cb_bytes = cur_snap;
-        self.cycle_started_at = Instant::now();
 
         CostSnapshot {
             compute_ns,

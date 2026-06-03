@@ -170,6 +170,47 @@ class OwnerKeyHistory:
             else:
                 self.archived_tail.append(evicted)
 
+    def rotate_active_key(
+        self,
+        *,
+        retired_public_key: Ed25519PublicKey,
+        valid_until_anchor_timestamp: int,
+        cooldown_expired_at_anchor_timestamp: int,
+        new_entry: OwnerKeyEntry,
+    ) -> None:
+        """C70 ATOMIC rotation: retire the active key and add its successor as a
+        single all-or-nothing operation.
+
+        ``add_key`` can raise (chronological predate guard) AFTER
+        ``retire_active_key`` has already stamped the old key's ``valid_until``.
+        Without rollback that strands the history with the old key retired and
+        the new key absent -> ZERO currently-valid keys -> permanent CI lockout
+        that even a corrected retry cannot recover (the old key is already
+        retired, so the retry's retire raises ``NoActiveKey``). This wrapper
+        snapshots the three layer lists and restores them on ANY failure, so a
+        rejected rotation leaves the history exactly as it was. Entries are frozen
+        and replaced-not-mutated, so the shallow list copies are faithful.
+        """
+        snapshot = (
+            list(self.active_prefix),
+            list(self.active_extra_valid),
+            list(self.archived_tail),
+        )
+        try:
+            self.retire_active_key(
+                retired_public_key=retired_public_key,
+                valid_until_anchor_timestamp=valid_until_anchor_timestamp,
+                cooldown_expired_at_anchor_timestamp=cooldown_expired_at_anchor_timestamp,
+            )
+            self.add_key(new_entry)
+        except Exception:
+            (
+                self.active_prefix,
+                self.active_extra_valid,
+                self.archived_tail,
+            ) = snapshot
+            raise
+
     def retire_active_key(
         self,
         retired_public_key: Ed25519PublicKey,
@@ -461,19 +502,19 @@ class RotationFSM:
         assert self.prior_public_key is not None
         assert self.new_public_key is not None
         assert self.cooldown_expires_at_anchor_timestamp is not None
-        history.retire_active_key(
+        # Atomic retire+add: a predate failure must NOT strand the history with
+        # zero valid keys (permanent CI lockout). See rotate_active_key.
+        history.rotate_active_key(
             retired_public_key=self.prior_public_key,
             valid_until_anchor_timestamp=activate_anchor_timestamp,
             cooldown_expired_at_anchor_timestamp=(
                 self.cooldown_expires_at_anchor_timestamp
             ),
-        )
-        history.add_key(
-            OwnerKeyEntry(
+            new_entry=OwnerKeyEntry(
                 public_key=self.new_public_key,
                 valid_from_anchor_timestamp=activate_anchor_timestamp,
                 rotation_attestation_canonical_bytes_hash=(
                     rotation_attestation_canonical_bytes_hash
                 ),
-            )
+            ),
         )
