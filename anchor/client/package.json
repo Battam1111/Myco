@@ -1,6 +1,6 @@
 {
   "name": "@myco/anchor-client",
-  "version": "0.9.0-alpha.1",
+  "version": "0.9.0-alpha.2",
   "description": "Myco v0.9 — anchor-client (anchor/client): owner-side rendering + signing + nonce + heartbeat (L0 cards/AS_anchor_surface + L1/GOVERNANCE §2)",
   "type": "module",
   "private": true,

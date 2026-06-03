@@ -30,7 +30,7 @@ members = [
 [workspace.package]
 # Per L0/META §7.1 (amendment) + L3/OUTLINE: v0.9 substrate version is shared across all kernel crates.
 # This is NOT a SemVer of any individual crate; it's the substrate version.
-version = "0.9.0-alpha.1"
+version = "0.9.0-alpha.2"
 edition = "2021"
 rust-version = "1.75"
 license = "Proprietary"  # L4 owner decision; placeholder until owner picks

@@ -713,7 +713,7 @@ export class McpServer {
     this.server = new Server(
       {
         name: "myco-operator-claude-code",
-        version: "0.9.0-alpha.1",
+        version: "0.9.0-alpha.2",
       },
       {
         capabilities: {

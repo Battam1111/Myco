@@ -324,7 +324,7 @@ describe("response parsers", () => {
     const payload = new Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value>();
     payload.set("kernel_tropism_version", { type: "string", value: "0.9.0" });
     payload.set("python_version", { type: "string", value: "3.13.3" });
-    payload.set("substrate_version", { type: "string", value: "0.9.0-alpha.1" });
+    payload.set("substrate_version", { type: "string", value: "0.9.0-alpha.2" });
     const ack = parseHelloAck({
       version: 1n,
       messageType: MSG_TYPE.HELLO_ACK,
@@ -333,7 +333,7 @@ describe("response parsers", () => {
     });
     assert.equal(ack.kernelTropismVersion, "0.9.0");
     assert.equal(ack.pythonVersion, "3.13.3");
-    assert.equal(ack.substrateVersion, "0.9.0-alpha.1");
+    assert.equal(ack.substrateVersion, "0.9.0-alpha.2");
   });
 
   it("parseAdvanceResponse with empty fruit", () => {

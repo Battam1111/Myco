@@ -92,7 +92,7 @@ def test_body_roundtrip_hello_ack() -> None:
         Message(
             type=MessageType.HELLO_ACK,
             request_id=1,
-            payload=hello_ack_payload("0.9.0-alpha.1", "3.13.3"),
+            payload=hello_ack_payload("0.9.0-alpha.2", "3.13.3"),
         )
     )
 

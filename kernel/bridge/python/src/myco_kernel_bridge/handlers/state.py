@@ -22,7 +22,7 @@ from myco_kernel_governance.owner_keys import OwnerKeyHistory
 from myco_kernel_tropism.gradient import GradientConfiguration
 
 
-KERNEL_TROPISM_VERSION: Final[str] = "0.9.0-alpha.1"
+KERNEL_TROPISM_VERSION: Final[str] = "0.9.0-alpha.2"
 """Version reported in hello_ack. Tracks kernel/tropism's pyproject version."""
 
 

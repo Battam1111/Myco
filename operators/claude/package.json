@@ -1,6 +1,6 @@
 {
   "name": "@myco/operators-claude",
-  "version": "0.9.0-alpha.1",
+  "version": "0.9.0-alpha.2",
   "description": "Myco v0.9 — operators/claude: MCP server exposing substrate operations to Claude Code (L3/PACKAGE_MAP §11)",
   "type": "module",
   "private": true,
