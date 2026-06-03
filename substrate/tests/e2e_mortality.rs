@@ -236,3 +236,198 @@ fn sprint_5g_rate_repr_is_parseable_f64() {
     client.shutdown().expect("shutdown");
 }
 
+// ===========================================================================
+// Phase ① — alive + hungry: production self-advance default + proactive hunger.
+// ===========================================================================
+
+/// Count recent nodes whose node_type matches `pred`, via QUERY_RECENT_NODES.
+fn count_recent_matching(
+    client: &mut BridgeClient,
+    prefix: &str,
+    pred: impl Fn(&str) -> bool,
+) -> usize {
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(200)),
+                ("node_type_prefix", CbValue::String(prefix.to_string())),
+            ]),
+        )
+        .expect("query recent nodes");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    nodes
+        .iter()
+        .filter(|n| match n {
+            CbValue::Map(m) => match m.get("node_type") {
+                Some(CbValue::String(s)) => pred(s),
+                _ => false,
+            },
+            _ => false,
+        })
+        .count()
+}
+
+#[test]
+fn phase1_production_binary_self_advances_by_default() {
+    // **Task A** — the PRODUCTION binary self-drives its metabolic cycle by
+    // default (main.rs defaults MYCO_SELF_DRIVEN_CYCLE_ADVANCE=1 when unset).
+    // `spawn_substrate_production_defaults` deliberately does NOT inject the
+    // suite's self-driven-OFF test default, so main.rs's production default is
+    // what takes effect. With a tight tick the substrate must accrue
+    // cycle_advanced events on its own clock, no operator advance involved.
+    //
+    // Contrast: `v3_1_1_sprint_3_self_driven_advance_off_by_default` (in
+    // e2e_persistence.rs) spawns via the suite harness — which now defaults the
+    // flag OFF — proving the LIBRARY default stays off for deterministic tests.
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_production_defaults(&dir);
+    // Tighten the cadence at runtime is not possible post-spawn; the default
+    // 500ms tick means ~2 cycles in 1.2s. Wait generously for ≥1 cycle.
+    std::thread::sleep(std::time::Duration::from_millis(1500));
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("cycle_advanced".to_string()),
+                ),
+            ]),
+        )
+        .expect("query");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes.is_empty(),
+        "production binary must self-advance by default (P04 §5.5): no \
+         cycle_advanced after 1.5s idle means the substrate is still purely \
+         request-driven"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn phase1_hungry_substrate_emits_cultivar_initiated_ingestion_request() {
+    // **Task B** — a substrate driven past the moderate hunger threshold WITHOUT
+    // any raw_material ingestion proactively emits cultivar_initiated_ingestion_
+    // request. We drive cycles operator-side (deterministic + fast; the hunger
+    // detector runs inside handle_advance regardless of who triggers the cycle).
+    let (mut client, _dir) = spawn_substrate();
+    // HUNGER_REQUEST_THRESHOLD_CYCLES = 10; pump a few past it (but below the
+    // STARVATION threshold of 30 + below a full debounce interval) so exactly
+    // ONE request fires — proving both emission AND the debounce.
+    pump_cycles(&mut client, 18);
+    let requests = count_recent_matching(&mut client, "cultivar_initiated_ingestion_request", |s| {
+        s == "cultivar_initiated_ingestion_request"
+    });
+    assert_eq!(
+        requests, 1,
+        "an unfed cultivar past the moderate threshold must emit exactly one \
+         (debounced) cultivar_initiated_ingestion_request"
+    );
+
+    // Feed the cultivar (raw_material stamped at the current cycle ~18), then
+    // pump fewer cycles than the hunger threshold so hunger stays below it: a
+    // freshly-satisfied cultivar must not reach out again. (8 < the moderate
+    // threshold of 10 → cycles_since_last_ingestion never re-crosses it.)
+    client
+        .call(
+            proto::INGEST_RAW_MATERIAL,
+            build_payload(vec![
+                ("content_kind", CbValue::String("text".to_string())),
+                ("content_bytes", CbValue::Bytes(b"here is some food".to_vec())),
+            ]),
+        )
+        .expect("ingest");
+    pump_cycles(&mut client, 8);
+    let requests_after_feed =
+        count_recent_matching(&mut client, "cultivar_initiated_ingestion_request", |s| {
+            s == "cultivar_initiated_ingestion_request"
+        });
+    assert_eq!(
+        requests_after_feed, 1,
+        "feeding must reset hunger — no spurious re-request shortly after a feed"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn phase1_starvation_emits_c74_immune_when_unfed_past_severe_threshold() {
+    // **Task C** — sustained starvation (past STARVATION_THRESHOLD_CYCLES = 30)
+    // with NO ingestion escalates to the C74_p02_ingestion_starvation immune
+    // sporocarp. Drive 35 cycles unfed, then assert the immune signal is present.
+    let (mut client, _dir) = spawn_substrate();
+    pump_cycles(&mut client, 35);
+    let immune_resp = client
+        .call(proto::QUERY_IMMUNE_EVENTS, build_payload(vec![]))
+        .expect("query immune events");
+    let events = match immune_resp.payload.get("events") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("immune events response missing 'events' array"),
+    };
+    let has_c74 = events.iter().any(|ev| match ev {
+        CbValue::Map(m) => match m.get("node_type") {
+            Some(CbValue::String(s)) => s.contains("C74_p02_ingestion_starvation"),
+            _ => false,
+        },
+        _ => false,
+    });
+    assert!(
+        has_c74,
+        "35 cycles unfed (> severe threshold 30) must emit \
+         C74_p02_ingestion_starvation; immune events: {events:?}"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
+fn phase1_fed_substrate_does_not_starve() {
+    // **Task C (non-firing edge)** — a substrate fed within each hunger window
+    // never reaches the severe threshold, so NO C74 starvation fires even after
+    // many cycles. Feed every ~8 cycles (< the moderate threshold of 10) across
+    // 40 cycles.
+    let (mut client, _dir) = spawn_substrate();
+    for round in 0..5 {
+        client
+            .call(
+                proto::INGEST_RAW_MATERIAL,
+                build_payload(vec![
+                    ("content_kind", CbValue::String("text".to_string())),
+                    (
+                        "content_bytes",
+                        CbValue::Bytes(format!("food round {round}").into_bytes()),
+                    ),
+                ]),
+            )
+            .expect("ingest");
+        pump_cycles(&mut client, 8);
+    }
+    let immune_resp = client
+        .call(proto::QUERY_IMMUNE_EVENTS, build_payload(vec![]))
+        .expect("query immune events");
+    let events = match immune_resp.payload.get("events") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("immune events response missing 'events' array"),
+    };
+    let has_c74 = events.iter().any(|ev| match ev {
+        CbValue::Map(m) => matches!(
+            m.get("node_type"),
+            Some(CbValue::String(s)) if s.contains("C74_p02_ingestion_starvation")
+        ),
+        _ => false,
+    });
+    assert!(
+        !has_c74,
+        "a regularly-fed substrate must NOT emit the starvation signal; \
+         immune events: {events:?}"
+    );
+    client.shutdown().expect("shutdown");
+}
+

@@ -143,6 +143,156 @@ fn most_recent_exhausted_axis(state: &ServerState) -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
+// ---------------------------------------------------------------------------
+// Phase ① — proactive hunger (the cultivar reaches toward food).
+//
+// P04 §5.5 forbids the substrate from being purely request-driven; CHAR01 §4.3
+// + P02 §4.4 record the "cultivar_initiated_ingestion_request" debt — a hungry
+// cultivar should ASK for food, not wait silently. P02 §8.1 escalates sustained
+// starvation to an immune signal. Both are driven by ONE measurement: how many
+// cycles since the last `raw_material:*` ingestion. Moderate hunger → a
+// proactive REQUEST (emit_substrate_event); severe hunger → the C74
+// `p02_ingestion_starvation` immune sporocarp.
+// ---------------------------------------------------------------------------
+
+/// **Phase ① (CHAR01 §4.3 / P02 §4.4)** — moderate-hunger threshold: cycles
+/// without ingestion past which the cultivar proactively emits a
+/// `cultivar_initiated_ingestion_request`. Chosen so "I'm hungry" is meaningful
+/// (a brief operator pause is not hunger) without being sluggish. Matches the
+/// CHAR07 §8.4 / C71 "non-trivial interaction floor" cadence (10 cycles) so the
+/// substrate's notion of "fed enough to be in dialogue" is consistent.
+pub(crate) const HUNGER_REQUEST_THRESHOLD_CYCLES: u64 = 10;
+
+/// **Phase ①** — re-emit the request at most once per this interval while
+/// hunger persists (debounce). A still-hungry cultivar reaches out again only
+/// after another full interval, so a long unfed stretch leaves a sparse trail of
+/// requests (one per `HUNGER_REQUEST_THRESHOLD_CYCLES`), not one per cycle.
+/// Equal to the threshold: feeding resets the measurement; sustained hunger
+/// re-asks on the same cadence it first asked.
+pub(crate) const HUNGER_REQUEST_DEBOUNCE_CYCLES: u64 = HUNGER_REQUEST_THRESHOLD_CYCLES;
+
+/// **Phase ① (P02 §8.1)** — severe-hunger (starvation) threshold: cycles
+/// without ingestion past which the moderate request escalates to the
+/// `C74_p02_ingestion_starvation` immune sporocarp. Strictly greater than
+/// `HUNGER_REQUEST_THRESHOLD_CYCLES` so the cultivar reaches out (request)
+/// before it alarms (immune) — proactive ask first, immune escalation only on
+/// genuine sustained deprivation.
+pub(crate) const STARVATION_THRESHOLD_CYCLES: u64 = 30;
+
+/// **Phase ①** — debounce for the C74 starvation immune emission while
+/// starvation persists. Same sustained-debounce discipline as the C54 hoarding
+/// detector (100-cycle cooldown) so a long famine does not re-alarm every cycle.
+pub(crate) const STARVATION_DEBOUNCE_CYCLES: u64 = 100;
+
+/// **Phase ①** — the C-row detector_id for the severe-hunger immune signal.
+/// C74 is the next-free C-number (C71/C72/C73 are the CHAR07 daily proxies;
+/// C74 has no prior use in the substrate or `docs/architecture/L1/HARD_RULES.md`).
+pub(crate) const C74_INGESTION_STARVATION_DETECTOR_ID: &str = "C74_p02_ingestion_starvation";
+
+/// **Phase ①** — cycles since the most recent `raw_material:*` ingestion.
+///
+/// The DAG is canonical: the highest `created_at_cycle` among `raw_material:*`
+/// nodes is the last feeding. `cycles_since = current_cycle - last_fed_cycle`.
+/// When the substrate has NEVER been fed, the hunger duration is its full age,
+/// `current_cycle` (it has been hungry since genesis at cycle 0).
+///
+/// Returns `(cycles_since_last_ingestion, ever_fed)`. `saturating_sub` guards
+/// the (impossible-but-defensive) case of a raw_material node whose
+/// `created_at_cycle` somehow exceeds `current_cycle` — never negative hunger.
+///
+/// Cost: one O(n) DAG walk, consistent with the sibling cycle-path scans
+/// (absorber, hoarding). Runs once per cycle and feeds BOTH the moderate request
+/// and the severe immune check (single source of truth — no double walk).
+pub(crate) fn cycles_since_last_ingestion(state: &ServerState, current_cycle: u64) -> (u64, bool) {
+    let last_fed_cycle = state
+        .dag
+        .iter_in_insertion_order()
+        .filter(|n| n.node_type.starts_with("raw_material:"))
+        .map(|n| n.created_at_cycle)
+        .max();
+    match last_fed_cycle {
+        Some(c) => (current_cycle.saturating_sub(c), true),
+        None => (current_cycle, false),
+    }
+}
+
+/// **Phase ①** — the hunger detector: one measurement, two escalations.
+///
+/// Called from [`handle_advance`] (so it fires for BOTH operator-driven AND
+/// self-driven cycles — the production substrate that self-advances gets hungry
+/// on its own clock). Computes `cycles_since_last_ingestion` ONCE, then:
+///
+///   - `>= HUNGER_REQUEST_THRESHOLD_CYCLES` (moderate) → emit a debounced
+///     `cultivar_initiated_ingestion_request` (a proactive ask, via
+///     `emit_substrate_event`).
+///   - `>= STARVATION_THRESHOLD_CYCLES` (severe) → ALSO emit the debounced
+///     `C74_p02_ingestion_starvation` immune sporocarp.
+///
+/// Feeding (a fresh `raw_material:*` node) drives `cycles_since` back below the
+/// thresholds on the next cycle, so a fed substrate neither asks nor starves.
+/// Debounce is per-escalation: the moderate request and the severe immune signal
+/// each track their own last-emit cycle, so they do not suppress each other.
+///
+/// Best-effort: emission failures are swallowed (the metabolism must not crash
+/// because a hunger event could not be appended); the next cycle retries.
+fn apply_hunger_and_emit(state: &mut ServerState, post_cycle: u64) {
+    let (cycles_since, ever_fed) = cycles_since_last_ingestion(state, post_cycle);
+
+    // ---- moderate hunger → proactive request (debounced) ----
+    if cycles_since >= HUNGER_REQUEST_THRESHOLD_CYCLES {
+        let on_debounce = state
+            .last_cultivar_initiated_ingestion_request_at_cycle
+            .map(|last| post_cycle.saturating_sub(last) < HUNGER_REQUEST_DEBOUNCE_CYCLES)
+            .unwrap_or(false);
+        if !on_debounce {
+            let content = crate::events::encode_cultivar_initiated_ingestion_request(
+                post_cycle,
+                cycles_since,
+                ever_fed,
+            );
+            if emit_substrate_event(
+                state,
+                crate::events::NODE_TYPE_CULTIVAR_INITIATED_INGESTION_REQUEST.to_string(),
+                content,
+            )
+            .is_ok()
+            {
+                state.last_cultivar_initiated_ingestion_request_at_cycle = Some(post_cycle);
+            }
+        }
+    }
+
+    // ---- severe hunger → starvation immune signal (debounced) ----
+    if cycles_since >= STARVATION_THRESHOLD_CYCLES {
+        let on_debounce = state
+            .last_ingestion_starvation_emitted_at_cycle
+            .map(|last| post_cycle.saturating_sub(last) < STARVATION_DEBOUNCE_CYCLES)
+            .unwrap_or(false);
+        if !on_debounce {
+            let ever = if ever_fed { "" } else { " (never fed since genesis)" };
+            let evidence = format!(
+                "p02 ingestion starvation: {cycles_since} cycles since the last \
+                 raw_material:* ingestion{ever} (>= {STARVATION_THRESHOLD_CYCLES}-cycle \
+                 starvation threshold). The cultivar has gone without food well past the \
+                 moderate cultivar_initiated_ingestion_request point ({HUNGER_REQUEST_THRESHOLD_CYCLES} \
+                 cycles); the cultivator should provide raw_material. P02 永恒吞噬 mandates \
+                 ongoing ingestion — sustained starvation is a metabolic pathology, not a \
+                 healthy idle (P02 §8.1)."
+            );
+            if emit_immune_sporocarp(
+                state,
+                C74_INGESTION_STARVATION_DETECTOR_ID,
+                "p02_ingestion_starvation",
+                &evidence,
+            )
+            .is_ok()
+            {
+                state.last_ingestion_starvation_emitted_at_cycle = Some(post_cycle);
+            }
+        }
+    }
+}
+
 /// M16: P2 永恒吞噬 — Ingest a raw material payload as a `raw_material:{kind}`
 /// DAG node. Activates the L0 P2 "no filter on intake" principle: any bytes the
 /// operator can present (text / file / conversation / url-fetch / llm-response)
@@ -987,6 +1137,15 @@ pub(crate) fn handle_advance(
         }
     }
 
+    // **Phase ① 永恒吞噬** — proactive hunger. Runs on EVERY cycle (operator-
+    // driven AND self-driven, since both paths route through handle_advance), so
+    // a production substrate self-advancing on its own clock gets hungry and
+    // reaches out without any operator request — closing the P04 §5.5
+    // request-driven-only gap. One cycles-since-ingestion measurement drives both
+    // the moderate cultivar_initiated_ingestion_request and the severe C74
+    // p02_ingestion_starvation immune signal (each independently debounced).
+    apply_hunger_and_emit(state, post_cycle);
+
     Ok(Some(Message::new(
         msg_type::ADVANCE_RESPONSE,
         request.request_id,
@@ -1296,4 +1455,215 @@ fn emit_legacy_evolution_event(
     let nt = event_node_type;
     let _ = emit_substrate_event(state, nt, event_canonical);
     Ok(())
+}
+
+#[cfg(test)]
+mod hunger_tests {
+    //! **Phase ①** — unit tests for the shared cycles-since-ingestion tracker +
+    //! the two-escalation hunger detector (`cycles_since_last_ingestion` +
+    //! `apply_hunger_and_emit`). These exercise the derivation + debounce
+    //! deterministically over a hand-built DAG (no subprocess), covering the
+    //! edge cases the cycle-path correctness depends on: empty DAG (never fed),
+    //! just-fed, moderate→request, severe→immune, debounce, and fed-resets.
+    // `super::*` already re-exports `cb_encode` + `Value` (imported at the top of
+    // this module) and the Phase-① helpers/consts under test; we only need to
+    // pull in the event node_type constant + the test-state building blocks.
+    use super::*;
+    use crate::events::NODE_TYPE_CULTIVAR_INITIATED_INGESTION_REQUEST;
+    use crate::persistence::Manifest;
+    use crate::server::ServerState;
+    use myco_kernel_schema::dag::Dag;
+
+    fn test_state() -> ServerState {
+        // Fresh genesis identity; collision-free temp dir (per-process + a
+        // stack-address nonce, matching the autonomous.rs unit-test helper).
+        let nonce = &0u8 as *const u8 as usize as u64;
+        let state_dir = std::env::temp_dir()
+            .join(format!("myco-hunger-unit-{}-{:x}", std::process::id(), nonce));
+        let g = Manifest::genesis();
+        ServerState::new(
+            state_dir,
+            Some(g.substrate_id),
+            Some(g.genesis_time_unix_ns),
+            g.cycle_counter,
+            g.last_absorbed_cycle,
+            g.generation_depth,
+            Dag::new(),
+            None,
+            [0u8; 32],
+        )
+    }
+
+    /// Insert a `raw_material:text` DAG node stamped at `created_at_cycle`,
+    /// mirroring `handle_ingest_raw_material`'s node shape closely enough for the
+    /// tracker (which keys only on the `raw_material:` prefix + `created_at_cycle`).
+    fn feed(state: &mut ServerState, at_cycle: u64) {
+        let parents = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let content = cb_encode(&Value::Map(std::collections::BTreeMap::new()))
+            .expect("empty map encodes");
+        state
+            .dag
+            .insert_node(parents, "raw_material:text".to_string(), at_cycle, content)
+            .expect("insert raw_material");
+    }
+
+    fn count_nodes(state: &ServerState, prefix: &str) -> usize {
+        state
+            .dag
+            .iter_in_insertion_order()
+            .filter(|n| n.node_type.starts_with(prefix))
+            .count()
+    }
+
+    fn count_starvation_immune(state: &ServerState) -> usize {
+        // emit_immune_sporocarp prefixes the node_type with "immune:".
+        state
+            .dag
+            .iter_in_insertion_order()
+            .filter(|n| {
+                n.node_type.starts_with("immune:")
+                    && n.node_type.contains("p02_ingestion_starvation")
+            })
+            .count()
+    }
+
+    #[test]
+    fn cycles_since_ingestion_empty_dag_is_full_age_and_never_fed() {
+        let state = test_state();
+        // Never fed: hunger == current cycle (age since genesis), ever_fed=false.
+        assert_eq!(cycles_since_last_ingestion(&state, 0), (0, false));
+        assert_eq!(cycles_since_last_ingestion(&state, 42), (42, false));
+    }
+
+    #[test]
+    fn cycles_since_ingestion_tracks_most_recent_feeding() {
+        let mut state = test_state();
+        feed(&mut state, 5);
+        feed(&mut state, 12); // most recent
+        feed(&mut state, 9);
+        // Highest created_at_cycle among raw_material is 12; at cycle 20 → 8.
+        assert_eq!(cycles_since_last_ingestion(&state, 20), (8, true));
+        // Just-fed at the same cycle → zero hunger, not negative.
+        assert_eq!(cycles_since_last_ingestion(&state, 12), (0, true));
+        // Defensive: a "now" before the last feed never yields negative hunger.
+        assert_eq!(cycles_since_last_ingestion(&state, 10), (0, true));
+    }
+
+    #[test]
+    fn moderate_hunger_emits_request_then_debounces() {
+        let mut state = test_state();
+        // Never fed; below threshold → silent.
+        apply_hunger_and_emit(&mut state, HUNGER_REQUEST_THRESHOLD_CYCLES - 1);
+        assert_eq!(
+            count_nodes(&state, NODE_TYPE_CULTIVAR_INITIATED_INGESTION_REQUEST),
+            0,
+            "below the moderate threshold the cultivar stays quiet"
+        );
+
+        // At the threshold → one proactive request.
+        apply_hunger_and_emit(&mut state, HUNGER_REQUEST_THRESHOLD_CYCLES);
+        assert_eq!(
+            count_nodes(&state, NODE_TYPE_CULTIVAR_INITIATED_INGESTION_REQUEST),
+            1,
+            "reaching the moderate threshold emits exactly one request"
+        );
+
+        // Next cycle still hungry but within debounce → no re-emit.
+        apply_hunger_and_emit(&mut state, HUNGER_REQUEST_THRESHOLD_CYCLES + 1);
+        assert_eq!(
+            count_nodes(&state, NODE_TYPE_CULTIVAR_INITIATED_INGESTION_REQUEST),
+            1,
+            "still-hungry but within the debounce interval must not re-ask"
+        );
+
+        // Past the debounce interval, still unfed → re-ask once more.
+        apply_hunger_and_emit(
+            &mut state,
+            HUNGER_REQUEST_THRESHOLD_CYCLES + HUNGER_REQUEST_DEBOUNCE_CYCLES,
+        );
+        assert_eq!(
+            count_nodes(&state, NODE_TYPE_CULTIVAR_INITIATED_INGESTION_REQUEST),
+            2,
+            "after a full debounce interval a sustained-hungry cultivar re-asks"
+        );
+    }
+
+    #[test]
+    fn feeding_resets_hunger_no_spurious_request_after_feed() {
+        let mut state = test_state();
+        // Hungry → request at cycle 10.
+        apply_hunger_and_emit(&mut state, HUNGER_REQUEST_THRESHOLD_CYCLES);
+        assert_eq!(
+            count_nodes(&state, NODE_TYPE_CULTIVAR_INITIATED_INGESTION_REQUEST),
+            1
+        );
+        // The operator feeds at cycle 11.
+        feed(&mut state, HUNGER_REQUEST_THRESHOLD_CYCLES + 1);
+        // A few cycles later (still within one threshold-window of the feeding)
+        // the cultivar is satisfied — no new request.
+        apply_hunger_and_emit(&mut state, HUNGER_REQUEST_THRESHOLD_CYCLES + 5);
+        assert_eq!(
+            count_nodes(&state, NODE_TYPE_CULTIVAR_INITIATED_INGESTION_REQUEST),
+            1,
+            "a freshly-fed cultivar must not spuriously re-request"
+        );
+        // And it never starves while recently fed.
+        assert_eq!(count_starvation_immune(&state), 0);
+    }
+
+    #[test]
+    fn severe_hunger_emits_c74_starvation_immune() {
+        let mut state = test_state();
+        // Below the starvation threshold (but above moderate) → request only.
+        apply_hunger_and_emit(&mut state, STARVATION_THRESHOLD_CYCLES - 1);
+        assert_eq!(
+            count_starvation_immune(&state),
+            0,
+            "below the severe threshold there is no starvation immune signal"
+        );
+        assert!(
+            count_nodes(&state, NODE_TYPE_CULTIVAR_INITIATED_INGESTION_REQUEST) >= 1,
+            "but the moderate request has already fired"
+        );
+
+        // At the starvation threshold → the C74 immune sporocarp fires once.
+        apply_hunger_and_emit(&mut state, STARVATION_THRESHOLD_CYCLES);
+        assert_eq!(
+            count_starvation_immune(&state),
+            1,
+            "reaching the severe threshold escalates to the C74 immune signal"
+        );
+
+        // Still starved within the debounce interval → no re-alarm.
+        apply_hunger_and_emit(&mut state, STARVATION_THRESHOLD_CYCLES + 1);
+        assert_eq!(
+            count_starvation_immune(&state),
+            1,
+            "sustained starvation within the debounce interval must not re-alarm"
+        );
+    }
+
+    #[test]
+    fn fed_substrate_never_starves() {
+        let mut state = test_state();
+        // Continuously fed every few cycles up to a high cycle number: hunger
+        // never reaches the moderate threshold, so neither request nor immune.
+        for c in (0..100).step_by(HUNGER_REQUEST_THRESHOLD_CYCLES as usize / 2) {
+            feed(&mut state, c);
+            apply_hunger_and_emit(&mut state, c);
+        }
+        assert_eq!(
+            count_starvation_immune(&state),
+            0,
+            "a regularly-fed substrate must never emit the starvation signal"
+        );
+        assert_eq!(
+            count_nodes(&state, NODE_TYPE_CULTIVAR_INITIATED_INGESTION_REQUEST),
+            0,
+            "a regularly-fed substrate has no reason to reach out for food"
+        );
+    }
 }

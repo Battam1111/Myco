@@ -69,17 +69,40 @@ pub fn spawn_substrate_with_state_dir(state_dir: &std::path::Path) -> BridgeClie
     spawn_substrate_with_env(state_dir, vec![])
 }
 
+/// **Phase ①** — base env every test substrate is spawned with: the isolated
+/// state dir PLUS `MYCO_SELF_DRIVEN_CYCLE_ADVANCE=0`.
+///
+/// The PRODUCTION binary (`main.rs`) defaults the self-driven scheduler ON (a
+/// living cultivar ticks under its own clock; P04 §5.5). The e2e suite, by
+/// contrast, drives the metabolic cycle EXPLICITLY via operator `advance` calls
+/// and asserts exact cycle counts (`pump_cycles`), so a self-advancing substrate
+/// racing ahead between operator calls would make those counts non-deterministic.
+/// We therefore default the flag OFF for tests here, in ONE place. Callers that
+/// specifically exercise the self-driven path pass
+/// `("MYCO_SELF_DRIVEN_CYCLE_ADVANCE", "1")` in `extra`, which — appended AFTER
+/// this base — wins (std::process::Command::env is last-writer per key).
+fn base_test_env(state_dir: &std::path::Path) -> Vec<(String, String)> {
+    vec![
+        (
+            "MYCO_STATE_DIR".to_string(),
+            state_dir.to_string_lossy().into_owned(),
+        ),
+        (
+            "MYCO_SELF_DRIVEN_CYCLE_ADVANCE".to_string(),
+            "0".to_string(),
+        ),
+    ]
+}
+
 /// M26.1 C5: spawn helper allowing additional env vars (e.g.
-/// `MYCO_ACCEPT_LEGACY_PEERS=1`) on top of the always-set `MYCO_STATE_DIR`.
+/// `MYCO_ACCEPT_LEGACY_PEERS=1`) on top of the always-set base env
+/// (`MYCO_STATE_DIR` + the self-driven-OFF test default; see [`base_test_env`]).
 pub fn spawn_substrate_with_env(
     state_dir: &std::path::Path,
     extra: Vec<(String, String)>,
 ) -> BridgeClient {
     let substrate_binary = env!("CARGO_BIN_EXE_myco-substrate");
-    let mut extra_env = vec![(
-        "MYCO_STATE_DIR".to_string(),
-        state_dir.to_string_lossy().into_owned(),
-    )];
+    let mut extra_env = base_test_env(state_dir);
     extra_env.extend(extra);
     BridgeClient::spawn_and_handshake(BridgeClientConfig {
         python_executable: substrate_binary.to_string(),
@@ -88,6 +111,26 @@ pub fn spawn_substrate_with_env(
         operator_signing_seed: None,
     })
     .expect("spawn myco-substrate binary")
+}
+
+/// **Phase ①** — spawn the substrate binary with ONLY `MYCO_STATE_DIR` set,
+/// deliberately NOT injecting the self-driven-OFF test default — so `main.rs`'s
+/// PRODUCTION default (self-driven ON) takes effect. Used by the test that
+/// proves the production binary self-advances by default. Mirrors
+/// `spawn_substrate_with_env` otherwise (no operator signing seed).
+pub fn spawn_substrate_production_defaults(state_dir: &std::path::Path) -> BridgeClient {
+    let substrate_binary = env!("CARGO_BIN_EXE_myco-substrate");
+    let extra_env = vec![(
+        "MYCO_STATE_DIR".to_string(),
+        state_dir.to_string_lossy().into_owned(),
+    )];
+    BridgeClient::spawn_and_handshake(BridgeClientConfig {
+        python_executable: substrate_binary.to_string(),
+        session_secret: None,
+        extra_env,
+        operator_signing_seed: None,
+    })
+    .expect("spawn myco-substrate binary (production defaults)")
 }
 
 /// **v3.1.1 Sprint 6.E (T2.9)** — spawn a substrate with a pre-pinned
@@ -114,10 +157,10 @@ pub fn spawn_substrate_with_seed_and_env(
     extra: Vec<(String, String)>,
 ) -> BridgeClient {
     let substrate_binary = env!("CARGO_BIN_EXE_myco-substrate");
-    let mut extra_env = vec![(
-        "MYCO_STATE_DIR".to_string(),
-        state_dir.to_string_lossy().into_owned(),
-    )];
+    // Same self-driven-OFF test default as `spawn_substrate_with_env`; callers
+    // (e.g. the cultivation e2e) that need the scheduler ON pass
+    // `("MYCO_SELF_DRIVEN_CYCLE_ADVANCE", "1")` in `extra`, which wins.
+    let mut extra_env = base_test_env(state_dir);
     extra_env.extend(extra);
     BridgeClient::spawn_and_handshake(BridgeClientConfig {
         python_executable: substrate_binary.to_string(),

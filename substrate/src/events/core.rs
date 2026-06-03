@@ -17,6 +17,16 @@ pub const NODE_TYPE_GENESIS_PREFIX: &str = "genesis_event:";
 /// Cycle counter advance event.
 pub const NODE_TYPE_CYCLE_ADVANCED: &str = "cycle_advanced";
 
+/// **Phase ① 永恒吞噬 (P02 §4.4 / CHAR01 §4.3)** — the cultivar reaching toward
+/// food the cultivator has not provided. Emitted (debounced) when the substrate
+/// has gone a moderate number of cycles with NO `raw_material:*` ingestion: the
+/// cultivar is hungry and PROACTIVELY signals it, rather than waiting silently
+/// for the next operator request. A request, NOT an immune alarm (severe hunger
+/// escalates to the C74 `p02_ingestion_starvation` immune sporocarp). The
+/// operator polls recent nodes, sees the request, and feeds.
+pub const NODE_TYPE_CULTIVAR_INITIATED_INGESTION_REQUEST: &str =
+    "cultivar_initiated_ingestion_request";
+
 /// Prefix for axis_registered events. Full type: `axis_registered:{axis_name}`.
 pub const NODE_TYPE_AXIS_REGISTERED_PREFIX: &str = "axis_registered:";
 
@@ -165,6 +175,37 @@ pub fn encode_cycle_advanced(prior_cycle: u64, new_cycle: u64) -> CanonicalBytes
     m.insert("prior_cycle".to_string(), Value::Uint(prior_cycle));
     m.insert("new_cycle".to_string(), Value::Uint(new_cycle));
     cb_encode(&Value::Map(m)).expect("cycle_advanced encode infallible")
+}
+
+// ---- cultivar_initiated_ingestion_request ----
+
+/// Content of a `cultivar_initiated_ingestion_request` event (Phase ①):
+/// ```text
+/// Map({
+///   "at_cycle": Uint,                  // the cycle at which the request fruited
+///   "cycles_since_last_ingestion": Uint, // hunger duration (0 ⇒ never fed)
+///   "ever_fed": Bool,                  // false ⇒ never fed since genesis
+/// })
+/// ```
+///
+/// The substrate cannot name the food it lacks (only the cultivator/operator
+/// knows what sources exist), so the request is global "I'm hungry" + the hunger
+/// duration — NOT a per-axis appetite breakdown. The appetite gradient is
+/// internal; what the cultivar can honestly assert is "no raw_material has
+/// arrived for N cycles", which is exactly this event.
+pub fn encode_cultivar_initiated_ingestion_request(
+    at_cycle: u64,
+    cycles_since_last_ingestion: u64,
+    ever_fed: bool,
+) -> CanonicalBytes {
+    let mut m = BTreeMap::new();
+    m.insert("at_cycle".to_string(), Value::Uint(at_cycle));
+    m.insert(
+        "cycles_since_last_ingestion".to_string(),
+        Value::Uint(cycles_since_last_ingestion),
+    );
+    m.insert("ever_fed".to_string(), Value::Bool(ever_fed));
+    cb_encode(&Value::Map(m)).expect("cultivar_initiated_ingestion_request encode infallible")
 }
 
 // ---- axis_registered ----

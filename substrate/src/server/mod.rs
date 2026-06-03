@@ -446,6 +446,19 @@ pub(crate) struct ServerState {
     /// the same hoarding episode. Same 100-cycle cooldown discipline as
     /// other M25 / M26 detectors. `None` = never emitted.
     pub(crate) last_hoarding_indicator_emitted_at_cycle: Option<u64>,
+    /// **Phase ① (CHAR01 §4.3 / P02 §4.4)** — debounce for the proactive
+    /// `cultivar_initiated_ingestion_request` event. Stores the cycle at which
+    /// the substrate last emitted the hunger request; re-emission is suppressed
+    /// for `HUNGER_REQUEST_DEBOUNCE_CYCLES` so a sustained-hungry stretch reaches
+    /// out at most once per debounce interval rather than every cycle. In-memory
+    /// only (re-derived at boot — the DAG carries the canonical request events).
+    pub(crate) last_cultivar_initiated_ingestion_request_at_cycle: Option<u64>,
+    /// **Phase ① (P02 §8.1)** — debounce for the `C74_p02_ingestion_starvation`
+    /// severe-hunger immune sporocarp. Stores the cycle of the last C74 emission;
+    /// suppresses re-alarming within `STARVATION_DEBOUNCE_CYCLES` (same sustained-
+    /// debounce discipline as C54). The 1s/detector wall-clock rate-limit in
+    /// `emit_immune_sporocarp` is a second, finer guard.
+    pub(crate) last_ingestion_starvation_emitted_at_cycle: Option<u64>,
     /// **v3.1.1 Sprint 2.C — L1/SKIN §8**: cached projection of the latest
     /// `backup_encryption_status_declared:{status}` DAG event's status
     /// field. `None` = "unspecified" per L1/SKIN §8 → triggers
@@ -658,6 +671,10 @@ impl ServerState {
             // mechanism rule. L1 may register additional rules at runtime.
             prune_registry: crate::prune::PruneRuleRegistry::seed(),
             last_hoarding_indicator_emitted_at_cycle: None,
+            // Phase ①: hunger debounce trackers start unset (never reached out /
+            // never starved). Re-derived at boot like the other detector cooldowns.
+            last_cultivar_initiated_ingestion_request_at_cycle: None,
+            last_ingestion_starvation_emitted_at_cycle: None,
             // v3.1.1 Sprint 2.C: backup-encryption status starts None
             // ("unspecified"). Cultivator MAY set via CI mutation; on every
             // boot we re-derive from DAG (see `derive_backup_encryption_status`
