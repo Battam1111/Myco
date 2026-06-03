@@ -37,6 +37,7 @@
 use std::collections::{HashMap, VecDeque};
 
 use myco_kernel_schema::dag::{Dag, DagNode};
+use myco_kernel_shared::crypto::NodeHash;
 use myco_kernel_shared::canonical_bytes::{
     decode as cb_decode, map_get_bytes, map_get_uint, Value,
 };
@@ -1007,7 +1008,7 @@ impl DerivedState {
     pub fn from_dag(dag: &Dag) -> Result<Self, DerivedStateError> {
         let mut state = Self::empty();
         for node in dag.iter_in_insertion_order() {
-            state.apply_event(node)?;
+            state.apply_event_with_dag(node, Some(dag))?;
         }
         Ok(state)
     }
@@ -1015,6 +1016,19 @@ impl DerivedState {
     /// Apply a single DAG node event to the state. Pure function of
     /// (current_state, event); idempotent for ignore-type events.
     pub fn apply_event(&mut self, node: &DagNode) -> Result<(), DerivedStateError> {
+        self.apply_event_with_dag(node, None)
+    }
+
+    /// Like [`apply_event`] but with access to the full DAG, so `absorption_event`
+    /// replay can resolve the absorbed raw_materials' `created_at_cycle`. The
+    /// production replay paths (`from_dag` and `replay_events_after_tip`) pass
+    /// `Some(dag)`; unit-test direct callers pass `None` and fall back to the
+    /// event's emission cycle.
+    pub fn apply_event_with_dag(
+        &mut self,
+        node: &DagNode,
+        dag: Option<&Dag>,
+    ) -> Result<(), DerivedStateError> {
         let nt = &node.node_type;
         if nt.starts_with(NODE_TYPE_GENESIS_PREFIX) {
             self.apply_genesis(node)
@@ -1031,7 +1045,7 @@ impl DerivedState {
         } else if nt.starts_with(NODE_TYPE_NONCE_EXPIRED_PREFIX) {
             self.apply_nonce_expired(node)
         } else if nt.starts_with("absorption_event:cycle_") {
-            self.apply_absorption_event(node)
+            self.apply_absorption_event(node, dag)
         } else if nt.starts_with(NODE_TYPE_SCHEMA_MIGRATION_STARTED_PREFIX) {
             self.apply_schema_migration_started(node)
         } else if nt.starts_with(NODE_TYPE_SCHEMA_MIGRATION_COMMITTED_PREFIX)
@@ -1372,25 +1386,66 @@ impl DerivedState {
         Ok(())
     }
 
-    fn apply_absorption_event(&mut self, node: &DagNode) -> Result<(), DerivedStateError> {
+    fn apply_absorption_event(
+        &mut self,
+        node: &DagNode,
+        dag: Option<&Dag>,
+    ) -> Result<(), DerivedStateError> {
         let map = decode_event_map(node)?;
         let cycle = map_get_uint(&map, "cycle").map_err(|e| DerivedStateError::EventField {
             node_type: node.node_type.clone(),
             field: "cycle".to_string(),
             reason: e.to_string(),
         })?;
-        // last_absorbed_cycle is the HIGHEST cycle whose raw_material was
-        // absorbed in this event. The event content stores cycle (= post_cycle
-        // at emission time). For derivation purposes we track the max.
-        // (Absorbed raw_materials are themselves DAG nodes; their
-        // created_at_cycle is bounded above by `cycle`, so cycle is an upper
-        // bound on what's been absorbed.)
+        // last_absorbed_cycle must equal the HIGHEST `created_at_cycle` of the
+        // raw_material nodes this event absorbed — mirroring the live update in
+        // `handle_advance` (`set_last_absorbed_cycle(max_absorbed_created_at)`).
+        //
+        // Using the event's own emission `cycle` (= post_cycle) diverges
+        // whenever material is ingested in one cycle and absorbed in a later
+        // one — the NORMAL feed path (ingest, then advance to absorb). That
+        // divergence trips the C32 live↔derived reconciler. First surfaced by
+        // the 2026-06-03 self-referential inhabitation: feeding the production
+        // cultivar its first meal produced live=Some(0) vs derived=Some(1).
+        //
+        // Fall back to the emission `cycle` only when no DAG is threaded
+        // (unit-test direct callers) or the event lists no resolvable
+        // raw_material hash (real absorption_events always list >=1).
+        let effective_cycle = max_absorbed_created_at(&map, dag).unwrap_or(cycle);
         self.last_absorbed_cycle = Some(match self.last_absorbed_cycle {
-            None => cycle,
-            Some(prior) => prior.max(cycle),
+            None => effective_cycle,
+            Some(prior) => prior.max(effective_cycle),
         });
         Ok(())
     }
+}
+
+/// Highest `created_at_cycle` among the raw_material nodes named in an
+/// `absorption_event`'s `absorbed_hashes`, resolved against `dag`. Returns
+/// `None` when no DAG is available or no listed hash resolves — callers then
+/// fall back to the event's own emission cycle. This mirrors the live
+/// computation in `ingest.rs` (`pending_absorption_hashes … created_at_cycle …
+/// max`) so live and derived `last_absorbed_cycle` agree byte-for-byte.
+fn max_absorbed_created_at(
+    map: &std::collections::BTreeMap<String, Value>,
+    dag: Option<&Dag>,
+) -> Option<u64> {
+    let dag = dag?;
+    let Some(Value::Array(hashes)) = map.get("absorbed_hashes") else {
+        return None;
+    };
+    hashes
+        .iter()
+        .filter_map(|v| match v {
+            Value::Bytes(b) if b.len() == 32 => {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(b);
+                dag.get(&NodeHash::from_bytes(arr))
+            }
+            _ => None,
+        })
+        .map(|n| n.created_at_cycle)
+        .max()
 }
 
 // ---------------------------------------------------------------------------
@@ -1835,6 +1890,51 @@ mod tests {
         s.apply_event(&make_abs(7)).unwrap();
         s.apply_event(&make_abs(5)).unwrap(); // out-of-order: should NOT regress
         assert_eq!(s.last_absorbed_cycle, Some(7));
+    }
+
+    #[test]
+    fn absorption_event_uses_absorbed_material_created_at_not_emission_cycle() {
+        // Inhabitation finding (2026-06-03): the production cultivar's first
+        // self-referential meal tripped the C32 reconciler — live=Some(0) vs
+        // derived=Some(1) — because the live update records the absorbed
+        // material's created_at_cycle while the derived replay used the
+        // absorption_event's emission cycle. They diverge on the normal feed
+        // path (ingest at cycle N, absorb at a later cycle M). The derived side
+        // must mirror the live side: max created_at_cycle of the absorbed batch.
+        let mut dag = Dag::new();
+        let id = [0x11; 32];
+        dag.insert_node(vec![], genesis_event_node_type(&id), 0, encode_genesis_event(&id, 1, 0))
+            .unwrap();
+        // raw_material ingested at cycle 0.
+        let tip = dag.tip().unwrap();
+        let rm_hash = dag
+            .insert_node(
+                vec![tip],
+                "raw_material:text".to_string(),
+                0,
+                encode(&Value::Map(std::collections::BTreeMap::new())).unwrap(),
+            )
+            .unwrap();
+        // absorption_event emitted at cycle 1, absorbing the cycle-0 material.
+        let mut content_map = std::collections::BTreeMap::new();
+        content_map.insert("cycle".to_string(), Value::Uint(1));
+        content_map.insert("absorbed_count".to_string(), Value::Uint(1));
+        content_map.insert(
+            "absorbed_hashes".to_string(),
+            Value::Array(vec![Value::Bytes(rm_hash.as_ref().to_vec())]),
+        );
+        let tip = dag.tip().unwrap();
+        dag.insert_node(
+            vec![tip, rm_hash],
+            "absorption_event:cycle_1".to_string(),
+            1,
+            encode(&Value::Map(content_map)).unwrap(),
+        )
+        .unwrap();
+
+        let derived = DerivedState::from_dag(&dag).unwrap();
+        // Must be 0 (the material's created_at), NOT 1 (the event's emission cycle).
+        assert_eq!(derived.last_absorbed_cycle, Some(0));
     }
 
     // ---------------------------------------------------------------------

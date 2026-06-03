@@ -109,7 +109,7 @@ pub(crate) fn replay_events_after_tip(
             }
             continue;
         }
-        state.apply_event(node)?;
+        state.apply_event_with_dag(node, Some(dag))?;
     }
     Ok(())
 }
