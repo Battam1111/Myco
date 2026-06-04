@@ -173,6 +173,52 @@ fn m24_5_observatory_signal_7_composite_is_valid_float() {
 }
 
 #[test]
+fn composite_health_not_tanked_by_normal_cost_cycle() {
+    // **2026-06-03 elevation calibration** (observatory.rs ~L2186 `cost_elevation`).
+    // Regression guard: a normal metabolic cycle does real compute/storage work
+    // (signal_7 ns > 0, signal_9 bytes > 0). PRE-FIX, the cost signals entered the
+    // composite as ABSOLUTE log10(ns/bytes) (~5-6), dwarfing the count-scale
+    // production signals (~1-2) and driving composite sharply NEGATIVE on ANY
+    // normal cycle of work (0.285 -> -1.22 was observed on a single ingest+advance).
+    // POST-FIX, cost enters as ELEVATION above its own rolling baseline
+    // (max(0, log10(current) - log10(rolling_mean))), which is ~0 for normal
+    // operation and at cold-start (rolling_mean == current) — so a healthy
+    // cost-producing cycle no longer tanks composite health.
+    let (mut client, _dir) = spawn_substrate();
+    // Advance real metabolic cycles (each emits cycle_advanced, appends an
+    // observatory snapshot, rewrites dag.cb → nonzero compute + storage cost),
+    // exactly as the M26.2 cost-signal tests do via `pump_cycles`.
+    pump_cycles(&mut client, 3);
+    let resp = client
+        .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
+        .expect("observatory");
+    let s10 = match resp.payload.get("signal_10_composite_health") {
+        Some(CbValue::Map(m)) => m.clone(),
+        _ => panic!("signal_10_composite_health missing"),
+    };
+    let composite_repr = match s10.get("composite_health_score_repr") {
+        Some(CbValue::String(s)) => s.clone(),
+        _ => panic!("composite_health_score_repr missing"),
+    };
+    let composite: f64 = composite_repr.parse().expect("composite is parseable float");
+    assert!(
+        composite.is_finite(),
+        "composite must be a finite float; got {composite}"
+    );
+    // The load-bearing assertion: post-fix composite stays near the positive
+    // production-only value, NOT the pre-fix ~-1.2. We assert it is not strongly
+    // negative rather than strictly >= 0, since cost elevation may legitimately
+    // shave a small amount off during boot-time cost jitter.
+    assert!(
+        composite > -0.1,
+        "2026-06-03 elevation calibration: a normal cost-producing cycle must NOT \
+         tank composite health (pre-fix this was ~-1.2 from absolute-cost terms); \
+         got {composite}"
+    );
+    client.shutdown().expect("shutdown");
+}
+
+#[test]
 fn phase_alpha_observatory_signal_6_computes_ratio_when_window_attested() {
     let (mut client, _dir) = spawn_substrate();
     client

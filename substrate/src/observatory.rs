@@ -2175,13 +2175,39 @@ pub(crate) fn handle_query_substrate_observatory(
             ((x as f64).ln() / 10.0_f64.ln()).max(0.0).min(10.0)
         }
     };
+    // Float variant for the cost rolling means (which are f64); same log10 clamp.
+    let log_normalized_f = |x: f64| -> f64 {
+        if x <= 0.0 {
+            0.0
+        } else {
+            (x.ln() / 10.0_f64.ln()).max(0.0).min(10.0)
+        }
+    };
+    // M26.3 cold-start calibration: the cost signals (7/8/9) contribute by their
+    // ELEVATION above their own rolling baseline, NOT their absolute magnitude.
+    // Absolute compute/storage are raw ns/bytes (log10 ~ 5-6); the production
+    // signals are counts (log10 ~ 1-2). Using absolute cost, the cost terms
+    // structurally dwarf production and drive `composite` sharply negative on ANY
+    // normal cycle of work (0.285 -> -1.22 was observed on a single
+    // ingest+advance). A busy-but-healthy substrate legitimately has high
+    // absolute cost; only cost rising ABOVE its own norm is a health concern.
+    // elevation = max(0, log10(current) - log10(rolling_mean)) is ~0 for normal
+    // operation and at cold-start (where rolling_mean == current), and grows only
+    // on genuine cost anomalies. Direction stays -1 (elevation UP => health DOWN).
+    let cost_elevation = |current: u64, rolling_mean: f64| -> f64 {
+        if rolling_mean <= 0.0 {
+            0.0
+        } else {
+            (log_normalized(current) - log_normalized_f(rolling_mean)).max(0.0)
+        }
+    };
     let (w, weights_method) = emergent_weights;
     let composite = w.w1 * log_normalized(dag_node_count)
         + w.w2 * log_normalized(evolution_event_count)
         + w.w4b * log_normalized(established_peers)
-        - w.w7 * log_normalized(current_s7)
-        - w.w8 * log_normalized(current_s8)
-        - w.w9 * log_normalized(current_s9);
+        - w.w7 * cost_elevation(current_s7, s7_rolling_mean_ns)
+        - w.w8 * cost_elevation(current_s8, s8_rolling_mean_bytes)
+        - w.w9 * cost_elevation(current_s9, s9_rolling_mean_bytes);
     let mut signal_10_map = BTreeMap::new();
     signal_10_map.insert(
         "composite_health_score_repr".to_string(),
