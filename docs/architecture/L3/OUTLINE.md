@@ -21,29 +21,49 @@ L3 maps L1 mechanisms + L2 themes to code modules. Commits: module boundaries + 
 
 ## §2. Module-boundary principles
 
-7 L1 mechanism docs → 7 substrate code modules; +1 shared crypto/canonical-bytes module; +owner-side `anchor-client` + per-LLM-host `operator_runtime` (out-of-band). Module index + responsibilities + dependencies: **L3/PACKAGE_MAP §1**.
+7 L1 mechanism docs → 7 kernel-mechanism modules; +1 `kernel/shared` crypto/canonical-bytes foundation. Around those mechanisms the realized substrate adds: the **M5 `kernel/bridge`** cross-language IPC seam; the **`substrate`** runtime-orchestrator daemon (M6); the **`anchor/host` + `anchor/client`** owner-key custody boundary; the per-LLM-host **`operators/<host>`** binding (out-of-band); and the **`test_vectors/`** cross-language parity suite. Complete module index + layer grouping + responsibilities + dependencies: **L3/PACKAGE_MAP §1**.
+
+Boundary note (kernel ↔ substrate): `kernel/*` holds **mechanisms + safe wrappers** (`kernel/shared` is `#![forbid(unsafe_code)]`); `substrate` holds **runtime request handlers** (coupled to `substrate::server::ServerState`) **+ the isolated unsafe OS-sealing FFI** (`#![deny(unsafe_code)]` + a single gated `dpapi` allow). Handlers therefore stay substrate-resident — relocating one into a kernel crate would create a forbidden kernel → substrate cycle (see PACKAGE_MAP §12).
 
 ---
 
 ## §3-§4. Dependency + build
 
-Acyclic DAG + parallel build groups: `diagrams/l3_dependency_graph.txt`. Higher cannot import lower; L4 cyclic dependency → L3 module-boundary revision (CI per L0/META §7.5 (model-diversity)). `kernel/hard_rules` cites every module's CRITICAL surfaces but does NOT compile-time import. `anchor-client` + `operator_runtime` depend only on `kernel/shared` serializer spec; built independently once shared stable.
+Acyclic DAG + parallel build groups: `diagrams/l3_dependency_graph.txt`. Higher cannot import lower; L4 cyclic dependency → L3 module-boundary revision (CI per L0/META §7.5 (model-diversity)). `kernel/hard_rules` cites every module's CRITICAL surfaces but does NOT compile-time import. `kernel/bridge` (rust + python) is built once `kernel/shared` is stable; the runtime `substrate` then imports only `kernel/{shared, bridge/rust, continuity, schema}` (kernel-inward, acyclic — no kernel crate imports substrate). The out-of-band parties — `anchor/host`, `anchor/client`, `operators/<host>` — depend only on the `kernel/shared` serializer spec (re-derived in their own language), built independently once shared is stable.
 
 ---
 
 ## §5-§6. Test + layout
 
-§5 test discipline: T1 (unit) per-module; T2 (integration) cross-module; T3 (substrate e2e) full lifecycle + L0 invariants + L1/HARD_RULES C-row breach; T4 (adversarial) red-team. Per-module surfaces in L3/PACKAGE_MAP §§2-11; L4 picks frameworks per module language.
+§5 test discipline: T1 (unit) per-module; T2 (integration) cross-module; T3 (substrate e2e) full lifecycle + L0 invariants + L1/HARD_RULES C-row breach; T4 (adversarial) red-team. Per-module surfaces in L3/PACKAGE_MAP §§2-15; L4 picks frameworks per module language. Tests are **per-crate / per-package** (`<module>/tests/`), not a single top-level `tests/`; the one shared corpus is the **cross-language canonical-bytes parity suite** in `test_vectors/` (PACKAGE_MAP §15) — the seam guaranteeing the serializer round-trips identical bytes in Rust, Python, and TypeScript.
 
-§6 file layout:
+§6 file layout (the realized tree — complete module territory; cf. PACKAGE_MAP §1):
 
 ```
-v0.9-substrate/
-├── kernel/{shared, skin, schema, governance, continuity, tropism, trajectory, hard_rules}/
-├── anchor/client/         (owner-side, independent ecosystem)
-├── operators/     (per-LLM-host: claude_code, mcp_typescript, mcp_python, …)
-├── tests/                 (unit / integration / e2e / adversarial)
-└── docs/architecture/     (L0 / L1 / L2 / L3 doctrine)
+Myco/
+├── Cargo.toml              (Rust workspace: kernel/{shared,skin,schema,continuity,bridge/rust}, substrate, test_vectors/rs, anchor/host)
+├── kernel/                 (a) mechanism layer — 1:1 with the 7 L1 docs + shared foundation
+│   ├── shared/             Rust — canonical-bytes + crypto + safe sealed-derive + sealing-* flags  [#![forbid(unsafe_code)]]
+│   ├── skin/  schema/  continuity/        Rust mechanisms
+│   ├── governance/  tropism/  trajectory/  hard_rules/   Python mechanisms (pyproject.toml each)
+│   └── bridge/             (b) M5 cross-language IPC seam
+│       ├── rust/           myco-kernel-bridge   (client + framing + protocol)
+│       └── python/         myco_kernel_bridge   (daemon + dispatcher + framing)
+├── substrate/              (c) runtime orchestrator — Rust daemon binary  [#![deny(unsafe_code)] + gated dpapi FFI]
+│   └── src/{server, persistence, events, federation}/ + lifecycle/integrity/attestation/cultivation/reproduction
+│       + sealing/dpapi/at_rest_seal + observatory + handshake/ingest/dag_query/...
+├── anchor/                 (d) owner-key custody boundary (out-of-substrate-process)
+│   ├── host/               Rust — anchor-surface-host signing daemon (Cargo member)
+│   └── client/             TypeScript — @myco/anchor-client (owner-side render/sign/nonce/heartbeat)
+├── operators/              (e) per-LLM-host agent binding (out-of-band)
+│   └── claude/             TypeScript — @myco/operators-claude (MCP server + substrate/anchor clients + ceremonies)
+├── test_vectors/           (f) cross-language canonical-bytes parity contracts
+│   ├── canonical_bytes_v1.json  crypto_v1.json   (language-neutral vectors)
+│   └── rs/                 myco-test-vectors-rs (Cargo member; parity harness)
+└── docs/architecture/      (L0 / L1 / L2 / L3 doctrine)
+
+# T1 unit tests live per-module under <module>/tests/ (each crate + each package);
+# cross-language parity lives in test_vectors/ — there is no single top-level tests/.
 ```
 
 Repository layout (monorepo / multi-repo / hybrid) is L4-decided.

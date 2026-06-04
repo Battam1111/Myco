@@ -12,7 +12,7 @@
 &nbsp;![Languages](https://img.shields.io/badge/Rust_·_Python_·_TypeScript-007A63?style=flat-square)
 &nbsp;[![Stars](https://img.shields.io/github/stars/Battam1111/Myco?style=flat-square&color=007A63)](https://github.com/Battam1111/Myco)
 
-[![はじめる](https://img.shields.io/badge/はじめる-007A63?style=for-the-badge)](../../GETTING_STARTED.md)
+[![はじめる](https://img.shields.io/badge/はじめる-007A63?style=for-the-badge)](../guides/GETTING_STARTED.md)
 
 [これは何か](#これは何か) · [どう生きるか](#どう生きるか) · [クイックスタート](#クイックスタート) · [教義](#教義) · [自己検証](#自己検証)
 
@@ -88,7 +88,7 @@ cd Myco
 cargo build --release --workspace
 ```
 
-そして [`GETTING_STARTED.md`](../../GETTING_STARTED.md) を読む：クローンから最初の会話までの実行手順書。前提条件（Rust 1.80+、Node 22+、Python 3.13+）、[`anchor-surface-host`](../../anchor/host/) の起動（あなたの Ed25519 オーナー鍵を operator プロセスメモリの*外*に保持する）、`operators/claude` をあなたの MCP ホストに繋ぐこと、そしてあなたの最初の本物の栽培者–Claude セッションを案内する。
+そして [`GETTING_STARTED.md`](../guides/GETTING_STARTED.md) を読む：クローンから最初の会話までの実行手順書。前提条件（Rust 1.80+、Node 22+、Python 3.13+）、[`anchor-surface-host`](../../anchor/host/) の起動（あなたの Ed25519 オーナー鍵を operator プロセスメモリの*外*に保持する）、`operators/claude` をあなたの MCP ホストに繋ぐこと、そしてあなたの最初の本物の栽培者–Claude セッションを案内する。
 
 現在は **v0.9-genesis alpha**。基層は稼働している；Cultivar は最初の生体内栽培を待っている。あなたは早い人になる。
 
@@ -144,7 +144,7 @@ Myco は agent も栽培者も契約を覚えているとは信頼しない。�
 
 ## さらに学ぶ
 
-- [`GETTING_STARTED.md`](../../GETTING_STARTED.md)：クローンから最初の会話まで。
+- [`GETTING_STARTED.md`](../guides/GETTING_STARTED.md)：クローンから最初の会話まで。
 - [`docs/architecture/L0/README.md`](../architecture/L0/README.md)：正典の教義。
 - [Telos](../architecture/L0/cards/P14_telos.md)：どんなパートナーか。
 - [慈愛](../architecture/L0/cards/CHAR07_caring.md)：暴政を防ぐ性格。

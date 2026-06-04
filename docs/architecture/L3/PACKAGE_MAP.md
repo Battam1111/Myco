@@ -8,20 +8,63 @@
 
 ## §1. Module index
 
-| Module | L1 source | Responsibility | Dependencies |
-|---|---|---|---|
-| `kernel/shared` | — | Crypto + canonical-bytes serializer + sealed-derive | (none) |
-| `kernel/skin` | L1/SKIN | Envelope + handshake + single-operator + egress | `kernel/shared` |
-| `kernel/schema` | L1/SCHEMA | SSoT + Merkle DAG + spore-schema + validation tiers | `kernel/shared` |
-| `kernel/governance` | L1/GOVERNANCE | Classifier + attestation envelope + lifecycle FSM | `kernel/skin`, `kernel/schema` |
-| `kernel/continuity` | L1/CONTINUITY | Metabolic cycle + dormancy + cold-resume + WAL | `kernel/skin`, `kernel/schema` |
-| `kernel/tropism` | L1/TROPISM | Appetite gradient + sporocarp emission + fruiting | `kernel/schema`, `kernel/continuity` |
-| `kernel/trajectory` | L1/TRAJECTORY | Cluster_C + trajectory queries + thread_id + echo-chamber | `kernel/schema`, `kernel/tropism` |
-| `kernel/hard_rules` | L1/HARD_RULES | Immune detection: C1-C20 + C30-C49 + F1-F25 | All kernel/* (citation) |
-| `anchor-client` | L0/cards/AS_anchor_surface.md + L1 | Owner-side render + sign + nonce + heartbeat | `kernel/shared` (spec) |
-| `operators/<host>` | L1/SKIN §4.1 | Per-LLM-host runtime; per-handshake keypair; HMAC | `kernel/shared` (spec) |
+The map below is the **complete** module territory, grouped by layer in build-order
+sense (foundation first; each layer may depend only on layers above it). The
+kernel-mechanism layer (a) is 1:1 with the 7 L1 docs (+1 `shared` foundation); the
+remaining layers (b)-(f) are the runtime, custody, binding, and test apparatus that
+make the mechanisms a *living* substrate. Language is L4-chosen per module
+(`Rust` / `Python` / `TypeScript`); see `Cargo.toml` workspace header for the
+realized split.
 
-Line-estimate ranges + total sizing + build dependency graph: `diagrams/build_dependency.txt`.
+**(a) Kernel-mechanism layer** — doctrine mechanisms, 1:1 with the 7 L1 docs + shared foundation.
+
+| Module | Layer / lang | Responsibility | Dependencies |
+|---|---|---|---|
+| `kernel/shared` | mechanism / Rust | **Foundation.** Canonical-bytes serializer + crypto (Merkle/HMAC/sig) + **safe** sealed-derive wrapper + sealing-* feature flags + active-prefix primitive. `#![forbid(unsafe_code)]` (pure-safe). | (none) |
+| `kernel/skin` | mechanism / Rust | L1/SKIN: envelope + handshake + single-operator + egress + breach categories. | `kernel/shared` |
+| `kernel/schema` | mechanism / Rust | L1/SCHEMA: SSoT + Merkle DAG + spore-schema + validation tiers + recovery. | `kernel/shared` |
+| `kernel/continuity` | mechanism / Rust | L1/CONTINUITY: metabolic cycle + dormancy + cold-resume + WAL + quarantine. | `kernel/shared` |
+| `kernel/governance` | mechanism / Python | L1/GOVERNANCE: classifier + attestation envelope + lifecycle FSM + owner-keys + federation. | `kernel/bridge/python` |
+| `kernel/tropism` | mechanism / Python | L1/TROPISM: appetite gradient + sporocarp emission + fruiting + birth-period. | `kernel/bridge/python` |
+| `kernel/trajectory` | mechanism / Python | L1/TRAJECTORY: cluster_C + trajectory queries + thread_id + echo-chamber + epoch. | `kernel/bridge/python` |
+| `kernel/hard_rules` | mechanism / Python | L1/HARD_RULES: immune detection C1-C20 + C30-C56 + F1-F26 watchdogs. | `kernel/bridge/python` |
+
+**(b) Cross-language bridge** — the M5 IPC seam that lets the Rust runtime drive Python workers.
+
+| Module | Layer / lang | Responsibility | Dependencies |
+|---|---|---|---|
+| `kernel/bridge/rust` | bridge / Rust | M5 client + framing + protocol + tropism_bridge: length-prefixed canonical-bytes + HMAC over stdio; spawns + drives a Python worker. | `kernel/shared`, `kernel/continuity` |
+| `kernel/bridge/python` | bridge / Python | M5 server half: daemon + dispatcher + framing + protocol + canonical-bytes decode; the worker entrypoint the Python mechanisms run behind. | `kernel/shared` (serializer spec) |
+
+**(c) Runtime-orchestration** — the substrate process itself.
+
+| Module | Layer / lang | Responsibility | Dependencies |
+|---|---|---|---|
+| `substrate` | runtime / Rust | **The M6 orchestrator daemon binary.** Server for the operator; client of the Python kernel worker via the M5 bridge; owns ServerState + persistence + events + federation + lifecycle/integrity/attestation request handlers + OS-sealing FFI. See §12. | `kernel/shared`, `kernel/bridge/rust`, `kernel/continuity`, `kernel/schema` |
+
+**(d) Anchor-custody** — owner-key custody boundary (out-of-substrate-process).
+
+| Module | Layer / lang | Responsibility | Dependencies |
+|---|---|---|---|
+| `anchor/host` | custody / Rust | `anchor-surface-host` binary: holds the owner Ed25519 signing key **out of operator + substrate process memory** (closes the "operator-IS-anchor" honor-system collapse, M-anchor-1). Local signing daemon. | `kernel/shared` |
+| `anchor/client` | custody / TypeScript | `@myco/anchor-client`: owner-side render + sign + nonce-log + sealed-key + heartbeat. Independent ecosystem. | `kernel/shared` serializer spec (re-derived in TS) |
+
+**(e) Operator-binding** — the agent-facing MCP interface (out-of-band per host).
+
+| Module | Layer / lang | Responsibility | Dependencies |
+|---|---|---|---|
+| `operators/<host>` | binding / TypeScript | Per-LLM-host runtime the agent drives. `operators/claude` = `@myco/operators-claude`: MCP server + substrate-client + anchor-surface-client + per-handshake keypair + HMAC. | `kernel/shared` serializer spec (re-derived in TS); spawns `substrate` |
+
+**(f) Test suite** — cross-language canonical-bytes parity (the seam-correctness guarantee).
+
+| Module | Layer / lang | Responsibility | Dependencies |
+|---|---|---|---|
+| `test_vectors/` | test / Rust + JSON | `*.json` contracts (`canonical_bytes_v1.json`, `crypto_v1.json`) + `rs/` (`myco-test-vectors-rs`) parity harness. Every language's serializer + crypto must round-trip these identical bytes. | `kernel/shared` (Rust side); contracts consumed by Python + TS sides |
+
+Per-crate / per-package T1 unit tests live **with each module** (`<module>/tests/`),
+not in a single top-level `tests/`; cross-language parity lives in `test_vectors/`
+(see OUTLINE §6). Line-estimate ranges + total sizing + build dependency graph:
+`diagrams/build_dependency.txt`.
 
 ---
 
@@ -81,4 +124,103 @@ Canonical-bytes rendering (same `kernel/shared` serializer spec); signature prod
 
 ## §11. `operators/<host>` (L1/SKIN §4.1)
 
-Per-handshake `operator_signing_key_public/_private` (private in operator-runtime memory only); HMAC envelope_digest signing (operator_token from handshake); independent canonical-bytes derivation; bootstrap-pinning (owner-provided `(substrate-ID, anchor-pubkey, owner-pubkey)` at first install); anchor query for current owner-pubkey-active-at-handshake; trajectory query API consumer. Sub-modules: thin wrapper per binding; candidates: `claude_code` (Node.js), `mcp_typescript` (MCP/TS), `mcp_python` (MCP/Python). **T1** keypair+signature+HMAC; **T2** e2e handshake vs `kernel/skin`; **T3** full session.
+Per-handshake `operator_signing_key_public/_private` (private in operator-runtime memory only); HMAC envelope_digest signing (operator_token from handshake); independent canonical-bytes derivation; bootstrap-pinning (owner-provided `(substrate-ID, anchor-pubkey, owner-pubkey)` at first install); anchor query for current owner-pubkey-active-at-handshake; trajectory query API consumer. Realized binding: `operators/claude` (`@myco/operators-claude`, TypeScript) — sub-modules `mcp_server` / `substrate_client` / `anchor_surface_client` / `operator_identity` / `cli` / `protocol/` + `ceremonies/`. Other host bindings are additive (MCP/TS, MCP/Python) reusing the same serializer spec. **T1** keypair+signature+HMAC; **T2** e2e handshake vs `kernel/skin`; **T3** full session.
+
+---
+
+## §12. `substrate` (runtime orchestrator — Rust daemon binary)
+
+**The M6 orchestrator** and the largest single module. Build-order: depends on the
+kernel-mechanism + bridge layers; sits *below* `operators/<host>` (the operator
+spawns it) and *beside* `anchor/host` (it talks to the anchor for owner signatures).
+The dataflow is:
+
+```
+operators/claude (TS) --[M5 stdio]--> substrate (THIS, Rust) --[M5 stdio]--> python kernel worker
+```
+
+The TS→Rust direction reuses the M5 `kernel/bridge` message types verbatim; the
+Rust→Python direction spawns + drives the Python `kernel/tropism` worker through
+`myco_kernel_bridge::client::BridgeClient`.
+
+**Kernel dependencies** (acyclic, kernel-inward — the *only* crates substrate imports):
+`myco-kernel-shared`, `myco-kernel-bridge` (rust), `myco-kernel-continuity`,
+`myco-kernel-schema`. No kernel crate depends on substrate.
+
+**Module domains** (`substrate/src/`):
+
+- **`server/`** — request dispatch + autonomous (self-driven) cycle loop; owns `ServerState`, the live in-memory runtime state every request handler operates on.
+- **`persistence/`** — durable state: `dag_io` (DAG read/write) / `manifest` / `snapshot` / `nonce_log` / `operator_identity` / `signing_key`; plus top-level `persistence_runtime` / `persistence_health` / `prune` / `backup`.
+- **`events/`** — the event-sourcing log: `core` + per-domain event kinds (`attestation` / `consensus` / `cultivation` / `federation` / `telos` / `char07` / `duress` / `internal_mortality` / `schema_migration` / `backup_encryption` / `compression`).
+- **`federation/`** — peer attestation seam: `handlers` / `protocol` / `transport`.
+- **lifecycle handlers** — `lifecycle.rs` / `integrity.rs` / `cultivation.rs` / `reproduction.rs` / `consensus.rs`: the genesis → steady → dormancy → reproduction → mortality FSM as **runtime request handlers**.
+- **OS-sealing** — `sealing.rs` (sealing dispatch) / `dpapi.rs` (Windows DPAPI FFI backend) / `at_rest_seal.rs`: seal `substrate_signing_key` at rest (L1/SKIN §4.2 + C4).
+- **observatory** — `observatory.rs`: self-perception / introspection surface.
+- **attestation + runtime support** — `attestation.rs` (owner-attestation handler) + `handshake` / `ingest` / `dag_query` / `derived_state` / `wall_clock` / `python_call_health`.
+
+**Boundary fact (the subtle part — do not "helpfully" relocate these).**
+`substrate`'s `attestation.rs` / `integrity.rs` / `lifecycle.rs` are **runtime request
+handlers**, not kernel libraries: each takes `&ServerState` / `&mut ServerState` and
+imports from `crate::server` (e.g. `save_dag_state`, `emit_immune_sporocarp`). They
+are *correctly substrate-resident* — the crypto **mechanisms** they invoke already
+live in `kernel/shared`; what lives here is the request-handling *glue* coupled to
+live runtime state. Moving a handler into a kernel crate would force that crate to
+import `substrate::server::ServerState`, creating a **kernel → substrate dependency
+cycle** (forbidden — L4 cyclic dependency ⇒ L3 module-boundary revision, OUTLINE §3).
+
+Symmetrically, the **unsafe FFI** is deliberately isolated *here*: `substrate` runs
+`#![deny(unsafe_code)]` with a single audited `#[allow(unsafe_code)]` on the `dpapi`
+module (Windows `CryptProtectData`/`CryptUnprotectData`, gated `cfg(windows)`). This
+keeps `kernel/shared` at `#![forbid(unsafe_code)]` — a **pure-safe foundation**.
+`kernel/shared` holds only the *safe* `sealed_derive` wrapper + the `sealing-{tpm,
+keyring,hsm,secure-enclave}` feature flags for future OS-sealing backends; the unsafe
+backend implementation lives in substrate. **Net boundary: kernel = mechanisms + safe
+wrappers; substrate = runtime handlers + isolated unsafe FFI.**
+
+**T1** per-handler synthetic state; **T2** persistence + events + bridge integration; **T3** substrate e2e (genesis → steady → mortality, L0 invariants, C-row breach); **T4** adversarial.
+
+---
+
+## §13. `kernel/bridge` (M5 cross-language IPC — Rust + Python halves)
+
+The **M5 protocol seam** that makes the multi-language split possible: a
+length-prefixed canonical-bytes framing with an HMAC integrity tag, spoken over stdio
+between a Rust parent and a Python worker (same wire format the operator uses to reach
+substrate — see §12). Two halves, built independently once `kernel/shared` is stable:
+
+- **`kernel/bridge/rust`** (`myco-kernel-bridge`) — `client` (spawn + request/response) / `framing` (length-prefix + HMAC) / `protocol` (message types) / `tropism_bridge` (typed gradient operations). Depends on `kernel/shared` (serializer + HMAC) + `kernel/continuity`.
+- **`kernel/bridge/python`** (`myco_kernel_bridge`) — `daemon` (worker entrypoint) / `dispatcher` / `framing` / `protocol` / canonical-bytes decode. The server half the Python mechanism modules (`governance` / `tropism` / `trajectory` / `hard_rules`) run behind; depends on the `kernel/shared` serializer spec re-implemented in Python.
+
+The contract is byte-identical canonical-bytes on both sides — enforced by §15
+(`test_vectors/`). **T1** framing round-trip + HMAC reject + protocol encode/decode (each half); **T2** daemon smoke + dispatcher + migration (Python) against a Rust client; **T3** exercised via substrate e2e.
+
+---
+
+## §14. `anchor/host` (owner-key custody daemon — Rust binary)
+
+`anchor-surface-host`: a **separate Rust binary** (Cargo workspace member) that holds
+the owner Ed25519 signing key **outside both the operator process and the substrate
+process** — closing the Phase γ.5 "operator-IS-anchor honor-system collapse" finding
+(M-anchor-1). This is the realized server-side counterpart of the spec-level
+`anchor-client` (§10): the operator/substrate ask *this* daemon to produce owner
+signatures; neither ever sees the owner private key. Sub-modules: `identity` (sealed
+key + signing) / `protocol` (request/response surface) / `main` (daemon entrypoint).
+Depends only on `kernel/shared` (canonical-bytes + crypto). **T1** identity + signing
++ canonical-bytes rendering identical to substrate; **T2** request/response vs a mock
+operator; **T3** operator ↔ host ↔ substrate e2e.
+
+---
+
+## §15. `test_vectors/` (cross-language canonical-bytes parity suite)
+
+The **seam-correctness guarantee**: the canonical-bytes serializer + crypto primitives
+must produce *byte-identical* output across all three language ecosystems (Rust
+substrate/kernel, Python workers, TypeScript anchor/operator). Lives at repo top level
+(not inside any one module) because it is a *contract shared by all*:
+
+- **`canonical_bytes_v1.json` + `crypto_v1.json`** — language-neutral vector contracts: input → expected canonical bytes / digest.
+- **`test_vectors/rs`** (`myco-test-vectors-rs`, Cargo member) — `canonical_bytes_parity` + `crypto_parity` harness asserting the Rust serializer matches the JSON contracts; the Python + TS sides load the same `*.json` and assert the same bytes.
+
+Adding an input type to the serializer ⇒ add a vector here ⇒ all three languages must
+match or CI fails. This is what lets §13's "byte-identical on both sides" claim be a
+*tested* invariant rather than an aspiration. **T1/T2** parity assertions per language; CI co-runs all three.

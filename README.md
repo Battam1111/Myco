@@ -12,7 +12,7 @@
 &nbsp;![Languages](https://img.shields.io/badge/Rust_·_Python_·_TypeScript-007A63?style=flat-square)
 &nbsp;[![Stars](https://img.shields.io/github/stars/Battam1111/Myco?style=flat-square&color=007A63)](https://github.com/Battam1111/Myco)
 
-[![Get started](https://img.shields.io/badge/Get_started-GETTING__STARTED-007A63?style=for-the-badge)](./GETTING_STARTED.md)
+[![Get started](https://img.shields.io/badge/Get_started-GETTING__STARTED-007A63?style=for-the-badge)](./docs/guides/GETTING_STARTED.md)
 
 [What it is](#what-it-is) · [How it lives](#how-it-lives) · [Quick start](#quick-start) · [Doctrine](#doctrine) · [Self-validation](#self-validation)
 
@@ -88,7 +88,7 @@ cd Myco
 cargo build --release --workspace
 ```
 
-Then read [`GETTING_STARTED.md`](./GETTING_STARTED.md): the runbook from clone to first conversation. It walks through prerequisites (Rust 1.80+, Node 22+, Python 3.13+), starting [`anchor-surface-host`](./anchor/host/) (holds your Ed25519 owner key *outside* operator process memory), wiring `operators/claude` into your MCP host, and your first real cultivator-Claude session.
+Then read [`GETTING_STARTED.md`](./docs/guides/GETTING_STARTED.md): the runbook from clone to first conversation. It walks through prerequisites (Rust 1.80+, Node 22+, Python 3.13+), starting [`anchor-surface-host`](./anchor/host/) (holds your Ed25519 owner key *outside* operator process memory), wiring `operators/claude` into your MCP host, and your first real cultivator-Claude session.
 
 This is **v0.9-genesis alpha**. The substrate runs; the Cultivar awaits first in-vivo cultivation. You will be early.
 
@@ -142,10 +142,49 @@ Proto-Myco v0.4 to v0.8.7 was a different conception: *"living cognitive substra
 
 The current v0.9 work is a substantial reframing: from **agent-tool** ("how does my AI agent remember?") to **human-cultivator-partner** ("how does one human have a decades-long partner across LLM generations?"). The mechanisms differ. The name persists. The conception is reborn.
 
+## Architecture (for contributors)
+
+The quick start above gets you *running*. This gets you *building*. The runtime is four pieces in one repo, talking over one wire protocol:
+
+```
+   operators/claude            M5 wire           substrate/                  M5 wire        kernel/
+   ┌───────────────┐          protocol         ┌────────────────────┐       protocol     ┌──────────────────────┐
+   │  TypeScript   │  ──────────────────────►  │  myco-substrate    │  ───────────────►  │  Python worker       │
+   │  MCP interface│   length-prefixed         │  (Rust daemon)     │   same canonical   │  governance/tropism/ │
+   │  the agent    │   canonical-bytes         │  the body — M6     │   bytes over       │  trajectory/         │
+   │  drives this  │   + HMAC over stdio       │  runtime + cycle   │   a diff socket    │  hard_rules          │
+   └───────────────┘                           └────────────────────┘                    └──────────────────────┘
+                                                        ▲
+                                                        │ attest / sign (out-of-band)
+                                               ┌────────────────────┐
+                                               │  anchor/           │  owner-key custody, OUTSIDE the body:
+                                               │   host  (Rust)     │  host = local signing daemon;
+                                               │   client (TS)      │  client = owner-side render + sign.
+                                               └────────────────────┘
+```
+
+- **`substrate/`** — the Rust runtime daemon. The **body**: M6 orchestrator that runs the metabolic cycle and bridges `operators` ↔ `kernel`.
+- **`kernel/`** — the mechanism layer. Rust crates (`shared` / `skin` / `schema` / `continuity` / `bridge`) plus Python workers (`governance` / `tropism` / `trajectory` / `hard_rules`).
+- **`operators/claude`** — the TypeScript MCP interface the agent drives. Per-handshake keypair; HMAC-signs every request envelope.
+- **`anchor/`** — owner-key custody outside the substrate process: `host` (Rust signing daemon) + `client` (TypeScript owner UI).
+
+The flow is one line: **`operators` (TS) → `substrate` (Rust) → Python `kernel` worker, over the M5 bridge.** Owner-key signing happens in `anchor`, which the substrate never holds keys for.
+
+To work on X, read Y:
+
+| To work on… | Read |
+|---|---|
+| The doctrine (what Myco *must* be) | [`docs/architecture/README.md`](./docs/architecture/README.md) |
+| The code map (module-by-module) | [`docs/architecture/L3/PACKAGE_MAP.md`](./docs/architecture/L3/PACKAGE_MAP.md) |
+| Substrate internals (runtime layout) | [`substrate/README.md`](./substrate/README.md) |
+| Running it / first boot | [`docs/guides/GETTING_STARTED.md`](./docs/guides/GETTING_STARTED.md) |
+
+**Start at [`docs/architecture/README.md`](./docs/architecture/README.md)** — the single architecture entry point, with the reading-path table for doctrine *and* code.
+
 ## Learn more
 
-- [`GETTING_STARTED.md`](./GETTING_STARTED.md): clone to first conversation (for the human cultivator).
-- [`PILOT.md`](./PILOT.md): how a Claude *pilots* the armor — the use-forges discipline (for the inhabiting agent).
+- [`GETTING_STARTED.md`](./docs/guides/GETTING_STARTED.md): clone to first conversation (for the human cultivator).
+- [`PILOT.md`](./docs/guides/PILOT.md): how a Claude *pilots* the armor — the use-forges discipline (for the inhabiting agent).
 - [`docs/architecture/L0/README.md`](./docs/architecture/L0/README.md): canonical doctrine.
 - [Telos](./docs/architecture/L0/cards/P14_telos.md): what kind of partner this is.
 - [Compassionate care](./docs/architecture/L0/cards/CHAR07_caring.md): the character that prevents tyranny.
