@@ -1849,3 +1849,251 @@ mod hunger_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod forge_tests {
+    //! **The "use-forges" forging loop** — unit tests for
+    //! [`handle_deposit_forged_understanding`]. Built in-process over a
+    //! hand-constructed `ServerState`/DAG (no subprocess, no Python worker —
+    //! the forge handler is a pure DAG operation, exactly like
+    //! `handle_ingest_raw_material`), mirroring the `hunger_tests` harness:
+    //! `test_state()` builds a fresh genesis state, raw_material is seeded with
+    //! `feed_returning_hash`, the handler is driven via a synthesized request
+    //! `Message`, and the resulting DAG node is read back + decoded for shape +
+    //! causal-parent assertions. Covers: (a) forge with one valid source, (b)
+    //! forge with an empty source list, (c) rejection of an unknown source hash.
+    use super::*;
+    use crate::persistence::Manifest;
+    use crate::server::ServerState;
+    use myco_kernel_schema::dag::Dag;
+    use myco_kernel_shared::canonical_bytes::decode as cb_decode;
+
+    fn test_state() -> ServerState {
+        // Fresh genesis identity; collision-free temp dir (per-process + a
+        // stack-address nonce, matching the hunger_tests / autonomous.rs helper).
+        let nonce = &0u8 as *const u8 as usize as u64;
+        let state_dir = std::env::temp_dir()
+            .join(format!("myco-forge-unit-{}-{:x}", std::process::id(), nonce));
+        let g = Manifest::genesis();
+        ServerState::new(
+            state_dir,
+            Some(g.substrate_id),
+            Some(g.genesis_time_unix_ns),
+            g.cycle_counter,
+            g.last_absorbed_cycle,
+            g.generation_depth,
+            Dag::new(),
+            None,
+            [0u8; 32],
+        )
+    }
+
+    /// Insert a `raw_material:text` DAG node stamped at `created_at_cycle` and
+    /// return its hash (so a forge call can cite it). Same node shape as the
+    /// hunger_tests `feed`, but hands back the hash for the causal-link checks.
+    fn feed_returning_hash(
+        state: &mut ServerState,
+        at_cycle: u64,
+    ) -> myco_kernel_shared::crypto::NodeHash {
+        let parents = match state.dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        let content =
+            cb_encode(&Value::Map(BTreeMap::new())).expect("empty map encodes");
+        state
+            .dag
+            .insert_node(parents, "raw_material:text".to_string(), at_cycle, content)
+            .expect("insert raw_material")
+    }
+
+    fn count_nodes(state: &ServerState, prefix: &str) -> usize {
+        state
+            .dag
+            .iter_in_insertion_order()
+            .filter(|n| n.node_type.starts_with(prefix))
+            .count()
+    }
+
+    /// Build a `deposit_forged_understanding` request Message with the given
+    /// label / understanding bytes / source-hash array (the wire shape the
+    /// handler parses).
+    fn forge_request(
+        label: &str,
+        understanding: &[u8],
+        sources: &[myco_kernel_shared::crypto::NodeHash],
+    ) -> Message {
+        let mut payload = BTreeMap::new();
+        payload.insert("label".to_string(), Value::String(label.to_string()));
+        payload.insert(
+            "understanding".to_string(),
+            Value::Bytes(understanding.to_vec()),
+        );
+        let arr: Vec<Value> = sources
+            .iter()
+            .map(|h| Value::Bytes(h.as_ref().to_vec()))
+            .collect();
+        payload.insert(
+            "source_raw_material_hashes".to_string(),
+            Value::Array(arr),
+        );
+        Message::new(msg_type::DEPOSIT_FORGED_UNDERSTANDING, 7, payload)
+    }
+
+    /// Decode a response payload's Bytes field into a `NodeHash`.
+    fn response_node_hash(
+        payload: &BTreeMap<String, Value>,
+        key: &str,
+    ) -> myco_kernel_shared::crypto::NodeHash {
+        match payload.get(key) {
+            Some(Value::Bytes(b)) if b.len() == 32 => {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(b);
+                myco_kernel_shared::crypto::NodeHash::from_bytes(arr)
+            }
+            other => panic!("response field {key:?} is not 32 Bytes: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn forge_with_one_valid_source_links_and_decodes() {
+        let mut state = test_state();
+        // Seed a raw_material node the understanding will be forged from.
+        let source = feed_returning_hash(&mut state, 3);
+        let dag_size_before = state.dag.node_count();
+
+        let understanding = b"digested prose forged out of the raw material";
+        let req = forge_request("synthesis", understanding, &[source]);
+        let resp = handle_deposit_forged_understanding(&mut state, &req)
+            .expect("forge handler ok")
+            .expect("forge handler returns a response message");
+
+        // ---- response envelope ----
+        assert_eq!(resp.message_type, msg_type::DEPOSIT_FORGED_UNDERSTANDING_RESPONSE);
+        assert_eq!(resp.request_id, 7, "response echoes the request_id");
+        assert_eq!(
+            resp.payload.get("refused"),
+            Some(&Value::Bool(false)),
+            "a well-formed forge is never refused"
+        );
+        assert_eq!(
+            resp.payload.get("total_dag_size"),
+            Some(&Value::Uint((dag_size_before + 1) as u64)),
+            "the forge inserts exactly one new DAG node"
+        );
+        let dag_node_hash = response_node_hash(&resp.payload, "dag_node_hash");
+        // current_tip must equal the just-inserted node (it is the new tip).
+        let tip = response_node_hash(&resp.payload, "current_tip");
+        assert_eq!(tip, dag_node_hash, "the forged node becomes the DAG tip");
+
+        // Exactly one forged_understanding:* node now exists.
+        assert_eq!(
+            count_nodes(&state, FORGED_UNDERSTANDING_NODE_TYPE_PREFIX),
+            1
+        );
+
+        // ---- read the node back out of the DAG ----
+        let node = state.dag.get(&dag_node_hash).expect("forged node in DAG");
+        assert_eq!(node.node_type, "forged_understanding:synthesis");
+        // Causal link: the source raw_material hash is among the parents.
+        assert!(
+            node.parent_hashes.contains(&source),
+            "forged node must be causally parented by its source raw_material (P6)"
+        );
+
+        // ---- decode the canonical content ----
+        let content = match cb_decode(node.content_canonical_bytes.as_ref())
+            .expect("content decodes")
+        {
+            Value::Map(m) => m,
+            other => panic!("forged content is not a Map: {other:?}"),
+        };
+        assert_eq!(
+            content.get("label"),
+            Some(&Value::String("synthesis".to_string()))
+        );
+        assert_eq!(
+            content.get("understanding"),
+            Some(&Value::Bytes(understanding.to_vec())),
+            "understanding bytes round-trip verbatim"
+        );
+        assert_eq!(
+            content.get("source_raw_material_hashes"),
+            Some(&Value::Array(vec![Value::Bytes(source.as_ref().to_vec())])),
+            "the cited source hash is recorded in the content"
+        );
+        // forged_at_cycle == the substrate's cycle counter at forge time (0 in a
+        // fresh test state — the in-process state never advances the counter).
+        assert_eq!(
+            content.get("forged_at_cycle"),
+            Some(&Value::Uint(0)),
+            "forged_at_cycle stamps the substrate's current cycle"
+        );
+    }
+
+    #[test]
+    fn forge_with_empty_source_list_parents_tip_only() {
+        let mut state = test_state();
+        // Give the DAG a tip so we can assert parents == [tip] (and only that).
+        let tip_before = feed_returning_hash(&mut state, 1);
+
+        let req = forge_request("standalone", b"an understanding citing no source", &[]);
+        let resp = handle_deposit_forged_understanding(&mut state, &req)
+            .expect("forge handler ok")
+            .expect("forge handler returns a response message");
+        assert_eq!(
+            resp.payload.get("refused"),
+            Some(&Value::Bool(false))
+        );
+        let dag_node_hash = response_node_hash(&resp.payload, "dag_node_hash");
+
+        let node = state.dag.get(&dag_node_hash).expect("forged node in DAG");
+        assert_eq!(node.node_type, "forged_understanding:standalone");
+        // Empty source list → parents == [prior tip] only.
+        assert_eq!(
+            node.parent_hashes,
+            vec![tip_before],
+            "with no cited sources the forged node parents the prior tip only"
+        );
+
+        let content = match cb_decode(node.content_canonical_bytes.as_ref())
+            .expect("content decodes")
+        {
+            Value::Map(m) => m,
+            other => panic!("forged content is not a Map: {other:?}"),
+        };
+        // The source array is present but empty.
+        assert_eq!(
+            content.get("source_raw_material_hashes"),
+            Some(&Value::Array(Vec::new())),
+            "an empty source list is recorded as an empty array"
+        );
+    }
+
+    #[test]
+    fn forge_with_unknown_source_hash_is_rejected() {
+        let mut state = test_state();
+        // A 32-byte hash that was never inserted into the DAG.
+        let bogus = myco_kernel_shared::crypto::NodeHash::from_bytes([0xABu8; 32]);
+
+        let req = forge_request("bad-source", b"understanding citing a phantom", &[bogus]);
+        let result = handle_deposit_forged_understanding(&mut state, &req);
+        // Mirrors handle_perturb_axis_from_raw_material's provenance check: an
+        // unknown source hash is a structured Protocol error, NOT a silent insert.
+        match result {
+            Err(SubstrateError::Protocol(msg)) => {
+                assert!(
+                    msg.contains("not found in DAG"),
+                    "rejection message should explain the missing source: {msg}"
+                );
+            }
+            other => panic!("expected Protocol error for unknown source, got {other:?}"),
+        }
+        // Nothing was inserted.
+        assert_eq!(
+            count_nodes(&state, FORGED_UNDERSTANDING_NODE_TYPE_PREFIX),
+            0,
+            "a rejected forge must not insert a forged_understanding node"
+        );
+    }
+}

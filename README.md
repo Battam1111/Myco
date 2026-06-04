@@ -144,7 +144,8 @@ The current v0.9 work is a substantial reframing: from **agent-tool** ("how does
 
 ## Learn more
 
-- [`GETTING_STARTED.md`](./GETTING_STARTED.md): clone to first conversation.
+- [`GETTING_STARTED.md`](./GETTING_STARTED.md): clone to first conversation (for the human cultivator).
+- [`PILOT.md`](./PILOT.md): how a Claude *pilots* the armor — the use-forges discipline (for the inhabiting agent).
 - [`docs/architecture/L0/README.md`](./docs/architecture/L0/README.md): canonical doctrine.
 - [Telos](./docs/architecture/L0/cards/P14_telos.md): what kind of partner this is.
 - [Compassionate care](./docs/architecture/L0/cards/CHAR07_caring.md): the character that prevents tyranny.
