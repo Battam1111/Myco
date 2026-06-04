@@ -16,4 +16,3 @@ myco-kernel-shared = { path = "../shared" }
 thiserror.workspace = true
 
 [dev-dependencies]
-# (hex reserved for future hex-formatting test vectors; remove if still unused at M2)

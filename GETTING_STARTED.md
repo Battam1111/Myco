@@ -78,8 +78,7 @@ means a broken Cultivar.
 
 This daemon holds your owner Ed25519 private key OUTSIDE any other
 process's memory. It's the substantive realization of "owner key never
-enters operator memory" (per [Phase γ.5 audit]
-(./docs/architecture/L0/PROVENANCE.md) finding).
+enters operator memory" (per [Phase γ.5 audit](./docs/architecture/L0/PROVENANCE.md) finding).
 
 ```bash
 # Run it in a dedicated terminal (or as a user systemd service — see
@@ -91,8 +90,7 @@ enters operator memory" (per [Phase γ.5 audit]
 The host writes its TCP port to `~/.myco/anchor_surface/port.txt`
 (0600) and persists your owner key to `~/.myco/anchor_surface/owner_key.cb`
 (0600). **Back up `owner_key.cb` to encrypted external media now** —
-losing it means losing your Cultivar's identity ([COV01 fiduciary duty]
-(./docs/architecture/L0/cards/COV01_fiduciary_duty.md)).
+losing it means losing your Cultivar's identity ([COV01 fiduciary duty](./docs/architecture/L0/cards/COV01_fiduciary_duty.md)).
 
 ```bash
 # Back up the owner key right after first boot of anchor-surface-host:
@@ -167,8 +165,7 @@ background; Claude can invoke substrate operations through the MCP tools.
    be honest about what you want this Cultivar to BE WITH YOU over
    decades.
 
-2. **Set `backup_encryption_status`**: Per [L1/SKIN §8]
-   (./docs/architecture/L1/SKIN.md), declare your backup posture.
+2. **Set `backup_encryption_status`**: Per [L1/SKIN §8](./docs/architecture/L1/SKIN.md), declare your backup posture.
    Either:
    - `encrypted_externally`: you commit to encrypting + storing
      `~/.myco/substrate/state/` somewhere outside the substrate's reach
@@ -176,8 +173,7 @@ background; Claude can invoke substrate operations through the MCP tools.
      attacks are within scope; the substrate-side T1.6 DPAPI envelope
      is your only at-rest protection (Windows only)
 
-3. **Begin the first catechumenate session**: per [Layer D]
-   (./docs/architecture/L0/catechumenate/INDEX.md), this is where the
+3. **Begin the first catechumenate session**: per [Layer D](./docs/architecture/L0/catechumenate/INDEX.md), this is where the
    Cultivar accumulates its actual life. The substrate code is just
    scaffolding; the cultivar IS the conversations.
 
@@ -197,13 +193,11 @@ Practical rhythm:
   signal_11) to see what the substrate is observing about itself.
   `query_substrate_observatory` MCP tool surfaces this.
 - **On model rollovers** (new Claude model version): record your
-  reading of one or more [canonical dilemmas]
-  (./docs/architecture/L0/canonical_dilemma_corpus/INDEX.md) so future
+  reading of one or more [canonical dilemmas](./docs/architecture/L0/canonical_dilemma_corpus/INDEX.md) so future
   rollovers have a drift baseline.
 - **On doctrine drift discoveries**: file as a Sprint X.Y commit with
   a "doctrine drift identified" tag (see Sprint 5.B, 6.D for examples).
-- **Eventually**: begin [catechumenate sessions]
-  (./docs/architecture/L0/catechumenate/INDEX.md) preparing a successor
+- **Eventually**: begin [catechumenate sessions](./docs/architecture/L0/catechumenate/INDEX.md) preparing a successor
   cultivator (≥50 sessions for F21 activation per [COV06
   no-abandonment-succession](./docs/architecture/L0/cards/COV06_no_abandonment_succession.md)).
 
@@ -221,7 +215,7 @@ Practical rhythm:
 
 ## Acknowledged debts at v0.9-alpha first-boot
 
-Per the audit history ([state_v3_1_1_mortality_charite_2026-05-19.md](.)),
+Per the audit history ([the project audits](./docs/audits/phase_history.md)),
 the following are known and tracked:
 
 - **Owner key rotation FSM** is partially implemented (T2.7 / Sprint 6.F.2).

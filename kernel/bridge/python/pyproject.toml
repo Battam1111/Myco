@@ -7,7 +7,7 @@ name = "myco-kernel-bridge"
 version = "0.9.0-alpha.2"
 description = "Myco v0.9 cross-process bridge: Python worker daemon driving kernel/tropism on behalf of Rust kernel/continuity over stdio (M5)."
 requires-python = ">=3.11"
-license = { text = "Proprietary" }
+license = { text = "MIT" }
 authors = [{ name = "Battam1111" }]
 dependencies = [
     "myco-kernel-governance",

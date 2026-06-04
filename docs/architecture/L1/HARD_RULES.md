@@ -91,9 +91,9 @@ Rows INDEPENDENT (I2 fixed-point). Coverage: README §Status + L3/PACKAGE_MAP.md
 ### §1.3 Bet-retirement sporocarp + non-CRITICAL meta-immune rows
 C40 = trigger arc for L0/cards/LB_living_bets.md §4 (retirement); NOT CRITICAL — CI lifecycle parallel to `self_euthanasia_executed`. **C75** (`cultivator_fiduciary_strain`) is likewise NOT CRITICAL: it is a META-immune / informational-relational signal flagging the CULTIVATOR's neglect (not a substrate fault) and MUST NOT auto-quarantine the substrate (it is absent from the §1.1 CRITICAL table by construction; COV01 §3.5 — "investigate, do not dismiss").
 
-### §1.4 v3.1.1 amendment — C-rows for P07 internal mortality discipline (implemented)
+### §1.4 v3.1.1 amendment — C-rows for P07 internal mortality discipline (detectors implemented; table-promotion deferred to v0.9.x)
 
-> **Status**: doctrinally committed in L0 v3.1.1 (2026-05-19); detectors C54/C55/C56 + the F26 应朽 registry **implemented** (emit sites cited below). These rows are not yet promoted into the binding §1.1/§1.2 trigger tables above — that promotion (with full Layer C witness corpus per META §5.4) remains a v0.9.x housekeeping step.
+> **Status**: doctrinally committed in L0 v3.1.1 (2026-05-19). To be precise about what "implemented" means here: the detectors C54/C55/C56 + the F26 应朽 registry are **implemented in the substrate code** (emit sites cited below). What is **deferred to v0.9.x** is their **promotion into the binding §1.1/§1.2 trigger tables** above (with the full Layer C witness corpus per META §5.4) — i.e. the §1.1/§1.2 table-binding, not the detector code, is the outstanding housekeeping step.
 
 P07's v3.1.1 reading mandates ongoing internal mortality of 应朽 parts (`包括但不限于` 过时/错误/冗余/无用 + L1-recognized family members per P07 §3.1.c). Three C-rows realize this discipline:
 

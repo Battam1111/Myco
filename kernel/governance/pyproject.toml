@@ -8,7 +8,7 @@ version = "0.9.0a1"
 description = "Myco v0.9 — kernel/governance: classifier + attestation envelope + lifecycle FSM + owner_keys + federation + rollback (L1/GOVERNANCE §1-§6)"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Proprietary" }
+license = { text = "MIT" }
 authors = [
     { name = "Yanjun" },
 ]

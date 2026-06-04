@@ -13,8 +13,11 @@ L1/CONTINUITY §5 and emits the corresponding immune sporocarp.
 ## M4 scope
 
 - `detectors`: 20 C-row CRITICAL detectors with structured event input.
-- `watchdogs`: 17 F-row mutation-observation watchdogs.
-- `runtime`: dispatches input events to relevant detectors / watchdogs.
+
+### Deferred / future
+
+- `watchdogs`: 17 F-row mutation-observation watchdogs (deferred).
+- `runtime`: dispatches input events to relevant detectors / watchdogs (deferred).
 
 ## Development
 
