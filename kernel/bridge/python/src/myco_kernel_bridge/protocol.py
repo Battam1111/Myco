@@ -197,6 +197,16 @@ class MessageType(str, Enum):
     PERTURB_AXIS_FROM_RAW_MATERIAL_RESPONSE = "perturb_axis_from_raw_material_response"
     """Rust → Operator: causal-link DAG node hash + perturbation acknowledgment (M16)."""
 
+    DEPOSIT_FORGED_UNDERSTANDING = "deposit_forged_understanding"
+    """Operator → Rust: deposit a forged_understanding:{label} DAG node (the
+    "use-forges" forging loop). The agent's DIGESTED understanding, causally
+    parented by the prior tip + its source raw_material nodes. Rust-handled; no
+    Python involvement (exactly like ingest_raw_material)."""
+
+    DEPOSIT_FORGED_UNDERSTANDING_RESPONSE = "deposit_forged_understanding_response"
+    """Rust → Operator: DAG node hash of the new forged_understanding node +
+    current tip + size (symmetric with ingest_raw_material_response)."""
+
     SNAPSHOT_GRADIENT_TO_DIR = "snapshot_gradient_to_dir"
     """Rust → Python: snapshot the gradient configuration to a target directory (M20)."""
 

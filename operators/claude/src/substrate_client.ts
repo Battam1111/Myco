@@ -30,6 +30,8 @@ import {
   computeIntentPayload,
   type DagEnumerationReport,
   decodeFrameBody,
+  depositForgedUnderstandingPayload,
+  type DepositForgedUnderstandingResult,
   emptyPayload,
   encodeFrameBody,
   enumerateDagSincePayload,
@@ -73,6 +75,7 @@ import {
   parseAcceptSelfEuthanasiaProposalResponse,
   parseAdvanceResponse,
   parseComputeIntentResponse,
+  parseDepositForgedUnderstandingResponse,
   parseEnumerateDagSinceResponse,
   parseFederationCloseListenerResponse,
   parseFederationConnectPeerResponse,
@@ -575,6 +578,32 @@ export class SubstrateClient {
       ingestRawMaterialPayload(args),
     );
     return parseIngestRawMaterialResponse(response);
+  }
+
+  /** The "use-forges" forging loop (P2 永恒吞噬 + P6 永恒因果) — deposit the
+   *  agent's DIGESTED understanding (prose/knowledge it forged out of
+   *  raw_material) as a `forged_understanding:{label}` DAG node. The substrate
+   *  hashes the full (label, understanding, source_raw_material_hashes,
+   *  forged_at_cycle) tuple as canonical bytes and parents the node by BOTH the
+   *  prior tip AND each source raw_material node it was forged from. Max 512 KiB
+   *  on `understanding`.
+   *
+   *  Where `ingestRawMaterial` stores UNDIGESTED intake, this stores the
+   *  digested output of the agent's forging. `sourceRawMaterialHashes` MAY be
+   *  empty; when present, each must reference a `raw_material:*` node (the
+   *  substrate rejects an unknown / wrong-typed source). General — NOT tied to a
+   *  gradient axis.
+   */
+  async depositForgedUnderstanding(args: {
+    label: string;
+    understanding: Uint8Array;
+    sourceRawMaterialHashes?: Uint8Array[];
+  }): Promise<DepositForgedUnderstandingResult> {
+    const response = await this._sendRequest(
+      MSG_TYPE.DEPOSIT_FORGED_UNDERSTANDING,
+      depositForgedUnderstandingPayload(args),
+    );
+    return parseDepositForgedUnderstandingResponse(response);
   }
 
   /** M24.2: query the substrate's substrate_id by inspecting its genesis_event.

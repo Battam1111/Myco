@@ -81,6 +81,10 @@ export const MSG_TYPE = {
   INGEST_RAW_MATERIAL_RESPONSE: "ingest_raw_material_response",
   PERTURB_AXIS_FROM_RAW_MATERIAL: "perturb_axis_from_raw_material",
   PERTURB_AXIS_FROM_RAW_MATERIAL_RESPONSE: "perturb_axis_from_raw_material_response",
+  // The "use-forges" forging loop — deposit the agent's DIGESTED understanding
+  // (forged out of raw_material) as a forged_understanding:{label} DAG node.
+  DEPOSIT_FORGED_UNDERSTANDING: "deposit_forged_understanding",
+  DEPOSIT_FORGED_UNDERSTANDING_RESPONSE: "deposit_forged_understanding_response",
   SPROUT_CHILD: "sprout_child",
   SPROUT_CHILD_RESPONSE: "sprout_child_response",
   // M22 P5 万物互联: inter-substrate federation (M25.5 TS wiring).

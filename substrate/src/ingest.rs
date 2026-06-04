@@ -439,6 +439,188 @@ pub(crate) fn handle_ingest_raw_material(
     )))
 }
 
+/// The "use-forges" forging-loop node-type prefix. A `forged_understanding:{label}`
+/// node holds the agent's DIGESTED understanding (prose/knowledge it forged out of
+/// raw_material), as distinct from the undigested `raw_material:{kind}` intake.
+/// `{label}` is a short agent-supplied tag, analogous to `content_kind` for
+/// raw_material. The node is GENERAL — it is not bound to any gradient axis.
+pub(crate) const FORGED_UNDERSTANDING_NODE_TYPE_PREFIX: &str = "forged_understanding:";
+
+/// **The "use-forges" forging loop (P2 永恒吞噬 + P6 永恒因果)** — deposit a
+/// `forged_understanding:{label}` DAG node. Mirrors [`handle_ingest_raw_material`]:
+/// where ingest stores UNDIGESTED intake, this stores the agent's DIGESTED
+/// understanding — prose/knowledge forged out of one or more prior raw_material
+/// nodes. The deposited node is causally parented by BOTH the prior tip AND the
+/// `source_raw_material_hashes` it was forged from, so the digested understanding
+/// is traceable back through the DAG to its undigested sources (P6).
+///
+/// Payload schema:
+/// ```text
+/// Map({
+///   "label": String,                       // short tag (analogous to content_kind)
+///   "understanding": Bytes,                 // digested prose/knowledge (UTF-8; max 512 KiB)
+///   "source_raw_material_hashes": Array,    // optional; Array of Bytes (32-byte raw_material hashes)
+/// })
+/// ```
+///
+/// The substrate composes the DAG node's content as canonical_bytes(Map({
+///   "label": ..., "understanding": ..., "source_raw_material_hashes": ...,
+///   "forged_at_cycle": ...
+/// })) — the full forge context is hashed.
+///
+/// When `source_raw_material_hashes` is non-empty, EACH hash is validated to
+/// exist in the DAG AND reference a `raw_material:*` node (mirrors the
+/// `handle_perturb_axis_from_raw_material` provenance check); an unknown or
+/// wrong-typed source hash is a structured protocol error — NOT a silent insert.
+/// The array MAY be empty (a forged understanding need not cite a specific
+/// source). Applies the SAME 512 KiB cap as ingest, on the `understanding` bytes.
+///
+/// Returns the inserted node hash + tip + total DAG size (symmetric with the
+/// ingest response, including the `refused: Bool(false)` field so the operator
+/// can branch uniformly).
+pub(crate) fn handle_deposit_forged_understanding(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    // Required: label (non-empty String) + understanding (Bytes).
+    let label = match request.payload.get("label") {
+        Some(Value::String(s)) if !s.is_empty() => s.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "deposit_forged_understanding: label must be a non-empty String".to_string(),
+            ));
+        }
+    };
+    let understanding = match request.payload.get("understanding") {
+        Some(Value::Bytes(b)) => b.clone(),
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "deposit_forged_understanding: understanding must be Bytes".to_string(),
+            ));
+        }
+    };
+
+    // Same 512 KiB cap as ingest (the bridge frame layer caps at 1 MiB; this
+    // leaves headroom for the canonical-bytes envelope + source-hash array).
+    const MAX_UNDERSTANDING_BYTES: usize = 512 * 1024;
+    if understanding.len() > MAX_UNDERSTANDING_BYTES {
+        return Err(SubstrateError::Protocol(format!(
+            "deposit_forged_understanding: understanding size {} exceeds {MAX_UNDERSTANDING_BYTES}-byte cap",
+            understanding.len()
+        )));
+    }
+
+    // Optional: source_raw_material_hashes (Array of 32-byte Bytes). MAY be
+    // empty / absent. Each must parse to a 32-byte NodeHash.
+    let mut source_hashes: Vec<myco_kernel_shared::crypto::NodeHash> = Vec::new();
+    if let Some(v) = request.payload.get("source_raw_material_hashes") {
+        match v {
+            Value::Array(items) => {
+                for item in items {
+                    match item {
+                        Value::Bytes(b) if b.len() == 32 => {
+                            let mut arr = [0u8; 32];
+                            arr.copy_from_slice(b);
+                            source_hashes.push(myco_kernel_shared::crypto::NodeHash::from_bytes(arr));
+                        }
+                        _ => {
+                            return Err(SubstrateError::Protocol(
+                                "deposit_forged_understanding: each source_raw_material_hashes entry must be 32 Bytes"
+                                    .to_string(),
+                            ));
+                        }
+                    }
+                }
+            }
+            _ => {
+                return Err(SubstrateError::Protocol(
+                    "deposit_forged_understanding: source_raw_material_hashes must be an Array of Bytes"
+                        .to_string(),
+                ));
+            }
+        }
+    }
+
+    // Validate each source hash exists in the DAG AND is a raw_material:* node
+    // (mirrors the provenance check in handle_perturb_axis_from_raw_material).
+    for h in &source_hashes {
+        let node = state.dag.get(h).ok_or_else(|| {
+            SubstrateError::Protocol(format!(
+                "deposit_forged_understanding: source_raw_material_hash {} not found in DAG",
+                hex_encode(h.as_ref())
+            ))
+        })?;
+        if !node.node_type.starts_with("raw_material:") {
+            return Err(SubstrateError::Protocol(format!(
+                "deposit_forged_understanding: hash {} references a {:?} node, not raw_material",
+                hex_encode(h.as_ref()),
+                node.node_type
+            )));
+        }
+    }
+
+    let forged_at_cycle = state.cycle_counter();
+
+    // Compose the content canonical bytes (full forge context is hashed).
+    let mut content_map = BTreeMap::new();
+    content_map.insert("label".to_string(), Value::String(label.clone()));
+    content_map.insert("understanding".to_string(), Value::Bytes(understanding));
+    let source_array: Vec<Value> = source_hashes
+        .iter()
+        .map(|h| Value::Bytes(h.as_ref().to_vec()))
+        .collect();
+    content_map.insert(
+        "source_raw_material_hashes".to_string(),
+        Value::Array(source_array),
+    );
+    content_map.insert("forged_at_cycle".to_string(), Value::Uint(forged_at_cycle));
+    let canonical = cb_encode(&Value::Map(content_map))
+        .map_err(|e| SubstrateError::Protocol(format!("forged_understanding content encode: {e}")))?;
+
+    // Parents = [current_tip, ...source_raw_material_hashes] — causal link to the
+    // prior history AND to each source the understanding was forged from. Dedup so
+    // a source that happens to equal the tip is not listed twice.
+    let mut parents: Vec<myco_kernel_shared::crypto::NodeHash> = match state.dag.tip() {
+        Some(t) => vec![t],
+        None => Vec::new(),
+    };
+    for h in &source_hashes {
+        if !parents.contains(h) {
+            parents.push(*h);
+        }
+    }
+
+    let node_type = format!("{FORGED_UNDERSTANDING_NODE_TYPE_PREFIX}{label}");
+    let node_hash = state
+        .dag
+        .insert_node(parents, node_type, forged_at_cycle, canonical)
+        .map_err(|e| SubstrateError::Protocol(format!("forged_understanding DAG insert: {e}")))?;
+
+    let mut payload = BTreeMap::new();
+    // Symmetric with the ingest response so the operator can branch on `refused`
+    // uniformly regardless of op.
+    payload.insert("refused".to_string(), Value::Bool(false));
+    payload.insert(
+        "dag_node_hash".to_string(),
+        Value::Bytes(node_hash.as_ref().to_vec()),
+    );
+    if let Some(tip) = state.dag.tip() {
+        payload.insert(
+            "current_tip".to_string(),
+            Value::Bytes(tip.as_ref().to_vec()),
+        );
+    }
+    payload.insert(
+        "total_dag_size".to_string(),
+        Value::Uint(state.dag.node_count() as u64),
+    );
+    Ok(Some(Message::new(
+        msg_type::DEPOSIT_FORGED_UNDERSTANDING_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
 /// M16: P2 永恒吞噬 + P6 永恒因果 — Perturb an axis with causal linkage to a
 /// previously-ingested raw_material node. The substrate first forwards the
 /// numeric perturbation to the Python gradient (same as `perturb`), then

@@ -145,6 +145,19 @@ pub mod msg_type {
     /// node hash of the causal-link node + the perturbation result.
     pub const PERTURB_AXIS_FROM_RAW_MATERIAL_RESPONSE: &str =
         "perturb_axis_from_raw_material_response";
+    /// `deposit_forged_understanding` — Operator→Rust: deposit a digested
+    /// `forged_understanding:{label}` DAG node (the "use-forges" forging loop).
+    /// The agent ingests raw_material (P2 永恒吞噬), forges it into digested
+    /// understanding, and deposits the result back as a first-class DAG node
+    /// causally parented by BOTH the prior tip AND the source raw_material nodes
+    /// it was forged from (P6 永恒因果). Rust-handled; no Python involvement,
+    /// exactly like `ingest_raw_material`. General — NOT tied to a gradient axis.
+    pub const DEPOSIT_FORGED_UNDERSTANDING: &str = "deposit_forged_understanding";
+    /// `deposit_forged_understanding_response` — Rust→Operator: the DAG node
+    /// hash of the newly inserted forged_understanding node, plus current DAG
+    /// tip + size (symmetric with `ingest_raw_material_response`).
+    pub const DEPOSIT_FORGED_UNDERSTANDING_RESPONSE: &str =
+        "deposit_forged_understanding_response";
     /// `snapshot_gradient_to_dir` — Rust→Python: snapshot the gradient
     /// configuration (axes + schemas + current values) to a target directory.
     /// Used by M20 P8 永恒繁衍 to seed a child substrate's gradient.cb.

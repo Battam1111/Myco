@@ -55,6 +55,7 @@ import type {
   IntentReport,
   MutationResult,
   ObservatorySnapshot,
+  RecentDagNode,
   RecentNodesReport,
 } from "./protocol/messages.ts";
 import { OperatorIdentity } from "./operator_identity.ts";
@@ -66,6 +67,152 @@ import type { Value } from "@myco/anchor-client/src/canonical_bytes.ts";
  *  narrowly and then forces an `as never` cast at the call site). */
 function cbMap(entries: [string, Value][]): Value {
   return { type: "map", value: new Map<string, Value>(entries) };
+}
+
+/** Byte-equality for two Uint8Arrays (used to match a DAG node by hash). */
+function _bytesEq(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+/** Decode a node's canonical-bytes content into HUMAN-READABLE text.
+ *
+ *  The content of every DAG node is already transmitted in the recent-nodes
+ *  response (`RecentDagNode.contentCanonicalBytes`); this decodes that
+ *  canonical-bytes Map (reusing the anchor-client decode utilities the operator
+ *  already imports for querySubstrateId) and renders per node-type:
+ *   - `raw_material:*` → kind + decoded UTF-8 of the "bytes" field + source_uri.
+ *   - `forged_understanding:*` → label + decoded "understanding" text + the
+ *     source raw_material hashes.
+ *   - anything else → a best-effort key/value decode of the top-level Map.
+ */
+async function renderNodeContentText(node: RecentDagNode): Promise<string> {
+  const { decode } = await import("@myco/anchor-client/src/renderer.ts");
+  const { CanonicalBytes } = await import(
+    "@myco/anchor-client/src/canonical_bytes.ts"
+  );
+  const utf8 = new TextDecoder("utf-8", { fatal: false });
+  const header = `[cycle ${node.atCycle}] ${node.nodeType}  hash=${toHex(node.hash)}`;
+
+  let decoded: Value;
+  try {
+    decoded = decode(new CanonicalBytes(node.contentCanonicalBytes));
+  } catch (e) {
+    return `${header}\n  (content is not decodable canonical-bytes: ${e instanceof Error ? e.message : String(e)}; ${node.contentCanonicalBytes.length} raw bytes)`;
+  }
+  if (decoded.type !== "map") {
+    return `${header}\n  content (non-Map ${decoded.type}): ${_renderScalar(decoded, utf8)}`;
+  }
+  const m = decoded.value;
+  const lines: string[] = [header];
+
+  if (node.nodeType.startsWith("raw_material:")) {
+    const kind = m.get("kind");
+    const bytes = m.get("bytes");
+    const sourceUri = m.get("source_uri");
+    lines.push(`  kind: ${kind && kind.type === "string" ? kind.value : "(none)"}`);
+    if (bytes && bytes.type === "bytes") {
+      lines.push(`  content (${bytes.value.length} bytes):`);
+      lines.push(_indentBlock(utf8.decode(bytes.value)));
+    } else {
+      lines.push("  content: (missing 'bytes' field)");
+    }
+    if (sourceUri && sourceUri.type === "string") {
+      lines.push(`  source_uri: ${sourceUri.value}`);
+    }
+    return lines.join("\n");
+  }
+
+  if (node.nodeType.startsWith("forged_understanding:")) {
+    const label = m.get("label");
+    const understanding = m.get("understanding");
+    const sources = m.get("source_raw_material_hashes");
+    const forgedAt = m.get("forged_at_cycle");
+    lines.push(`  label: ${label && label.type === "string" ? label.value : "(none)"}`);
+    if (forgedAt && forgedAt.type === "uint") {
+      lines.push(`  forged_at_cycle: ${forgedAt.value}`);
+    }
+    if (understanding && understanding.type === "bytes") {
+      lines.push(`  understanding (${understanding.value.length} bytes):`);
+      lines.push(_indentBlock(utf8.decode(understanding.value)));
+    } else {
+      lines.push("  understanding: (missing 'understanding' field)");
+    }
+    if (sources && sources.type === "array") {
+      if (sources.value.length === 0) {
+        lines.push("  source_raw_material_hashes: (none)");
+      } else {
+        lines.push(`  source_raw_material_hashes (${sources.value.length}):`);
+        for (const s of sources.value) {
+          if (s.type === "bytes") lines.push(`    - ${toHex(s.value)}`);
+        }
+      }
+    }
+    return lines.join("\n");
+  }
+
+  // Best-effort key/value decode for any other node type.
+  lines.push("  content (key/value):");
+  for (const [k, v] of m) {
+    lines.push(`    ${k}: ${_renderScalar(v, utf8)}`);
+  }
+  return lines.join("\n");
+}
+
+/** Whether a decoded string "looks like" clean text worth previewing: no C0
+ *  control chars other than tab (0x09) / newline (0x0a) / CR (0x0d), and no
+ *  U+FFFD replacement char (which `TextDecoder({fatal:false})` inserts for
+ *  invalid UTF-8 — its presence means the bytes were not valid text). Pure
+ *  char-code scan; no regex with non-ASCII literals. */
+function _looksLikeText(s: string): boolean {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c === 0xfffd) return false; // replacement char → not valid UTF-8 text
+    if (c < 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0d) return false;
+  }
+  return true;
+}
+
+/** Compact one-line render of a canonical-bytes scalar/aggregate for the
+ *  best-effort key/value path. Bytes are shown as hex (with a UTF-8 preview when
+ *  they look like text); nested aggregates are summarized by size. */
+function _renderScalar(v: Value, utf8: InstanceType<typeof TextDecoder>): string {
+  switch (v.type) {
+    case "null":
+      return "null";
+    case "bool":
+      return String(v.value);
+    case "int":
+    case "uint":
+    case "timestamp":
+      return String(v.value);
+    case "string":
+      return JSON.stringify(v.value);
+    case "bytes":
+    case "hash": {
+      const hex = toHex(v.value);
+      const preview = utf8.decode(v.value);
+      const printable = _looksLikeText(preview);
+      return printable && preview.length > 0
+        ? `0x${hex.substring(0, 32)}${hex.length > 32 ? "…" : ""} (utf8: ${JSON.stringify(preview.length > 120 ? preview.substring(0, 120) + "…" : preview)})`
+        : `0x${hex.substring(0, 64)}${hex.length > 64 ? `…<${v.value.length} bytes>` : ""}`;
+    }
+    case "array":
+      return `[array of ${v.value.length}]`;
+    case "map":
+      return `{map of ${v.value.size}}`;
+  }
+}
+
+/** Indent every line of a text block by 4 spaces (for nested content display). */
+function _indentBlock(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => `    ${line}`)
+    .join("\n");
 }
 
 /** Configuration for the MCP server. */
@@ -629,6 +776,66 @@ const TOOL_DEFINITIONS = [
           type: "string",
           description:
             'Optional sub-filter: e.g. "text", "file", "conversation". Becomes prefix "raw_material:<kind_filter>". Omit to return all raw_material kinds.',
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "myco_forge_understanding",
+    description:
+      "P2 永恒吞噬 + P6 永恒因果 (the 'use-forges' forging loop): Deposit the agent's DIGESTED understanding back into the substrate as a `forged_understanding:{label}` DAG node. Where myco_ingest_raw_material stores UNDIGESTED intake, this stores what the agent FORGED out of it — prose/knowledge it metabolized. The new node is causally parented by BOTH the prior DAG tip AND each source raw_material node it cites, so the digested understanding stays traceable through causal history to its undigested sources. General — NOT tied to a gradient axis. Max 512 KiB on the understanding text. Returns: dag_node_hash (the forged_understanding node id), current_tip, total_dag_size.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        label: {
+          type: "string",
+          description:
+            "A short tag for this forged understanding (analogous to content_kind for raw_material). Becomes the node_type `forged_understanding:<label>`. E.g. \"synthesis\", \"lesson\", \"summary:auth-flow\".",
+        },
+        understanding: {
+          type: "string",
+          description:
+            "The digested understanding (UTF-8 prose/knowledge the agent forged). Encoded UTF-8→bytes, max 512 KiB.",
+        },
+        source_raw_material_hashes: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Optional list of 64-hex (32-byte) hashes of the raw_material:* DAG nodes this understanding was forged from (from prior myco_ingest_raw_material / myco_query_raw_material calls). Each must reference a raw_material:* node or the substrate rejects. MAY be empty/omitted (a forged understanding need not cite a specific source).",
+        },
+      },
+      required: ["label", "understanding"],
+    },
+  },
+  {
+    name: "myco_read_node_content",
+    description:
+      "Read back the HUMAN-READABLE content of a single DAG node by its hash. The substrate already transmits each node's content in the recent-nodes window; this tool fetches that window, finds the matching node, decodes its canonical-bytes content, and renders it as text: for raw_material:* → the kind + the decoded UTF-8 of the ingested bytes + source_uri; for forged_understanding:* → the label + the decoded understanding text + the source raw_material hashes; for other node types → a best-effort key/value decode. If the node is NOT in the recent window, says so clearly (widen via a prior myco_query_recent_nodes with a larger count, then retry — read-back only sees the recent window).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        node_hash_hex: {
+          type: "string",
+          description:
+            "64-character hex string (32-byte hash) of the DAG node to read. Obtain from any tool that returns node hashes (myco_query_recent_nodes, myco_query_raw_material, myco_forge_understanding, etc.).",
+        },
+      },
+      required: ["node_hash_hex"],
+    },
+  },
+  {
+    name: "myco_query_forged_understanding",
+    description:
+      "Query the substrate's forged_understanding:* DAG nodes (the agent's deposited DIGESTED understandings — the output side of the 'use-forges' forging loop, vs. myco_query_raw_material's undigested intake side). Lists each with metadata: cycle, label, hash, size. Use myco_read_node_content on a hash to read the full understanding text. Optional count parameter (default 50, max 1000).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        count: {
+          type: "integer",
+          description: "Number of most-recent forged_understanding nodes to return (default 50).",
+          minimum: 1,
+          maximum: 1000,
         },
       },
       required: [],
@@ -1327,6 +1534,80 @@ export class McpServer {
         }
         if (report.filteredTotal === 0n) {
           lines.push("  (no raw_material ingested yet)");
+        }
+        return {
+          content: [{ type: "text" as const, text: lines.join("\n") }],
+        };
+      }
+      case "myco_forge_understanding": {
+        const sub = await this._ensureSubstrate();
+        const label = String(args.label);
+        const understandingStr = String(args.understanding);
+        const understanding = new TextEncoder().encode(understandingStr);
+        const sourceRawMaterialHashes = Array.isArray(
+          args.source_raw_material_hashes,
+        )
+          ? (args.source_raw_material_hashes as unknown[]).map((h, i) =>
+              hexTo32(String(h), `source_raw_material_hashes[${i}]`),
+            )
+          : [];
+        const result = await sub.depositForgedUnderstanding({
+          label,
+          understanding,
+          sourceRawMaterialHashes,
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                `Forged understanding forged_understanding:${label} (${understanding.length} bytes${sourceRawMaterialHashes.length > 0 ? `, forged from ${sourceRawMaterialHashes.length} raw_material source${sourceRawMaterialHashes.length === 1 ? "" : "s"}` : ""})`,
+                `dag_node_hash=${toHex(result.dagNodeHash)}`,
+                `total_dag_size=${result.totalDagSize}`,
+              ].join("\n"),
+            },
+          ],
+        };
+      }
+      case "myco_read_node_content": {
+        const sub = await this._ensureSubstrate();
+        const targetHash = hexTo32(String(args.node_hash_hex), "node_hash_hex");
+        // The content of nodes is ALREADY transmitted in the query_recent_nodes
+        // response (RecentDagNode.contentCanonicalBytes); fetch the recent window
+        // and find the node by hash. (Read-back only sees the recent window.)
+        const report = await sub.queryRecentNodes(1000n);
+        const node = report.nodes.find((n) => _bytesEq(n.hash, targetHash));
+        if (!node) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Node ${toHex(targetHash).substring(0, 16)}… is NOT in the recent DAG window (last ${report.returnedCount} of ${report.totalDagSize} nodes). It may be older than the window; widen via myco_query_recent_nodes with a larger count, or it may not exist.`,
+              },
+            ],
+          };
+        }
+        const text = await renderNodeContentText(node);
+        return {
+          content: [{ type: "text" as const, text }],
+        };
+      }
+      case "myco_query_forged_understanding": {
+        const sub = await this._ensureSubstrate();
+        const count = args.count !== undefined ? BigInt(Number(args.count)) : 50n;
+        const report = await sub.queryRecentNodes(count, "forged_understanding:");
+        const lines: string[] = [];
+        lines.push(
+          `total_dag_size=${report.totalDagSize}  matching=${report.filteredTotal}  returned=${report.returnedCount}`,
+        );
+        for (const node of report.nodes) {
+          const label = node.nodeType.replace(/^forged_understanding:/, "");
+          lines.push(
+            `  [${node.atCycle}] forged_understanding:${label}  hash=${toHex(node.hash).substring(0, 16)}…  size=${node.contentCanonicalBytes.length}B`,
+          );
+        }
+        if (report.filteredTotal === 0n) {
+          lines.push("  (no forged_understanding deposited yet)");
         }
         return {
           content: [{ type: "text" as const, text: lines.join("\n") }],

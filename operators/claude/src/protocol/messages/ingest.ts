@@ -76,6 +76,77 @@ export function parseIngestRawMaterialResponse(response: Message): IngestResult 
   };
 }
 
+/** Build the payload for a `deposit_forged_understanding` request (the
+ *  "use-forges" forging loop).
+ *
+ *  Activates L0 P2 永恒吞噬 + P6 永恒因果 — the agent's DIGESTED understanding
+ *  (prose/knowledge it forged out of raw_material) is stored as a
+ *  `forged_understanding:{label}` DAG node, causally parented by the prior tip
+ *  AND each source raw_material node it was forged from. Max 512 KiB on the
+ *  `understanding` bytes. The understanding is encoded UTF-8→bytes by the caller
+ *  (mirrors how ingest encodes content). General — NOT tied to a gradient axis.
+ */
+export function depositForgedUnderstandingPayload(args: {
+  label: string;
+  understanding: Uint8Array;
+  sourceRawMaterialHashes?: Uint8Array[];
+}): Map<string, Value> {
+  if (!args.label || args.label.length === 0) {
+    throw new BridgeProtocolError(
+      "deposit_forged_understanding: label must be a non-empty string",
+    );
+  }
+  const sources = args.sourceRawMaterialHashes ?? [];
+  for (const h of sources) {
+    if (h.length !== 32) {
+      throw new BridgeProtocolError(
+        `source_raw_material_hashes entry must be 32 bytes; got ${h.length}`,
+      );
+    }
+  }
+  const m = new Map<string, Value>();
+  m.set("label", { type: "string", value: args.label });
+  m.set("understanding", { type: "bytes", value: args.understanding });
+  m.set("source_raw_material_hashes", {
+    type: "array",
+    value: sources.map((h) => ({ type: "bytes", value: h }) as Value),
+  });
+  return m;
+}
+
+/** Parsed `deposit_forged_understanding_response` (the forging loop). Symmetric
+ *  with {@link IngestResult}. */
+export interface DepositForgedUnderstandingResult {
+  /** DAG node hash of the newly-inserted forged_understanding node. */
+  dagNodeHash: Uint8Array;
+  /** Substrate's current DAG tip (after the deposit). */
+  currentTip: Uint8Array | null;
+  totalDagSize: bigint;
+}
+
+export function parseDepositForgedUnderstandingResponse(
+  response: Message,
+): DepositForgedUnderstandingResult {
+  if (response.messageType !== MSG_TYPE.DEPOSIT_FORGED_UNDERSTANDING_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected deposit_forged_understanding_response; got ${response.messageType}`,
+    );
+  }
+  const hashV = response.payload.get("dag_node_hash");
+  const totalV = response.payload.get("total_dag_size");
+  if (!hashV || hashV.type !== "bytes" || !totalV || totalV.type !== "uint") {
+    throw new BridgeProtocolError(
+      "deposit_forged_understanding_response missing required typed fields",
+    );
+  }
+  const tipV = response.payload.get("current_tip");
+  return {
+    dagNodeHash: hashV.value,
+    currentTip: tipV && tipV.type === "bytes" ? tipV.value : null,
+    totalDagSize: totalV.value,
+  };
+}
+
 /** Build the payload for a `perturb_axis_from_raw_material` request (M16).
  *
  *  Activates L0 P6 永恒因果 + P2 永恒吞噬 — the gradient change is causally

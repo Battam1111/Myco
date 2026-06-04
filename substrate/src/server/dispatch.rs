@@ -170,6 +170,15 @@ pub(super) fn dispatch(
             save_dag_state(state)?;
             Ok(response)
         }
+        // The "use-forges" forging loop (P2 永恒吞噬 + P6 永恒因果) — deposit a
+        // `forged_understanding:{label}` DAG node (the agent's DIGESTED
+        // understanding), causally parented by the prior tip + its source
+        // raw_material nodes. Substrate-handled, mirroring INGEST_RAW_MATERIAL.
+        msg_type::DEPOSIT_FORGED_UNDERSTANDING => {
+            let response = crate::ingest::handle_deposit_forged_understanding(state, request)?;
+            save_dag_state(state)?;
+            Ok(response)
+        }
         msg_type::PERTURB_AXIS_FROM_RAW_MATERIAL => {
             let response = crate::ingest::handle_perturb_axis_from_raw_material(state, request)?;
             save_python_state(state)?;
