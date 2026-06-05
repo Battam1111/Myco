@@ -100,6 +100,19 @@ pub mod msg_type {
     pub const QUERY_RECENT_NODES: &str = "query_recent_nodes";
     /// `query_recent_nodes_response` — Rust→Operator: enumerated recent DAG nodes.
     pub const QUERY_RECENT_NODES_RESPONSE: &str = "query_recent_nodes_response";
+    /// `read_node_by_hash` — Operator→Rust: fetch ONE DAG node by its 32-byte hash
+    /// (O(1) `dag.get`; ANY node, NOT window-bounded — repairs recall of plates older
+    /// than the recent window). Handled by Rust substrate; not forwarded to Python.
+    pub const READ_NODE_BY_HASH: &str = "read_node_by_hash";
+    /// `read_node_by_hash_response` — Rust→Operator: the node (found=true + content) or found=false.
+    pub const READ_NODE_BY_HASH_RESPONSE: &str = "read_node_by_hash_response";
+    /// `list_plates` — Operator→Rust: the pilot's compact "what I know" map — every
+    /// LIVE (non-superseded) forged_understanding plate as (label, value, hash), sorted
+    /// by value. The pilot reads the whole map + picks; semantic relevance is the
+    /// pilot's own judgment (fungal-armor split). Handled by Rust; not forwarded to Python.
+    pub const LIST_PLATES: &str = "list_plates";
+    /// `list_plates_response` — Rust→Operator: the compact live-plate index.
+    pub const LIST_PLATES_RESPONSE: &str = "list_plates_response";
     /// `submit_mutation` — Operator→Rust→Python: submit a mutation for classification + (CI) attestation (M10).
     pub const SUBMIT_MUTATION: &str = "submit_mutation";
     /// `submit_mutation_response` — Python→Rust→Operator: classification + accepted + content.

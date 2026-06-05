@@ -831,7 +831,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "myco_read_node_content",
     description:
-      "Read back the HUMAN-READABLE content of a single DAG node by its hash. The substrate already transmits each node's content in the recent-nodes window; this tool fetches that window, finds the matching node, decodes its canonical-bytes content, and renders it as text: for raw_material:* → the kind + the decoded UTF-8 of the ingested bytes + source_uri; for forged_understanding:* → the label + the decoded understanding text + the source raw_material hashes; for other node types → a best-effort key/value decode. If the node is NOT in the recent window, says so clearly (widen via a prior myco_query_recent_nodes with a larger count, then retry — read-back only sees the recent window).",
+      "Read back the HUMAN-READABLE content of a single DAG node by its hash — fetched directly via the substrate (ANY node, not just the recent window). Decodes the node's canonical-bytes content and renders it as text: for raw_material:* → the kind + the decoded UTF-8 of the ingested bytes + source_uri; for forged_understanding:* → the label + the decoded understanding text + the source raw_material hashes; for other node types → a best-effort key/value decode. If the node does not exist in the DAG, says so.",
     inputSchema: {
       type: "object",
       properties: {
@@ -842,6 +842,15 @@ const TOOL_DEFINITIONS = [
         },
       },
       required: ["node_hash_hex"],
+    },
+  },
+  {
+    name: "myco_recall",
+    description:
+      "Read your compact \"what I know\" map: every LIVE forged_understanding plate you have crystallized, as (label, importance value, hash), sorted by importance (highest first). Superseded plates (ones you later corrected/replaced via forge's `supersedes`) are excluded — so this is your CURRENT mind, not your history. Read the whole map, judge which plates are relevant to what you are doing now (your OWN judgment — the armor does not rank relevance for you), then read the full content of the ones you want with myco_read_node_content. This is how you stand on your accumulated understanding instead of re-deriving it. Returns: total_plates, live_plates, and the sorted plate list (label / value / hash).",
+    inputSchema: {
+      type: "object",
+      properties: {},
     },
   },
   {
@@ -1613,17 +1622,16 @@ export class McpServer {
       case "myco_read_node_content": {
         const sub = await this._ensureSubstrate();
         const targetHash = hexTo32(String(args.node_hash_hex), "node_hash_hex");
-        // The content of nodes is ALREADY transmitted in the query_recent_nodes
-        // response (RecentDagNode.contentCanonicalBytes); fetch the recent window
-        // and find the node by hash. (Read-back only sees the recent window.)
-        const report = await sub.queryRecentNodes(1000n);
-        const node = report.nodes.find((n) => _bytesEq(n.hash, targetHash));
+        // Amplifier step 2: fetch the node by hash directly (O(1) dag.get, ANY node),
+        // not by scanning the recent window — so a forged_understanding plate older
+        // than the window is readable again instead of "may not exist".
+        const node = await sub.readNodeByHash(targetHash);
         if (!node) {
           return {
             content: [
               {
                 type: "text" as const,
-                text: `Node ${toHex(targetHash).substring(0, 16)}… is NOT in the recent DAG window (last ${report.returnedCount} of ${report.totalDagSize} nodes). It may be older than the window; widen via myco_query_recent_nodes with a larger count, or it may not exist.`,
+                text: `Node ${toHex(targetHash).substring(0, 16)}… does not exist in the substrate's DAG.`,
               },
             ],
           };
@@ -1632,6 +1640,28 @@ export class McpServer {
         return {
           content: [{ type: "text" as const, text }],
         };
+      }
+      case "myco_recall": {
+        const sub = await this._ensureSubstrate();
+        const report = await sub.listPlates();
+        const lines: string[] = [];
+        lines.push(
+          `Your map: ${report.livePlates} live plate${report.livePlates === 1n ? "" : "s"} (of ${report.totalPlates} forged; superseded excluded), sorted by importance:`,
+        );
+        if (report.plates.length === 0) {
+          lines.push(
+            "  (none yet — forge understanding with myco_forge_understanding)",
+          );
+        }
+        for (const p of report.plates) {
+          const v = p.value === null ? "—" : String(p.value);
+          lines.push(`  [value ${v.padStart(3)}] ${p.label}  ${toHex(p.hash)}`);
+        }
+        lines.push(
+          "",
+          "Pick the plates relevant to your current task, then myco_read_node_content their hashes to read the full understanding.",
+        );
+        return { content: [{ type: "text" as const, text: lines.join("\n") }] };
       }
       case "myco_query_forged_understanding": {
         const sub = await this._ensureSubstrate();

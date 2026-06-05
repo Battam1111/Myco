@@ -123,6 +123,144 @@ pub(crate) fn handle_query_recent_nodes(
     )))
 }
 
+/// **Recall by hash (amplifier step 2, piece 1)** — fetch ONE DAG node by its 32-byte
+/// hash via `dag.get` (O(1), ANY node). Where `handle_query_recent_nodes` only ever
+/// sees the recency tail, this reaches any node — so a forged_understanding plate older
+/// than the recent window stops being "may not exist" and the pilot can stand on it
+/// again. Returns `found: Bool` + (when found) the node's hash / node_type / at_cycle /
+/// parent_hashes / content_canonical_bytes (same node shape as the recent-nodes list).
+pub(crate) fn handle_read_node_by_hash(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let hash = match request.payload.get("node_hash") {
+        Some(Value::Bytes(b)) if b.len() == 32 => {
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(b);
+            myco_kernel_shared::crypto::NodeHash::from_bytes(arr)
+        }
+        _ => {
+            return Err(SubstrateError::Protocol(
+                "read_node_by_hash: node_hash must be 32 Bytes".to_string(),
+            ));
+        }
+    };
+
+    let mut payload = BTreeMap::new();
+    match state.dag.get(&hash) {
+        Some(node) => {
+            payload.insert("found".to_string(), Value::Bool(true));
+            payload.insert("hash".to_string(), Value::Bytes(node.hash.as_ref().to_vec()));
+            payload.insert(
+                "node_type".to_string(),
+                Value::String(node.node_type.clone()),
+            );
+            payload.insert("at_cycle".to_string(), Value::Uint(node.created_at_cycle));
+            payload.insert(
+                "parent_hashes".to_string(),
+                Value::Array(
+                    node.parent_hashes
+                        .iter()
+                        .map(|h| Value::Bytes(h.as_ref().to_vec()))
+                        .collect(),
+                ),
+            );
+            payload.insert(
+                "content_canonical_bytes".to_string(),
+                Value::Bytes(node.content_canonical_bytes.as_ref().to_vec()),
+            );
+        }
+        None => {
+            payload.insert("found".to_string(), Value::Bool(false));
+        }
+    }
+    Ok(Some(Message::new(
+        msg_type::READ_NODE_BY_HASH_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
+/// **The pilot's compact "what I know" map (amplifier step 2, piece 2)** — every
+/// LIVE forged_understanding plate as `(hash, label, value)`, sorted by value (desc;
+/// value-less last). "Live" = NOT pointed at by any other plate's `supersedes` edge,
+/// so a corrected/replaced plate drops out of the map (maturation; the old node stays
+/// in the DAG, P06). This is deliberately NOT a scoring/retrieval engine: it hands the
+/// pilot a compact index of its whole accumulated understanding, and the pilot — the
+/// cognition — judges relevance itself, then fetches the chosen plates by hash. One
+/// pass over the plate set (decode each once); cheap, on-demand, no maintained index.
+pub(crate) fn handle_list_plates(
+    state: &mut ServerState,
+    request: &Message,
+) -> Result<Option<Message>, SubstrateError> {
+    let prefix = crate::ingest::FORGED_UNDERSTANDING_NODE_TYPE_PREFIX;
+
+    // One pass: decode each plate once → (hash, label, value); accumulate the
+    // superseded set (every hash any plate declares it supersedes).
+    let mut superseded: std::collections::HashSet<myco_kernel_shared::crypto::NodeHash> =
+        std::collections::HashSet::new();
+    let mut plates: Vec<(myco_kernel_shared::crypto::NodeHash, String, Option<u64>)> = Vec::new();
+    for node in state.dag.iter_in_insertion_order() {
+        if !node.node_type.starts_with(prefix) {
+            continue;
+        }
+        let label = node
+            .node_type
+            .strip_prefix(prefix)
+            .unwrap_or(&node.node_type)
+            .to_string();
+        let mut value: Option<u64> = None;
+        if let Ok(Value::Map(m)) =
+            myco_kernel_shared::canonical_bytes::decode(node.content_canonical_bytes.as_ref())
+        {
+            if let Some(Value::Uint(v)) = m.get("value") {
+                value = Some(*v);
+            }
+            if let Some(Value::Array(items)) = m.get("supersedes") {
+                for it in items {
+                    if let Value::Bytes(b) = it {
+                        if b.len() == 32 {
+                            let mut a = [0u8; 32];
+                            a.copy_from_slice(b);
+                            superseded.insert(myco_kernel_shared::crypto::NodeHash::from_bytes(a));
+                        }
+                    }
+                }
+            }
+        }
+        plates.push((node.hash, label, value));
+    }
+
+    let total_plates = plates.len();
+    // Live = not superseded; sort by value desc (stable → ties keep insertion order).
+    let mut live: Vec<&(myco_kernel_shared::crypto::NodeHash, String, Option<u64>)> =
+        plates.iter().filter(|(h, _, _)| !superseded.contains(h)).collect();
+    live.sort_by(|a, b| b.2.unwrap_or(0).cmp(&a.2.unwrap_or(0)));
+
+    let index: Vec<Value> = live
+        .iter()
+        .map(|(h, label, value)| {
+            let mut m = BTreeMap::new();
+            m.insert("hash".to_string(), Value::Bytes(h.as_ref().to_vec()));
+            m.insert("label".to_string(), Value::String(label.clone()));
+            if let Some(v) = value {
+                m.insert("value".to_string(), Value::Uint(*v));
+            }
+            Value::Map(m)
+        })
+        .collect();
+
+    let mut payload = BTreeMap::new();
+    payload.insert("total_plates".to_string(), Value::Uint(total_plates as u64));
+    payload.insert("live_plates".to_string(), Value::Uint(live.len() as u64));
+    payload.insert("plates".to_string(), Value::Array(index));
+    Ok(Some(Message::new(
+        msg_type::LIST_PLATES_RESPONSE,
+        request.request_id,
+        payload,
+    )))
+}
+
 /// M8: Forward intent computation to the Python worker.
 ///
 /// The substrate serializes ITS OWN DAG (full set at M8; M9+ adds windowing)

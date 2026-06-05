@@ -94,6 +94,8 @@ import {
   parseQueryImmuneEventsResponse,
   parseQuerySubstrateObservatoryResponse,
   parseQueryRecentNodesResponse,
+  parseReadNodeByHashResponse,
+  parseListPlatesResponse,
   parseRequestAttestationNonceResponse,
   parseRunImmuneCheckResponse,
   parseSnapshotResponse,
@@ -107,6 +109,8 @@ import {
   querySubstrateObservatoryPayload,
   type RawMaterialKind,
   type RecentNodesReport,
+  type RecentDagNode,
+  type PlateIndexReport,
   registerAxisPayload,
   requestAttestationNoncePayload,
   revealKeyBindingSigningInput,
@@ -556,6 +560,33 @@ export class SubstrateClient {
       queryRecentNodesPayload(count, nodeTypePrefix),
     );
     return parseQueryRecentNodesResponse(response);
+  }
+
+  /** Recall by hash (amplifier step 2) — fetch ONE DAG node by its 32-byte hash,
+   *  O(1) via the substrate's `dag.get`, reaching ANY node (NOT window-bounded).
+   *  Returns the node, or null if it does not exist. This is what lets the pilot
+   *  stand on a forged_understanding plate older than the recent window. */
+  async readNodeByHash(hash: Uint8Array): Promise<RecentDagNode | null> {
+    const payload = new Map<
+      string,
+      import("@myco/anchor-client/src/canonical_bytes.ts").Value
+    >();
+    payload.set("node_hash", { type: "bytes", value: hash });
+    const response = await this._sendRequest(MSG_TYPE.READ_NODE_BY_HASH, payload);
+    return parseReadNodeByHashResponse(response);
+  }
+
+  /** The pilot's compact "what I know" map (amplifier step 2) — every LIVE
+   *  (non-superseded) forged_understanding plate as (label, value, hash), sorted by
+   *  value. The pilot reads the whole map, judges relevance with its own cognition,
+   *  then fetches the chosen plates' full content with readNodeByHash. */
+  async listPlates(): Promise<PlateIndexReport> {
+    const payload = new Map<
+      string,
+      import("@myco/anchor-client/src/canonical_bytes.ts").Value
+    >();
+    const response = await this._sendRequest(MSG_TYPE.LIST_PLATES, payload);
+    return parseListPlatesResponse(response);
   }
 
   /** M16: P2 永恒吞噬 — Ingest a raw material payload. The substrate stores

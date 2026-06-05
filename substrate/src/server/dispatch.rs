@@ -147,6 +147,8 @@ pub(super) fn dispatch(
         }
         // M8: DAG-related operator requests handled substrate-side.
         msg_type::QUERY_RECENT_NODES => crate::dag_query::handle_query_recent_nodes(state, request),
+        msg_type::READ_NODE_BY_HASH => crate::dag_query::handle_read_node_by_hash(state, request),
+        msg_type::LIST_PLATES => crate::dag_query::handle_list_plates(state, request),
         msg_type::COMPUTE_INTENT => crate::dag_query::handle_compute_intent(state, request),
         // M10: classified-mutation submission.
         msg_type::SUBMIT_MUTATION => {

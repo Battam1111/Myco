@@ -783,6 +783,104 @@ export function parseQueryRecentNodesResponse(response: Message): RecentNodesRep
   };
 }
 
+/** Parsed `read_node_by_hash_response` — the node, or null if it does not exist
+ *  (found=false). Unlike the recent-nodes list, this reaches ANY node by hash. */
+export function parseReadNodeByHashResponse(response: Message): RecentDagNode | null {
+  if (response.messageType !== MSG_TYPE.READ_NODE_BY_HASH_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected read_node_by_hash_response; got ${response.messageType}`,
+    );
+  }
+  const foundV = response.payload.get("found");
+  if (!foundV || foundV.type !== "bool") {
+    throw new BridgeProtocolError("read_node_by_hash_response missing found:bool");
+  }
+  if (!foundV.value) {
+    return null;
+  }
+  const m = response.payload;
+  const hashV = m.get("hash");
+  const parentsV = m.get("parent_hashes");
+  const typeV = m.get("node_type");
+  const cycleV = m.get("at_cycle");
+  const contentV = m.get("content_canonical_bytes");
+  if (
+    !hashV || hashV.type !== "bytes" ||
+    !parentsV || parentsV.type !== "array" ||
+    !typeV || typeV.type !== "string" ||
+    !cycleV || cycleV.type !== "uint" ||
+    !contentV || contentV.type !== "bytes"
+  ) {
+    throw new BridgeProtocolError(
+      "read_node_by_hash_response (found) missing node fields",
+    );
+  }
+  const parentHashes: Uint8Array[] = parentsV.value.map((p) => {
+    if (p.type !== "bytes") {
+      throw new BridgeProtocolError(`parent_hashes contains non-Bytes: ${p.type}`);
+    }
+    return p.value;
+  });
+  return {
+    hash: hashV.value,
+    parentHashes,
+    nodeType: typeV.value,
+    atCycle: cycleV.value,
+    contentCanonicalBytes: contentV.value,
+  };
+}
+
+/** One entry in the pilot's compact "what I know" map (list_plates). */
+export interface PlateIndexEntry {
+  hash: Uint8Array;
+  label: string;
+  /** Pilot-assigned importance 0..=100, or null if the plate carries none. */
+  value: bigint | null;
+}
+
+/** Parsed `list_plates_response` — the compact live-plate index, sorted by value. */
+export interface PlateIndexReport {
+  totalPlates: bigint;
+  livePlates: bigint;
+  plates: PlateIndexEntry[];
+}
+
+export function parseListPlatesResponse(response: Message): PlateIndexReport {
+  if (response.messageType !== MSG_TYPE.LIST_PLATES_RESPONSE) {
+    throw new BridgeProtocolError(
+      `expected list_plates_response; got ${response.messageType}`,
+    );
+  }
+  const totalV = response.payload.get("total_plates");
+  const liveV = response.payload.get("live_plates");
+  const platesV = response.payload.get("plates");
+  if (
+    !totalV || totalV.type !== "uint" ||
+    !liveV || liveV.type !== "uint" ||
+    !platesV || platesV.type !== "array"
+  ) {
+    throw new BridgeProtocolError("list_plates_response missing required fields");
+  }
+  const plates: PlateIndexEntry[] = platesV.value.map((v) => {
+    if (v.type !== "map") {
+      throw new BridgeProtocolError(`plate index entry is not a Map: ${v.type}`);
+    }
+    const m = v.value;
+    const hashV = m.get("hash");
+    const labelV = m.get("label");
+    const valueV = m.get("value");
+    if (!hashV || hashV.type !== "bytes" || !labelV || labelV.type !== "string") {
+      throw new BridgeProtocolError("plate index entry missing hash/label");
+    }
+    return {
+      hash: hashV.value,
+      label: labelV.value,
+      value: valueV && valueV.type === "uint" ? valueV.value : null,
+    };
+  });
+  return { totalPlates: totalV.value, livePlates: liveV.value, plates };
+}
+
 /** Parse a `hello_ack` response. */
 export function parseHelloAck(response: Message): HelloAck {
   if (response.messageType !== MSG_TYPE.HELLO_ACK) {
