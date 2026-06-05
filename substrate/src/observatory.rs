@@ -373,6 +373,17 @@ pub(crate) fn compute_observatory_counts(
 /// 3. Cosine = dot(a, b) / (||a|| * ||b||).
 /// 4. If either vector is all-zero → return `None` (no signal computable;
 ///    the substrate emits `telos_alignment_pending`).
+///
+/// **Amplifier step 4 — the carrier IS telos-visible.** `forged_understanding:*`
+/// plates (the amplification carrier) are deliberately NOT in the CI-class exclusion
+/// below, so when the owner objective declares a matching prefix (e.g.
+/// `forged_understanding:` or `forged_understanding:<topic>`) the pilot's crystallized
+/// understanding counts toward telos-alignment exactly like fruiting does. The
+/// prune side was the only real plate↔mechanism gap (closed by the step-3 应朽
+/// `forged_understanding_superseded` rule). The DEEPER signal — telos reflecting
+/// which plates actually AMPLIFY (recall/reuse frequency, semantic relevance) —
+/// depends on usage-tracking + the LLM-embedding swap, both deferred to M27+; this
+/// activity-proxy does not (and must not pretend to) attempt it.
 pub(crate) fn compute_telos_alignment_cosine(state: &ServerState) -> Option<f64> {
     let objective = state.owner_objective.as_ref()?;
     if objective.weights.is_empty() {

@@ -154,6 +154,17 @@ impl PruneRuleRegistry {
                           roots past ORPHAN_GRACE_CYCLES (disjoint from the seed rule).",
             detect: detect_unreachable_from_live_roots,
         });
+        // ---- amplifier step 3: superseded forged_understanding plates ----
+        // Appended AFTER the canonical four so the existing scan/emission order is
+        // preserved (determinism); this 5th rule fires last.
+        reg.register(PruneRule {
+            rule_id: "L1.错误.forged_understanding_superseded",
+            category: "错误",
+            description: "forged_understanding plate retired because a LATER plate \
+                          declared it in `supersedes` (the pilot re-forged a sharper \
+                          understanding) past PLATE_SUPERSEDED_GRACE_CYCLES.",
+            detect: detect_forged_understanding_superseded,
+        });
         reg
     }
 
@@ -576,6 +587,106 @@ pub(crate) fn detect_superseded_by_failed_evolution(
                 node.created_at_cycle
             ),
             replaced_by_hash: Some(fail_hash),
+        });
+    }
+    candidates
+}
+
+// ---------------------------------------------------------------------------
+// L1 production rule E — 错误 / forged_understanding_superseded (amplifier step 3)
+// ---------------------------------------------------------------------------
+
+/// **plate-supersession grace window** — a forged_understanding plate that a LATER
+/// plate declares it `supersedes` is retired only this many cycles past the
+/// superseding plate, giving a re-forge time to settle before the old plate is
+/// tombstoned (it stays in the DAG, P06; it just loses operative role).
+pub const PLATE_SUPERSEDED_GRACE_CYCLES: u64 = 1000;
+
+/// **L1.错误.forged_understanding_superseded** — a `forged_understanding:*` plate P
+/// whose hash appears in a LATER plate's `supersedes` array is declared 应朽 (the
+/// pilot re-forged a sharper understanding that replaces P). Once
+/// `current_cycle - superseding.cycle > PLATE_SUPERSEDED_GRACE_CYCLES`, P is retired
+/// with `replaced_by = the superseding plate's hash`. This is the prune side of
+/// amplifier step 1's `supersedes` edge: maturation by supersession — the old plate
+/// is never mutated (P06), it just falls out of the live mind (and out of myco_recall).
+///
+/// **Bounded**: one pass to index superseded-target → latest superseding
+/// (cycle, hash), one pass over plates. O(V) + a content decode per plate.
+pub(crate) fn detect_forged_understanding_superseded(
+    state: &ServerState,
+    ctx: &PruneScanCtx,
+    current_cycle: u64,
+) -> Vec<PruneCandidate> {
+    use std::collections::HashMap;
+    type CbValue = myco_kernel_shared::canonical_bytes::Value;
+    let prefix = crate::ingest::FORGED_UNDERSTANDING_NODE_TYPE_PREFIX;
+
+    if current_cycle <= PLATE_SUPERSEDED_GRACE_CYCLES {
+        return Vec::new();
+    }
+
+    // Pass 1: superseded-target hash → (latest superseding plate cycle, hash).
+    let mut superseded_by: HashMap<[u8; 32], (u64, [u8; 32])> = HashMap::new();
+    for node in state.dag.iter_in_insertion_order() {
+        if !node.node_type.starts_with(prefix) {
+            continue;
+        }
+        let m = match myco_kernel_shared::canonical_bytes::decode(
+            node.content_canonical_bytes.as_ref(),
+        ) {
+            Ok(CbValue::Map(m)) => m,
+            _ => continue,
+        };
+        let sups = match m.get("supersedes") {
+            Some(CbValue::Array(items)) => items,
+            _ => continue,
+        };
+        let superseding_hash = as_hash_array(&node.hash);
+        let superseding_cycle = node.created_at_cycle;
+        for it in sups {
+            if let CbValue::Bytes(b) = it {
+                if b.len() == 32 {
+                    let mut target = [0u8; 32];
+                    target.copy_from_slice(b);
+                    let entry = superseded_by.entry(target).or_insert((0, [0u8; 32]));
+                    if superseding_cycle >= entry.0 {
+                        *entry = (superseding_cycle, superseding_hash);
+                    }
+                }
+            }
+        }
+    }
+
+    // Pass 2: any plate whose hash is a superseded target, past grace, is 应朽.
+    let mut candidates = Vec::new();
+    for node in state.dag.iter_in_insertion_order() {
+        if !node.node_type.starts_with(prefix) {
+            continue;
+        }
+        let hash_bytes = as_hash_array(&node.hash);
+        let (superseding_cycle, superseding_hash) = match superseded_by.get(&hash_bytes) {
+            Some(v) => *v,
+            None => continue,
+        };
+        // The superseding plate must be strictly later than P.
+        if superseding_cycle <= node.created_at_cycle {
+            continue;
+        }
+        if current_cycle.saturating_sub(superseding_cycle) <= PLATE_SUPERSEDED_GRACE_CYCLES {
+            continue;
+        }
+        if !is_prune_eligible(&node.node_type, &hash_bytes, ctx) {
+            continue;
+        }
+        candidates.push(PruneCandidate {
+            part_hash: hash_bytes,
+            part_node_type: node.node_type.clone(),
+            reason: format!(
+                "forged_understanding plate (cycle {}) superseded by a later plate \
+                 (cycle {superseding_cycle}); now={current_cycle}",
+                node.created_at_cycle
+            ),
+            replaced_by_hash: Some(superseding_hash),
         });
     }
     candidates
@@ -1377,10 +1488,12 @@ mod tests {
     }
 
     #[test]
-    fn registry_default_includes_seed_rule_then_four_families() {
-        // F26 complete: seed rule FIRST (determinism), then the canonical four.
+    fn registry_default_includes_seed_rule_then_five_families() {
+        // F26 complete: seed rule FIRST (determinism), then the canonical four,
+        // then the amplifier step-3 plate-supersession rule (appended last so the
+        // pre-existing scan/emission order is unchanged).
         let reg = PruneRuleRegistry::seed();
-        assert_eq!(reg.rule_count(), 5);
+        assert_eq!(reg.rule_count(), 6);
         let ids: Vec<&str> = reg.rules().map(|r| r.rule_id).collect();
         assert_eq!(
             ids,
@@ -1390,6 +1503,7 @@ mod tests {
                 "L1.错误.superseded_by_failed_evolution",
                 "L1.冗余.duplicate_content_subsumed",
                 "L1.无用.unreachable_from_live_roots",
+                "L1.错误.forged_understanding_superseded",
             ],
             "seed rule must stay first; family order is fixed for determinism"
         );
@@ -1399,7 +1513,7 @@ mod tests {
         assert_eq!(seed.category, "无用");
         // Each family carries the right category.
         let cats: Vec<&str> = reg.rules().map(|r| r.category).collect();
-        assert_eq!(cats, vec!["无用", "过时", "错误", "冗余", "无用"]);
+        assert_eq!(cats, vec!["无用", "过时", "错误", "冗余", "无用", "错误"]);
     }
 
     #[test]
@@ -1572,6 +1686,75 @@ mod tests {
         push(&mut dag, "cycle_advanced", 700, "tip");
         let state = state_over(dag);
         assert!(detect_superseded_by_failed_evolution(&state, &PruneScanCtx::for_state(&state), 700).is_empty());
+    }
+
+    // =======================================================================
+    // L1 production rule E — 错误 / forged_understanding_superseded (amplifier step 3)
+    // =======================================================================
+
+    /// Insert a forged_understanding plate with the given label/cycle/supersedes
+    /// (the structured content `detect_forged_understanding_superseded` decodes).
+    fn push_plate(
+        dag: &mut Dag,
+        label: &str,
+        cycle: u64,
+        supersedes: &[[u8; 32]],
+    ) -> myco_kernel_shared::crypto::NodeHash {
+        use myco_kernel_shared::canonical_bytes::{encode, Value};
+        let mut m = std::collections::BTreeMap::new();
+        m.insert("label".to_string(), Value::String(label.to_string()));
+        m.insert("understanding".to_string(), Value::Bytes(b"x".to_vec()));
+        if !supersedes.is_empty() {
+            m.insert(
+                "supersedes".to_string(),
+                Value::Array(supersedes.iter().map(|h| Value::Bytes(h.to_vec())).collect()),
+            );
+        }
+        let content = encode(&Value::Map(m)).expect("encode plate");
+        let parents = match dag.tip() {
+            Some(t) => vec![t],
+            None => Vec::new(),
+        };
+        dag.insert_node(parents, format!("forged_understanding:{label}"), cycle, content)
+            .expect("insert plate")
+    }
+
+    #[test]
+    fn plate_superseded_by_later_plate_is_pruned() {
+        // A@100; C@300 supersedes A; now=1400. 1400-300=1100 > GRACE(1000) → A 应朽.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        let a = push_plate(&mut dag, "coarse", 100, &[]);
+        push_plate(&mut dag, "unrelated", 150, &[]);
+        let c = push_plate(&mut dag, "refined", 300, &[arr(&a)]);
+        push(&mut dag, "cycle_advanced", 1400, "tip");
+        let state = state_over(dag);
+
+        let cands =
+            detect_forged_understanding_superseded(&state, &PruneScanCtx::for_state(&state), 1400);
+        assert_eq!(cands.len(), 1, "only the superseded plate A is 应朽");
+        assert_eq!(cands[0].part_hash, arr(&a));
+        assert_eq!(
+            cands[0].replaced_by_hash,
+            Some(arr(&c)),
+            "replaced_by = the superseding plate"
+        );
+    }
+
+    #[test]
+    fn plate_supersession_respects_grace_window() {
+        // C@300 supersedes A; now=1000 → 1000-300=700 <= GRACE(1000) → not yet.
+        let mut dag = Dag::new();
+        push(&mut dag, "genesis_event:aa", 0, "g");
+        let a = push_plate(&mut dag, "coarse", 100, &[]);
+        push_plate(&mut dag, "refined", 300, &[arr(&a)]);
+        push(&mut dag, "cycle_advanced", 1000, "tip");
+        let state = state_over(dag);
+        assert!(
+            detect_forged_understanding_superseded(&state, &PruneScanCtx::for_state(&state), 1000)
+                .is_empty(),
+            "within grace, the superseded plate is not yet retired"
+        );
     }
 
     // =======================================================================

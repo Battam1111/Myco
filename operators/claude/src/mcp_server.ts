@@ -854,6 +854,15 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "myco_orient",
+    description:
+      "Orient yourself at the START of a session — the first thing a new pilot should do. In one call this surfaces (1) your self-model: the plate labeled \"myco-self-model\" if you have forged one (who this cultivar is, what it is for), and (2) your compact map of every live forged_understanding plate (label / importance / hash), sorted by importance. You inherit a mind, not a blank slate — read this, then read the relevant plates' full content with myco_read_node_content and stand on them. Equivalent to myco_recall plus auto-reading your self-model.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
     name: "myco_query_forged_understanding",
     description:
       "Query the substrate's forged_understanding:* DAG nodes (the agent's deposited DIGESTED understandings — the output side of the 'use-forges' forging loop, vs. myco_query_raw_material's undigested intake side). Lists each with metadata: cycle, label, hash, size. Use myco_read_node_content on a hash to read the full understanding text. Optional count parameter (default 50, max 1000).",
@@ -1660,6 +1669,44 @@ export class McpServer {
         lines.push(
           "",
           "Pick the plates relevant to your current task, then myco_read_node_content their hashes to read the full understanding.",
+        );
+        return { content: [{ type: "text" as const, text: lines.join("\n") }] };
+      }
+      case "myco_orient": {
+        const sub = await this._ensureSubstrate();
+        const report = await sub.listPlates();
+        const lines: string[] = [];
+        // (1) Surface the self-model first, if the pilot has forged one.
+        const selfEntry = report.plates.find((p) => p.label === "myco-self-model");
+        if (selfEntry) {
+          const node = await sub.readNodeByHash(selfEntry.hash);
+          if (node) {
+            lines.push("==== WHO YOU ARE (your self-model) ====");
+            lines.push(await renderNodeContentText(node));
+            lines.push("");
+          }
+        } else {
+          lines.push(
+            '(No self-model yet. Once you know what this cultivar is, forge a plate labeled "myco-self-model" so future pilots are oriented instantly.)',
+            "",
+          );
+        }
+        // (2) The compact map of live plates.
+        lines.push(
+          `==== YOUR MAP (${report.livePlates} live plate${report.livePlates === 1n ? "" : "s"}, sorted by importance) ====`,
+        );
+        if (report.plates.length === 0) {
+          lines.push(
+            "  (none yet — forge understanding with myco_forge_understanding)",
+          );
+        }
+        for (const p of report.plates) {
+          const v = p.value === null ? "—" : String(p.value);
+          lines.push(`  [value ${v.padStart(3)}] ${p.label}  ${toHex(p.hash)}`);
+        }
+        lines.push(
+          "",
+          "This is your accumulated mind. Read the plates relevant to your task with myco_read_node_content, and stand on them instead of re-deriving.",
         );
         return { content: [{ type: "text" as const, text: lines.join("\n") }] };
       }
