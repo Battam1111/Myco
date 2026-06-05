@@ -598,6 +598,12 @@ export class SubstrateClient {
     label: string;
     understanding: Uint8Array;
     sourceRawMaterialHashes?: Uint8Array[];
+    /** Step-1 discernment: pilot-assigned importance 0..=100 (recall ranks by it). */
+    value?: number;
+    /** Step-1 discernment: pilot's confidence in this plate 0..=100. */
+    confidence?: number;
+    /** Step-1 maturation: prior forged_understanding plate hashes this one supersedes. */
+    supersedes?: Uint8Array[];
   }): Promise<DepositForgedUnderstandingResult> {
     const response = await this._sendRequest(
       MSG_TYPE.DEPOSIT_FORGED_UNDERSTANDING,

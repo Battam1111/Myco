@@ -460,8 +460,19 @@ pub(crate) const FORGED_UNDERSTANDING_NODE_TYPE_PREFIX: &str = "forged_understan
 ///   "label": String,                       // short tag (analogous to content_kind)
 ///   "understanding": Bytes,                 // digested prose/knowledge (UTF-8; max 512 KiB)
 ///   "source_raw_material_hashes": Array,    // optional; Array of Bytes (32-byte raw_material hashes)
+///   "value": Uint,                          // OPTIONAL (0..=100) — pilot-assigned importance; the recall layer ranks by it
+///   "confidence": Uint,                     // OPTIONAL (0..=100) — pilot's confidence in this plate
+///   "supersedes": Array,                    // OPTIONAL; Array of Bytes (32-byte forged_understanding hashes this plate corrects/replaces)
 /// })
 /// ```
+///
+/// **Step-1 discernment fields** (`value` / `confidence` / `supersedes`) are all
+/// OPTIONAL and additive: a deposit omitting them produces a node byte-identical to
+/// the pre-discernment shape, so existing nodes + forge tests are unaffected and no
+/// reseal is implied. They give the plate carrier the judgeability the amplifier
+/// needs — `value`/`confidence` so recall can RANK plates, `supersedes` so a re-forged
+/// plate can point at the plate(s) it corrects (maturation by supersession, never
+/// mutation — P06), mirroring the existing `replaced_by_hash` prune edge.
 ///
 /// The substrate composes the DAG node's content as canonical_bytes(Map({
 ///   "label": ..., "understanding": ..., "source_raw_material_hashes": ...,
@@ -559,6 +570,89 @@ pub(crate) fn handle_deposit_forged_understanding(
         }
     }
 
+    // **Step-1 discernment fields (all OPTIONAL — additive).** When ALL are absent
+    // the composed node is byte-identical to the pre-discernment node, so existing
+    // nodes + forge tests are unaffected and no reseal is implied. `value`/`confidence`
+    // are the pilot's own importance/belief signals (Uint 0..=100) the recall layer
+    // ranks by; `supersedes` mirrors the existing `replaced_by_hash` edge (prune.rs)
+    // so a re-forged plate points at the plate(s) it corrects — maturation by
+    // supersession, never mutation (P06). Out-of-range / wrong-typed = structured error.
+    let value: Option<u64> = match request.payload.get("value") {
+        None => None,
+        Some(Value::Uint(v)) if *v <= 100 => Some(*v),
+        Some(Value::Uint(v)) => {
+            return Err(SubstrateError::Protocol(format!(
+                "deposit_forged_understanding: value {v} out of range (expected Uint 0..=100)"
+            )));
+        }
+        Some(_) => {
+            return Err(SubstrateError::Protocol(
+                "deposit_forged_understanding: value must be a Uint (0..=100)".to_string(),
+            ));
+        }
+    };
+    let confidence: Option<u64> = match request.payload.get("confidence") {
+        None => None,
+        Some(Value::Uint(c)) if *c <= 100 => Some(*c),
+        Some(Value::Uint(c)) => {
+            return Err(SubstrateError::Protocol(format!(
+                "deposit_forged_understanding: confidence {c} out of range (expected Uint 0..=100)"
+            )));
+        }
+        Some(_) => {
+            return Err(SubstrateError::Protocol(
+                "deposit_forged_understanding: confidence must be a Uint (0..=100)".to_string(),
+            ));
+        }
+    };
+
+    // `supersedes`: optional Array of 32-byte forged_understanding node hashes this
+    // plate corrects/replaces. Each must exist in the DAG AND be a forged_understanding:*
+    // node — mirrors the source_raw_material_hashes provenance check, but for plates.
+    let mut supersedes_hashes: Vec<myco_kernel_shared::crypto::NodeHash> = Vec::new();
+    if let Some(v) = request.payload.get("supersedes") {
+        match v {
+            Value::Array(items) => {
+                for item in items {
+                    match item {
+                        Value::Bytes(b) if b.len() == 32 => {
+                            let mut arr = [0u8; 32];
+                            arr.copy_from_slice(b);
+                            supersedes_hashes
+                                .push(myco_kernel_shared::crypto::NodeHash::from_bytes(arr));
+                        }
+                        _ => {
+                            return Err(SubstrateError::Protocol(
+                                "deposit_forged_understanding: each supersedes entry must be 32 Bytes"
+                                    .to_string(),
+                            ));
+                        }
+                    }
+                }
+            }
+            _ => {
+                return Err(SubstrateError::Protocol(
+                    "deposit_forged_understanding: supersedes must be an Array of Bytes".to_string(),
+                ));
+            }
+        }
+    }
+    for h in &supersedes_hashes {
+        let node = state.dag.get(h).ok_or_else(|| {
+            SubstrateError::Protocol(format!(
+                "deposit_forged_understanding: supersedes hash {} not found in DAG",
+                hex_encode(h.as_ref())
+            ))
+        })?;
+        if !node.node_type.starts_with(FORGED_UNDERSTANDING_NODE_TYPE_PREFIX) {
+            return Err(SubstrateError::Protocol(format!(
+                "deposit_forged_understanding: supersedes hash {} references a {:?} node, not forged_understanding",
+                hex_encode(h.as_ref()),
+                node.node_type
+            )));
+        }
+    }
+
     let forged_at_cycle = state.cycle_counter();
 
     // Compose the content canonical bytes (full forge context is hashed).
@@ -574,6 +668,22 @@ pub(crate) fn handle_deposit_forged_understanding(
         Value::Array(source_array),
     );
     content_map.insert("forged_at_cycle".to_string(), Value::Uint(forged_at_cycle));
+    // Insert the optional discernment fields ONLY when present — absent => the map is
+    // exactly {label, understanding, source_raw_material_hashes, forged_at_cycle},
+    // byte-identical to the pre-step-1 node (backward-compatible; no reseal).
+    if let Some(v) = value {
+        content_map.insert("value".to_string(), Value::Uint(v));
+    }
+    if let Some(c) = confidence {
+        content_map.insert("confidence".to_string(), Value::Uint(c));
+    }
+    if !supersedes_hashes.is_empty() {
+        let supersedes_array: Vec<Value> = supersedes_hashes
+            .iter()
+            .map(|h| Value::Bytes(h.as_ref().to_vec()))
+            .collect();
+        content_map.insert("supersedes".to_string(), Value::Array(supersedes_array));
+    }
     let canonical = cb_encode(&Value::Map(content_map))
         .map_err(|e| SubstrateError::Protocol(format!("forged_understanding content encode: {e}")))?;
 
@@ -2095,5 +2205,158 @@ mod forge_tests {
             0,
             "a rejected forge must not insert a forged_understanding node"
         );
+    }
+
+    // ---- step-1 discernment fields (value / confidence / supersedes) ----
+
+    /// Like [`forge_request`] but also sets the optional step-1 discernment fields.
+    /// `value`/`confidence` are inserted only when `Some`; `supersedes` only when
+    /// non-empty — so omitting all three reproduces the exact pre-step-1 wire shape.
+    fn forge_request_full(
+        label: &str,
+        understanding: &[u8],
+        sources: &[myco_kernel_shared::crypto::NodeHash],
+        value: Option<u64>,
+        confidence: Option<u64>,
+        supersedes: &[myco_kernel_shared::crypto::NodeHash],
+    ) -> Message {
+        let mut payload = BTreeMap::new();
+        payload.insert("label".to_string(), Value::String(label.to_string()));
+        payload.insert(
+            "understanding".to_string(),
+            Value::Bytes(understanding.to_vec()),
+        );
+        let src: Vec<Value> = sources
+            .iter()
+            .map(|h| Value::Bytes(h.as_ref().to_vec()))
+            .collect();
+        payload.insert("source_raw_material_hashes".to_string(), Value::Array(src));
+        if let Some(v) = value {
+            payload.insert("value".to_string(), Value::Uint(v));
+        }
+        if let Some(c) = confidence {
+            payload.insert("confidence".to_string(), Value::Uint(c));
+        }
+        if !supersedes.is_empty() {
+            let arr: Vec<Value> = supersedes
+                .iter()
+                .map(|h| Value::Bytes(h.as_ref().to_vec()))
+                .collect();
+            payload.insert("supersedes".to_string(), Value::Array(arr));
+        }
+        Message::new(msg_type::DEPOSIT_FORGED_UNDERSTANDING, 7, payload)
+    }
+
+    #[test]
+    fn forge_with_discernment_fields_roundtrip() {
+        let mut state = test_state();
+        let source = feed_returning_hash(&mut state, 2);
+        // Forge a first plate so there is a real forged_understanding node to supersede.
+        let first = handle_deposit_forged_understanding(
+            &mut state,
+            &forge_request("first-pass", b"a coarse early understanding", &[source]),
+        )
+        .expect("first forge ok")
+        .expect("first forge response");
+        let first_hash = response_node_hash(&first.payload, "dag_node_hash");
+
+        // Forge a sharper plate that supersedes the first, carrying value + confidence.
+        let req = forge_request_full(
+            "refined",
+            b"a sharper understanding correcting the first",
+            &[source],
+            Some(80),
+            Some(60),
+            &[first_hash],
+        );
+        let resp = handle_deposit_forged_understanding(&mut state, &req)
+            .expect("forge ok")
+            .expect("forge response");
+        let node_hash = response_node_hash(&resp.payload, "dag_node_hash");
+
+        let node = state.dag.get(&node_hash).expect("plate in DAG");
+        let content = match cb_decode(node.content_canonical_bytes.as_ref()).expect("decodes") {
+            Value::Map(m) => m,
+            other => panic!("not a Map: {other:?}"),
+        };
+        assert_eq!(content.get("value"), Some(&Value::Uint(80)));
+        assert_eq!(content.get("confidence"), Some(&Value::Uint(60)));
+        assert_eq!(
+            content.get("supersedes"),
+            Some(&Value::Array(vec![Value::Bytes(first_hash.as_ref().to_vec())])),
+            "the superseded plate hash is recorded (maturation by supersession, not mutation)"
+        );
+    }
+
+    #[test]
+    fn forge_without_discernment_is_byte_identical() {
+        // The backward-compat guarantee: a forge omitting value/confidence/supersedes
+        // composes EXACTLY {forged_at_cycle, label, source_raw_material_hashes,
+        // understanding} — NO new keys — so pre-step-1 nodes + the seal are unaffected.
+        let mut state = test_state();
+        let req = forge_request("plain", b"no discernment fields set", &[]);
+        let resp = handle_deposit_forged_understanding(&mut state, &req)
+            .expect("forge ok")
+            .expect("forge response");
+        let node_hash = response_node_hash(&resp.payload, "dag_node_hash");
+        let node = state.dag.get(&node_hash).expect("plate in DAG");
+        let content = match cb_decode(node.content_canonical_bytes.as_ref()).expect("decodes") {
+            Value::Map(m) => m,
+            other => panic!("not a Map: {other:?}"),
+        };
+        let keys: Vec<String> = content.keys().cloned().collect();
+        assert_eq!(
+            keys,
+            vec![
+                "forged_at_cycle".to_string(),
+                "label".to_string(),
+                "source_raw_material_hashes".to_string(),
+                "understanding".to_string(),
+            ],
+            "a discernment-free forge must add NO new keys (byte-identical to pre-step-1)"
+        );
+    }
+
+    #[test]
+    fn forge_supersedes_unknown_hash_is_rejected() {
+        let mut state = test_state();
+        let bogus = myco_kernel_shared::crypto::NodeHash::from_bytes([0x11u8; 32]);
+        let req = forge_request_full("re-forge", b"corrects a phantom", &[], None, None, &[bogus]);
+        match handle_deposit_forged_understanding(&mut state, &req) {
+            Err(SubstrateError::Protocol(msg)) => assert!(
+                msg.contains("supersedes") && msg.contains("not found in DAG"),
+                "rejection should name the missing supersedes target: {msg}"
+            ),
+            other => panic!("expected Protocol error for unknown supersedes, got {other:?}"),
+        }
+        assert_eq!(count_nodes(&state, FORGED_UNDERSTANDING_NODE_TYPE_PREFIX), 0);
+    }
+
+    #[test]
+    fn forge_supersedes_must_reference_a_plate_not_raw_material() {
+        let mut state = test_state();
+        // A raw_material node is NOT a valid supersedes target — only plates are.
+        let raw = feed_returning_hash(&mut state, 1);
+        let req = forge_request_full("mis-target", b"tries to supersede ore", &[], None, None, &[raw]);
+        match handle_deposit_forged_understanding(&mut state, &req) {
+            Err(SubstrateError::Protocol(msg)) => assert!(
+                msg.contains("not forged_understanding"),
+                "supersedes must reject a non-plate target: {msg}"
+            ),
+            other => panic!("expected Protocol error superseding raw_material, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn forge_value_out_of_range_is_rejected() {
+        let mut state = test_state();
+        let req = forge_request_full("too-hot", b"value 101", &[], Some(101), None, &[]);
+        match handle_deposit_forged_understanding(&mut state, &req) {
+            Err(SubstrateError::Protocol(msg)) => assert!(
+                msg.contains("value") && msg.contains("out of range"),
+                "value > 100 must be rejected: {msg}"
+            ),
+            other => panic!("expected Protocol error for value out of range, got {other:?}"),
+        }
     }
 }

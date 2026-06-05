@@ -90,6 +90,9 @@ export function depositForgedUnderstandingPayload(args: {
   label: string;
   understanding: Uint8Array;
   sourceRawMaterialHashes?: Uint8Array[];
+  value?: number;
+  confidence?: number;
+  supersedes?: Uint8Array[];
 }): Map<string, Value> {
   if (!args.label || args.label.length === 0) {
     throw new BridgeProtocolError(
@@ -104,6 +107,14 @@ export function depositForgedUnderstandingPayload(args: {
       );
     }
   }
+  const supersedes = args.supersedes ?? [];
+  for (const h of supersedes) {
+    if (h.length !== 32) {
+      throw new BridgeProtocolError(
+        `supersedes entry must be 32 bytes; got ${h.length}`,
+      );
+    }
+  }
   const m = new Map<string, Value>();
   m.set("label", { type: "string", value: args.label });
   m.set("understanding", { type: "bytes", value: args.understanding });
@@ -111,6 +122,21 @@ export function depositForgedUnderstandingPayload(args: {
     type: "array",
     value: sources.map((h) => ({ type: "bytes", value: h }) as Value),
   });
+  // Step-1 discernment fields — set ONLY when provided, so a forge omitting them
+  // produces canonical bytes identical to the pre-step-1 shape (the substrate
+  // composes a byte-identical node; no reseal). value/confidence are Uint 0..=100.
+  if (args.value !== undefined) {
+    m.set("value", { type: "uint", value: BigInt(args.value) });
+  }
+  if (args.confidence !== undefined) {
+    m.set("confidence", { type: "uint", value: BigInt(args.confidence) });
+  }
+  if (supersedes.length > 0) {
+    m.set("supersedes", {
+      type: "array",
+      value: supersedes.map((h) => ({ type: "bytes", value: h }) as Value),
+    });
+  }
   return m;
 }
 

@@ -804,6 +804,26 @@ const TOOL_DEFINITIONS = [
           description:
             "Optional list of 64-hex (32-byte) hashes of the raw_material:* DAG nodes this understanding was forged from (from prior myco_ingest_raw_material / myco_query_raw_material calls). Each must reference a raw_material:* node or the substrate rejects. MAY be empty/omitted (a forged understanding need not cite a specific source).",
         },
+        value: {
+          type: "integer",
+          minimum: 0,
+          maximum: 100,
+          description:
+            "OPTIONAL importance you assign this plate (0–100). Recall ranks by it — set higher for understanding worth standing on later, lower for incidental notes. Omit if you have no strong signal.",
+        },
+        confidence: {
+          type: "integer",
+          minimum: 0,
+          maximum: 100,
+          description:
+            "OPTIONAL your confidence in this plate (0–100). Lets a future pilot know how much to trust it. Omit if you have no strong signal.",
+        },
+        supersedes: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "OPTIONAL list of 64-hex hashes of prior forged_understanding:* plates this one CORRECTS or REPLACES (each must reference a forged_understanding:* node). Use when you have re-forged a sharper understanding — it records the supersession edge so the old plate can mature out (P06-clean: the old plate is never edited, just superseded).",
+        },
       },
       required: ["label", "understanding"],
     },
@@ -1551,17 +1571,38 @@ export class McpServer {
               hexTo32(String(h), `source_raw_material_hashes[${i}]`),
             )
           : [];
+        const supersedes = Array.isArray(args.supersedes)
+          ? (args.supersedes as unknown[]).map((h, i) =>
+              hexTo32(String(h), `supersedes[${i}]`),
+            )
+          : [];
+        const value =
+          args.value === undefined || args.value === null
+            ? undefined
+            : Number(args.value);
+        const confidence =
+          args.confidence === undefined || args.confidence === null
+            ? undefined
+            : Number(args.confidence);
         const result = await sub.depositForgedUnderstanding({
           label,
           understanding,
           sourceRawMaterialHashes,
+          value,
+          confidence,
+          supersedes,
         });
+        const discernment = [
+          value !== undefined ? `value=${value}` : null,
+          confidence !== undefined ? `confidence=${confidence}` : null,
+          supersedes.length > 0 ? `supersedes=${supersedes.length}` : null,
+        ].filter((s): s is string => s !== null);
         return {
           content: [
             {
               type: "text" as const,
               text: [
-                `Forged understanding forged_understanding:${label} (${understanding.length} bytes${sourceRawMaterialHashes.length > 0 ? `, forged from ${sourceRawMaterialHashes.length} raw_material source${sourceRawMaterialHashes.length === 1 ? "" : "s"}` : ""})`,
+                `Forged understanding forged_understanding:${label} (${understanding.length} bytes${sourceRawMaterialHashes.length > 0 ? `, forged from ${sourceRawMaterialHashes.length} raw_material source${sourceRawMaterialHashes.length === 1 ? "" : "s"}` : ""}${discernment.length > 0 ? `; ${discernment.join(", ")}` : ""})`,
                 `dag_node_hash=${toHex(result.dagNodeHash)}`,
                 `total_dag_size=${result.totalDagSize}`,
               ].join("\n"),
