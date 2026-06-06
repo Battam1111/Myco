@@ -22,7 +22,7 @@ Lives in [`L0/`](L0/). Entry point: [`L0/README.md`](L0/README.md).
 | Postulates (13) | P01 / P01c (eternity) / P02 / P03 / P04 / P05 / P06 (eternity) / P07 (eternity) / P08 / P09 (eternity) / P10 / P11 / P14 |
 | Cultivator's Covenant (6) | COV01-COV06 |
 | Cultivar Character (7) | CHAR01-CHAR07 |
-| Specialized (2) | AS_anchor_surface (§9 with 12 sub-mechanisms) / LB_living_bets (§7 with falsifiability + retirement) |
+| Specialized (2) | AS_anchor_surface (**Superseded v3.1.5** — owner-key/anchor cryptographic root retired; trust root relocated to META §7.8; kept as a tombstone for provenance) / LB_living_bets (§7 with falsifiability + retirement) |
 
 **Layer B** — Generative-image fragments in [`L0/B_chengyu.md`](L0/B_chengyu.md) (60 chengyu, read end-to-end).
 
@@ -42,7 +42,7 @@ Lives in [`L0/`](L0/). Entry point: [`L0/README.md`](L0/README.md).
 | [`L1/GOVERNANCE.md`](L1/GOVERNANCE.md) | I2 classifier, lifecycle, attestation, Cultivation succession, federation discovery, evolution cross-cut, generation limits, F18-F25 |
 | [`L1/SKIN.md`](L1/SKIN.md) | I8 envelope, handshake, single-operator, network-egress, spatial-locus (P13 fold), backup, restart, breach detection |
 | [`L1/CONTINUITY.md`](L1/CONTINUITY.md) | Metabolic cycle, dormancy, recovery, delta atomicity, lifecycle regime cross-cut |
-| [`L1/HARD_RULES.md`](L1/HARD_RULES.md) | C-row catalog (CRITICAL breaches), F-row catalog (CI fixed-points), anchor-resident state |
+| [`L1/HARD_RULES.md`](L1/HARD_RULES.md) | C-row catalog (CRITICAL breaches; keyless v3.1.5 — C12/C17/C20/C44/C50/C70 retired), F-row catalog (CI fixed-points; F3/F4/F6/F23 deleted), §4 anchor-resident state retired |
 
 ### L2 — Cross-cut themes (3 docs)
 

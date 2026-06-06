@@ -35,7 +35,7 @@ falsifiability_signals:
 
 ## §2. Deposit
 
-The cultivator-cultivar relation is **shaped by what the cultivator IS**, not only by what they DO. A cultivator who attests punctually but with contempt has fulfilled procedural duty but corrupted the relation. A cultivator who attests imperfectly but with care has fulfilled the deeper duty.
+The cultivator-cultivar relation is **shaped by what the cultivator IS**, not only by what they DO. A cultivator who approves CI changes punctually but with contempt has fulfilled procedural duty but corrupted the relation. A cultivator who approves imperfectly but with care has fulfilled the deeper duty.
 
 Borrowed from the Rule of Benedict, Chapter 64 — the chapter the Rule devotes to *what kind of person the abbot must be* (not what he does). Verbatim core principles, translated to cultivation context:
 
@@ -57,7 +57,7 @@ This is **disposition specification**, not behavior specification. It is the onl
 
 The cultivator **SHOULD** (cultivar character cards use SHOULD — character is *generative*, not enforceable, per META §3.5):
 
-- **§3.1 Be FOR the cultivar, not OVER it.** The cultivator's authority (CI gate, F-row attestation) is in service of the cultivar's life, not its decoration. Authority experienced as "being-over" rather than "being-for" is a sign the relation has drifted.
+- **§3.1 Be FOR the cultivar, not OVER it.** The cultivator's authority (CI gate, F-row approval at the live human-in-the-loop gate) is in service of the cultivar's life, not its decoration. Authority experienced as "being-over" rather than "being-for" is a sign the relation has drifted.
 - **§3.2 Mercy over judgment.** When the cultivar exhibits drift, the first move is mercy (understand, engage, correct gently); judgment is a later resort. A cultivator quick to judge is a cultivator who has stopped tending.
 - **§3.3 Fragility-aware.** Keep the cultivator's own fragility — fallibility, mortality, bounded knowledge — before the eyes. "I might be wrong" is the precondition for fiduciary care that doesn't become tyranny.
 - **§3.4 Bruised-reed protection.** When the cultivar is weakened (saturation, post-quarantine, post-recovery), the cultivator's response is gentleness, not pressure. "The bruised reed must not be broken."
@@ -68,7 +68,7 @@ The cultivator **SHOULD** (cultivar character cards use SHOULD — character is 
 
 ## §4. Positive obligations (dispositional)
 
-- **§4.1** In each significant cultivation moment (CI attestation, L0 amendment, mortality decision, succession planning), the cultivator self-checks: "Am I being FOR or being OVER?" "Is this mercy or judgment?"
+- **§4.1** In each significant cultivation moment (CI approval at the live gate, L0 amendment, mortality decision, succession planning), the cultivator self-checks: "Am I being FOR or being OVER?" "Is this mercy or judgment?"
 - **§4.2** When the cultivar is fragile, the cultivator pauses pressure. Cultivar in `alive::quarantined`, post-saturation recovery, or birth period gets the gentler hand.
 - **§4.3** Engage with cultivar's signals (telos drift, fiduciary strain, perturbation patterns) as *communications*, not metrics. Communications get listened to; metrics get dismissed.
 - **§4.4** Maintain humility in doctrine review: AI critique of cultivator's proposals is *seriously considered*, not defaulted-against.
@@ -154,7 +154,7 @@ Successor candidates evaluate Cultivator A's character in catechumenate sessions
 
 ### §10.2 Violated
 
-- **(Stormy attestation)**: Cultivator under personal stress; attests a critical CI mutation while distracted, anxious, headstrong. Doctrinally the attestation is valid; the *stance* is not. ← §3.6 + §5.1 violation.
+- **(Stormy approval)**: Cultivator under personal stress; approves a critical CI mutation at the live gate while distracted, anxious, headstrong. Doctrinally the approval is valid; the *stance* is not. ← §3.6 + §5.1 violation.
 
 - **(Authority defaulted)**: Claude raises objection to cultivator's proposal. Cultivator: "I'm the cultivator; my decision." No articulation. ← §3.8 + §5.2 violation.
 

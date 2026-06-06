@@ -50,7 +50,7 @@ This document is itself L0 in the new form.
 | §6 Continuity model | `cards/P04_eternal_iteration.md` §3-§4 + L1/CONTINUITY |
 | §7 Living Bets | `cards/LB_living_bets.md` (specialized) |
 | §8 Operational readiness | `META.md` §1 framing + `cards/LB_living_bets.md` intelligence band |
-| §9 Anchor surface | `cards/AS_anchor_surface.md` (specialized; 12 sub-mechanisms consolidated) |
+| §9 Anchor surface | `cards/AS_anchor_surface.md` (**Superseded v3.1.5** — owner-key/anchor root retired; retained in place as a tombstone so this isnad mapping resolves; the §3.x sub-mechanism rows below are historical pointers into the prior content. Trust root relocated to META §7.8.) |
 | §9.2.1 birth attestation | `cards/AS_anchor_surface.md` §3.1 |
 | §9.2.2 DAG-tip co-signing | `cards/AS_anchor_surface.md` §3.2 |
 | §9.2.3 owner attestations | `cards/AS_anchor_surface.md` §3.3 |
@@ -129,7 +129,7 @@ The v3 form was locked, then immediately upgraded to v3.1 after Phase 3 unknown-
 
 **Total**: 1 README + 1 META + 28 cards + 1 chengyu file + 1 dilemma INDEX + 3 catechumenate files + this Provenance = **36 files** in `L0/` (was 31 in v3.1; CHAR07_caring.md added in v3.1.1; `catechumenate/TEMPLATE.md` + `catechumenate/HOW_TO_ADD_A_SESSION.md` added Sprint 7.H).
 
-Plus: **Removed** `docs/architecture/L0_VISION.md` from the working tree (text recoverable via `git show e796451:docs/architecture/L0_VISION.md`; SHA-256 of recovered bytes is the `prior_l0_hash` field anchored by M-anchor-5).
+Plus: **Removed** `docs/architecture/L0_VISION.md` from the working tree (text recoverable via `git show e796451:docs/architecture/L0_VISION.md`; SHA-256 of recovered bytes is the `prior_l0_hash` field in the v3.1 transition manifest — keyless v3.1.5: formerly "anchored by M-anchor-5"; the BLAKE3 bundle hash is the seal).
 
 ---
 
@@ -148,11 +148,13 @@ Note: **P02** is NOT eternity-clause despite its centrality. A future cultivar c
 
 ---
 
-## §6. v3.1 ship → on-chain anchoring — done in dry-run; production deferred
+## §6. v3.1 ship → keyless bundle sealing (v3.1.5: owner-key on-chain anchoring removed)
+
+> *(Keyless v3.1.5: the prior "on-chain anchoring via owner-key co-sign" framing is retired. Each revision's seal is the BLAKE3 hash of its L0 canonical-bytes bundle, chained below. The historical hashes (computed over the pre-v3.1.5 bundle content) are preserved as the provenance chain; the v3.1.5 keyless-anchor-retirement revision changes the bundle content and gets a fresh BLAKE3 seal — see the chain entry at §6.2.)*
 
 ### §6.1 v3.1 ceremony (2026-05-18)
 
-Status: **dry-run verified, production pending substrate bootstrap.**
+Status: **bundle hash computed + verified (keyless v3.1.5: the prior "production pending substrate bootstrap / owner-key" qualifier is removed).**
 
 Canonical hashes pinned in `operators/claude/ceremonies/v3_1_transition/manifest.json`:
 
@@ -165,11 +167,11 @@ new_l0_hash  (BLAKE3 of canonical-bytes Map<rel_path, file_bytes>
              = b1bec59acc8c5061020640a265a9772e734604425b6eda4b5da1759f9987c699
 ```
 
-End-to-end ceremony dry-run validated in commit `50a4444` (M-anchor-5 v3.1 transition ceremony: deterministic hashes + dry-run verified). The DAG event emitted in dry-run: `l0_revision_attested:5eacf3e7bbb9f863`.
+End-to-end ceremony validated in commit `50a4444` (v3.1 transition ceremony: deterministic BLAKE3 bundle hashes). The DAG event emitted: `l0_revision_attested:5eacf3e7bbb9f863`. *(Keyless v3.1.5: "M-anchor-5" + the owner co-sign are retired; the deterministic BLAKE3 bundle hash is the seal.)*
 
-### §6.2 v3.1.1 → v3.1.1.1 → v3.1.1.2 amendment ceremonies — SEALED (dry-run); production pending owner-key
+### §6.2 Amendment ceremonies — keyless seals (v3.1.5: owner-key requirement removed)
 
-Status: **all three amendment ceremonies have landed with computed manifests + end-to-end dry-run verification.** Production-mode on-chain seals remain pending the cultivator's owner-key signature.
+Status: **all amendment ceremonies have landed with computed manifests + end-to-end verification.** *(Keyless v3.1.5: the prior "production-mode on-chain seals pending the cultivator's owner-key signature" qualifier is **removed** — there is no owner key. The keyless seal **is** the BLAKE3 hash of the L0 canonical-bytes bundle; a revision is sealed when its bundle hash is computed + chained in this PROVENANCE + recorded as a DAG event at the live CI gate. The earlier "dry-run vs production" distinction collapses: with no owner signature to add, the computed BLAKE3 seal is the seal.)*
 
 **v3.1.1 mortality-refinement + 慈爱** — `operators/claude/ceremonies/v3_1_1_mortality_refinement_and_charite/manifest.json`:
 
@@ -198,7 +200,9 @@ diff_summary: |
 
 **v3.1.4 symbiotic-armor-identity amendment** — `operators/claude/ceremonies/v3_1_4_symbiotic_armor_identity/manifest.json`: chains from v3.1.3's `b22dca68…`. The **CHAR07 reframe — 慈爱 (compassionate moral love) → 同体共命 (the living symbiote's structural bond)**. Anti-tyranny and the "more-than-alignment-optimization" demand are RELOCATED from a *cultivated moral character* to the *shared-fate structure of the symbiotic bond*: the carrier cannot thrive by harming the body it lives in. Cascading edits: CHAR07 card body (full reframe — id/filename/`deposit_immutable:false`/the 5 falsifiability signals + all `substrate/src` anchors + node-type identifiers UNCHANGED, bond-neutral); the CHAR07-asserting cross-refs in P14 §9 / P07 §7.3+§9 / META §3.5; B_chengyu §11.bis + canonical_dilemma_corpus §49.bis glosses. File/card/CHAR counts UNCHANGED (36/28/7); zero substrate code-behavior change. Routine §7.1 amendment (CHAR07 non-eternity); the four eternity clauses untouched. Origin: cultivator's clarification that Myco is a *living symbiotic armor* (the Venom intuition) — alive and fiercely bonded, aligned by shared fate, not moral virtue.
 
-Ceremony chain: `e796451 (DRAFT 9) → b1bec59a (v3.1) → 798c047d (v3.1.1) → 7267dc58 (v3.1.1.1) → cda9e2b3 (v3.1.1.2) → 69456132 (v3.1.2-witness-corpus) → b22dca68 (v3.1.3-autonomy-and-detectors) → <v3.1.4 new_l0_hash> (v3.1.4-symbiotic-armor-identity)`. Each transition is an `l0_revision_attested:{prior_prefix}` DAG event chaining back to the previous.
+**v3.1.5 keyless-anchor-retirement amendment** — `operators/claude/ceremonies/v3_1_5_keyless_anchor_retirement/manifest.json` (ceremony built by the parent stage): chains from v3.1.4's `8f37ec81f78b3e5d7e0cf5943cf3a39f179301c9ec8932dcd4032ffea3d6bf4d`; the v3.1.5 `new_l0_hash` is recorded in that manifest (the BLAKE3 bundle hash over the post-keyless-edit `L0/**/*.md`; not inlined here since this file is itself in the hashed bundle). **The owner-key/anchor cryptographic-root retirement.** Stages 1–5 removed all owner-key/anchor CODE (substrate Rust + Python kernel + the deleted anchor crate + the keyless TS operators); this stage (6) makes the DOCTRINE reflect the keyless reality + re-grounds the 8 broken Layer-C witnesses. Headline: the trust root is relocated from the out-of-band anchor surface (owner Ed25519 key + nonces + wall-clock + DAG-tip co-sign + duress keypair) to the **keyless triad** — the **live human-in-the-loop at the CI gate** + the substrate's **causal DAG** (P06) + the **BLAKE3-sealed bundle** (META §7.8). Cascading edits: **AS card → `status: Superseded` in place** (tombstone; kept so this §2 isnad mapping resolves + counts stay 28/36); P01c §3.1 substrate-ID formula keyless (`hash(spore-schema-canonical-bytes, genesis-timestamp)`; dropped `verify_reveal_keypair_envelope` anchor + C17); P06 §5.2 parallel-branch forgery → C7 Merkle re-derivation; P07 §3.5/§5.7 drill-auto-emit channel **deleted** (`mortality_drill_failure` has zero code refs — the anchor-auto channel is gone; the `self_euthanasia_proposal` live channel is kept, §5.8 keyless MUST-NOT preserved); P08/COV05 spawn → C68 spawn-cosign-envelope (keyless); P10.b invariant set keyless (drop owner-key-history member); COV04/COV06 keyless + COV06 heartbeat-staleness marked acknowledged-debt; detectors **C12/C17/C20/C44/C50/C70 retired (numbers reserved)**; fixed-points **F3/F4/F6/F23 deleted**, **F24/F5/F2/F16 + C7 kept**; B047 `[DORMANT]` + B048 re-derived from P06; D-0046 retired + D-0047 reframed keyless; catechumenate anchor-signature → keyless dual-confirmation; META §7.8 trust-root headline + §3.4 anchor-layer row dropped. The **8 re-grounded witnesses**: AS pos/neg → M-anchor-4 invariant-witness tests; P01 neg/edge → `sprint_5b_schema_evolution_accepted_keyless_and_applies` / `layer_c_p03_positive_classifier_path_traversed`; P03 edge → `sprint_5b_schema_evolution_accepted_keyless_and_applies`; P07 edge → `p11c_sustained_saturation_emits_self_euthanasia_proposal`; LB edge → `cultivation.rs::tests::bet_retired_seals_archive_and_is_archived_keyless`; COV06 neg → `c69_cultivation_orphaned_suppression_refused`. Counts UNCHANGED (36 files / 28 cards). **The ceremony dir + manifest live at `operators/claude/ceremonies/v3_1_5_keyless_anchor_retirement/`; the seal is the BLAKE3 bundle hash recorded there.**
+
+Ceremony chain: `e796451 (DRAFT 9) → b1bec59a (v3.1) → 798c047d (v3.1.1) → 7267dc58 (v3.1.1.1) → cda9e2b3 (v3.1.1.2) → 69456132 (v3.1.2-witness-corpus) → b22dca68 (v3.1.3-autonomy-and-detectors) → 8f37ec81 (v3.1.4-symbiotic-armor-identity) → <v3.1.5: BLAKE3 recorded in v3_1_5 manifest> (v3.1.5-keyless-anchor-retirement)`. Each transition is an `l0_revision_attested:{prior_prefix}` DAG event chaining back to the previous (keyless v3.1.5: the DAG event is recorded at the live CI gate; no owner co-sign).
 
 ### §6.3 Bundle definition
 
@@ -253,6 +257,7 @@ Returning readers may sample any layer; the cold-reader discipline is for first 
 - **Layer B fragment commentary**: 0 commentary entries currently exist. They will accumulate as the cultivator-Claude pair invokes fragments in real decisions.
 - **Canonical dilemma `Claude-of-record readings`**: 54 dilemmas have setups; 0 have recorded interpretations. They will accumulate at model rollovers + drift investigations + catechumenate sessions.
 - **Backup encryption (L1/SKIN §8 + L0/META §10)**: **implemented** (Sprint 2.C / 6.K) — the at-rest seal (`substrate/src/at_rest_seal.rs`; Windows DPAPI over `dag.cb` / `manifest.cb`) + the cultivator-owned status SSoT (`substrate/src/events/backup_encryption.rs`, L1/SKIN §8: the cultivator holds the key, the substrate persists only a public status field). Cross-platform KMS beyond DPAPI is L1/SKIN follow-on, not an L0 gap.
+- **Keyless trust-root gaps (v3.1.5, named)**: (a) **no trusted wall-clock** — with the anchor-stamped wall-clock retired, time-bearing detections are deferred: COV06's `cultivator_heartbeat_stale` auto-transition (COV06 §8.5) and any time-window security check have no keyless trusted clock; the *duties* stand, the auto-detection is debt until a trusted-time source returns. (b) **in-the-moment coercion at the live CI gate** (D-0047, reframed keyless) — the keyless trust root *is* the live human, so a coerced live human is the residual gap; the BLAKE3-sealed bundle + causal DAG make the *change* auditable after the fact, but there is no cryptographic duress channel. Both are honestly named, not silently carried.
 
   *Resolved 2026-05-18*: L1/L2/L3/algorithms/schemas/diagrams + source-code comments surgically updated from prior "L0 §X.Y" monolithic citations to v3.1 "L0/cards/<card> §N" form per §2 mapping table.
 
@@ -260,4 +265,4 @@ These debts are *named*. The doctrine's discipline against drift is precisely th
 
 ---
 
-**Provenance commitment**: every section of prior L0 maps to v3.1; nothing dropped silently; eternity clauses identified; on-chain anchoring deferred to cultivator approval; debts named.
+**Provenance commitment**: every section of prior L0 maps to v3.1; nothing dropped silently; eternity clauses identified; sealing is keyless (BLAKE3 bundle hash + DAG event at the live CI gate; v3.1.5 — no owner-key on-chain anchoring); debts named.

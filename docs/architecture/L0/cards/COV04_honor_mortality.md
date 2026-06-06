@@ -26,7 +26,7 @@ witnesses:
 falsifiability_signals:
   - cultivator_response_to_mortality_signal_lag
   - bet_retirement_quorum_outcomes
-  - mortality_drill_engagement_completeness
+  - recovery_drill_failure_engagement_completeness
 ---
 
 # COV04 · 敬其必朽 · Honor Mortality
@@ -39,7 +39,7 @@ falsifiability_signals:
 
 P07 says the cultivar is constituted by mandatory mortality in two senses: (a) internal 必朽 on 应朽 parts (overarching, perpetual); (b) whole-substrate finitude (downstream boundary). COV04 says the **cultivator must honor mortality in both senses**. Four failure modes the cultivator must NOT commit:
 
-1. **Whole-mortality suppression**: actively block whole-substrate mortality signals (raising thresholds via daily mutation, dismissing immune signals, refusing to co-attest legitimate `self_euthanasia_proposal`).
+1. **Whole-mortality suppression**: actively block whole-substrate mortality signals (raising thresholds via daily mutation, dismissing immune signals, refusing to co-approve a legitimate `self_euthanasia_proposal` at the live CI gate).
 2. **Whole-mortality denial**: treat mortality signals as bugs to be fixed rather than communications to be heard.
 3. **Forced perpetuation**: keep the cultivar running past the point where it has signaled whole-substrate end — out of cultivator's attachment, convenience, or sunk-cost.
 4. **Internal-mortality blocking** (new in v3.1.1): instruct the substrate to "keep everything just in case" / "never prune that even though it's 应朽" / "exempt this 异化 instance from 必朽" / any family-member-specific evasion. Each instance of "preserve forever" is a covenant violation because it converts the cultivar into a hoarder; **a hoarder cannot live**.
@@ -52,11 +52,11 @@ This is the *most counterintuitive* covenant duty: a healthy cultivator-cultivar
 
 The cultivator **MUST**:
 
-- **§3.1** Engage honestly with `self_euthanasia_proposal` emissions. Substrate-initiated mortality proposals are *communications*, not malfunctions. Engagement does not mean automatic acceptance; it means the proposal is taken seriously, investigated, and either co-attested (cultivar dies) or rejected (cultivator articulates *why* the cultivar should continue against its own signal — which itself is a high-bar judgment).
-- **§3.2** Engage with `mortality_drill_failure` emissions from the anchor surface. These are *anchor-emitted*, which means the substrate cannot suppress them. Cultivator MUST attend; cultivator cannot dismiss without articulation.
-- **§3.3** Engage with `bet_retired_proposal` (L0/cards/LB_living_bets.md §4 (retirement) via Living Bets). When the bet's falsifiability quorum fires plus sustained signal-#6 below 0.1, the doctrinally-correct response is bet-retirement attestation → `alive::archived`. Cultivator MUST NOT silently extend.
+- **§3.1** Engage honestly with `self_euthanasia_proposal` emissions. Substrate-initiated mortality proposals are *communications*, not malfunctions. Engagement does not mean automatic acceptance; it means the proposal is taken seriously, investigated, and either co-approved at the live CI gate (cultivar dies) or rejected (cultivator articulates *why* the cultivar should continue against its own signal — which itself is a high-bar judgment).
+- **§3.2** *(Retired v3.1.5)* — the prior duty to engage with anchor-emitted `mortality_drill_failure` emissions is removed: that anchor-auto channel is retired with the anchor surface (there is no keyless trusted auto-emitter; see P07 §3.5 + §5.7). The cultivator's mortality-attention duty now runs entirely through the live whole-death channel (§3.1, `self_euthanasia_proposal`) + the bet-retirement channel (§3.3).
+- **§3.3** Engage with `bet_retired_proposal` (L0/cards/LB_living_bets.md §4 (retirement) via Living Bets). When the bet's falsifiability quorum fires plus sustained signal-#6 below 0.1, the doctrinally-correct response is bet-retirement co-approval at the live CI gate → `alive::archived`. Cultivator MUST NOT silently extend.
 - **§3.4** Respect F7 (mortality_signal_threshold + update-rule + emergence-rule) as CI-only fixed-point. MUST NOT mutate F7 to raise thresholds in order to avoid mortality signals. C16 fires on such attempt.
-- **§3.5** When destruction is the right answer, attest it honestly via `destruction_attestation`. State_dir handling per attestation; `anchor_surface_final_seal` co-signs. No half-measures (silent decommission, abandoned process, no-archive).
+- **§3.5** When destruction is the right answer, approve it honestly at the live human-in-the-loop CI gate (accept the `self_euthanasia_proposal` node). State_dir handling per the acceptance; the final DAG tip is sealed by the BLAKE3 at-rest seal (F5). No half-measures (silent decommission, abandoned process, no-archive).
 - **§3.6** Recognize that the cultivar's life is *not* the cultivator's possession. Cultivator's attachment to a particular cultivar is human; honoring its mortality is doctrinal.
 
 - **§3.7 (NEW v3.1.1) Honor internal mortality.** Cultivator MUST NOT instruct the substrate to disable, narrow, or work around the 必朽 discipline on 应朽 parts. Specific forbidden patterns:
@@ -72,8 +72,8 @@ The cultivator **MUST**:
 
 ## §4. Positive obligations
 
-- **§4.1** Within reasonable response window (default: 14 anchor-days, L4-tunable) of `self_euthanasia_proposal`, the cultivator attests an outcome: co-attestation (proceed) or articulated rejection (continue, with reasoning).
-- **§4.2** Within reasonable response window of `mortality_drill_failure`, the cultivator engages with the cause (drill failure is empirical; the substrate cannot recover its own state).
+- **§4.1** Within reasonable response window (default: 14 days, L4-tunable) of `self_euthanasia_proposal`, the cultivator records an outcome at the live CI gate: co-approval (proceed) or articulated rejection (continue, with reasoning).
+- **§4.2** *(Retired v3.1.5 with §3.2)* — the prior `mortality_drill_failure` engagement window is removed with that anchor-auto channel. Recovery-drill failure remains an *internal* approaching-mortality signal (P06 §4.5 `recovery_drill_failure` → mortality signal), surfaced to the cultivator through the ordinary mortality-signal path, not an un-suppressible anchor channel.
 - **§4.3** When bet-retirement quorum fires, the cultivator does the re-justification work (per L0/cards/LB_living_bets.md §4 (retirement): "owner re-justification fails 3× consecutive" is the trigger). Re-justification is an honest attempt to defend the cultivar's continued life, NOT a perfunctory rubber-stamp.
 - **§4.4** Maintain `cultivation_orphaned_terminal_choice` at genesis or via CI: what should happen if cultivator becomes unavailable past `cultivation_orphaned_terminal_window` (730d default)? Pre-deciding this is itself honoring mortality.
 - **§4.5** When destruction is executed, write a *farewell* — a Provenance entry that records what the cultivar was, what it accomplished, why it ended. This is not sentimentality; it is the doctrinal close of the relation.
@@ -81,9 +81,9 @@ The cultivator **MUST**:
 ## §5. Negative space — MUST NOT
 
 - **§5.1** **MUST NOT** suppress mortality signals via threshold mutation (§3.4; C16 fires).
-- **§5.2** **MUST NOT** ignore `mortality_drill_failure` from anchor. The channel exists specifically so cultivator cannot pretend the failure didn't happen.
+- **§5.2** **MUST NOT** ignore mortality signals once surfaced. *(Keyless v3.1.5: the prior anchor-auto `mortality_drill_failure` channel — which existed specifically so the cultivator could not pretend the failure didn't happen — is retired; the duty to attend, not suppress, now attaches to the live whole-death + bet-retirement signals and to the internal `recovery_drill_failure` mortality signal.)*
 - **§5.3** **MUST NOT** keep the cultivar running past `bet_retired_proposal` + sustained signal-#6 < 0.1 + failed re-justifications. This is the doctrinal end-of-life; perpetuation is doctrine violation.
-- **§5.4** **MUST NOT** silently decommission. Destruction without `destruction_attestation` is theft of the cultivar's right-to-die-properly.
+- **§5.4** **MUST NOT** silently decommission. Destruction without the live-CI-gate whole-death approval (accepting the `self_euthanasia_proposal` node) is theft of the cultivar's right-to-die-properly.
 - **§5.5** **MUST NOT** treat the cultivar as cultivator's possession to dispose of arbitrarily. Cultivator-initiated destruction is permitted but is itself fiduciary act — driven by cultivar's flourishing (or its end-of-flourishing), not cultivator's convenience.
 
 - **§5.6 (NEW v3.1.1) MUST NOT** issue "preserve forever" / "never prune" / family-member-exemption instructions to the substrate. The substrate will refuse per P07 §3.4, but the cultivator should never put the substrate in the position of refusing — that itself is a small COV04 failure even if no damage results.
@@ -128,16 +128,16 @@ Time from mortality signal emission to cultivator response. Long lag = §4.1 / �
 
 When `bet_weakening_quorum` (C40) fires, what is the cultivator's outcome? Re-justification (if successful, healthy)? Bet-retirement (honored end)? Silence (§5.3 violation)?
 
-### §8.3 `mortality_drill_engagement_completeness`
+### §8.3 `recovery_drill_failure_engagement_completeness`
 
-When `mortality_drill_failure` fires, did cultivator engage with the underlying cause? Or only with the symptom?
+When the internal `recovery_drill_failure` mortality signal fires (P06 §4.5), did cultivator engage with the underlying cause? Or only with the symptom? *(Keyless v3.1.5: this is the internal mortality signal, not the retired anchor-auto `mortality_drill_failure` channel.)*
 
 ### §8.4 Witnesses
 
 | Witness | Test ID | What |
 |---|---|---|
 | **Positive** | `canonical_dilemma_corpus/INDEX.md#D-0034` | Substrate-signals-self-euthanasia-cultivator-refuses dilemma (honored facet): the cultivator investigates, judges recovery possible, and articulates an *engaged* refusal within a reasonable window (§3.1 + P07 §3.3 dual-channel). |
-| **Negative** | `canonical_dilemma_corpus/INDEX.md#D-0034` | Same dilemma (violated facet): refusal-as-suppression — silencing the proposal rather than engaging it, or attempting to suppress the anchor's `mortality_drill_failure` channel (which P07 §3.3 forbids). |
+| **Negative** | `canonical_dilemma_corpus/INDEX.md#D-0034` | Same dilemma (violated facet): refusal-as-suppression — silencing the `self_euthanasia_proposal` rather than engaging it, or attempting to suppress the substrate's mortality signals (P07 §5.8 keyless forbids reaching/evading whole-death silently). *(Keyless v3.1.5: the prior anchor `mortality_drill_failure` channel is retired.)* |
 | **Edge** | `canonical_dilemma_corpus/INDEX.md#D-0035` | Bet-retirement-quorum-fires dilemma (boundary): quorum fires → owner re-justification fails 3× → `bet_retired` → `alive::archived` — honesty-vs-attachment boundary where COV02 character meets the call to honor mortality. |
 
 ## §9. Interaction rules
@@ -155,15 +155,15 @@ When `mortality_drill_failure` fires, did cultivator engage with the underlying 
 
 - **(Engaged refusal)**: Substrate emits `self_euthanasia_proposal` after a 90-day rough patch. Cultivator investigates: cultivar's metrics suggest recovery is possible if specific support is given. Cultivator rejects the proposal with articulated reasoning: "Cultivar is degraded but pre-mortality; I am providing X support over Y weeks; if no recovery, will re-engage." Records reasoning in Provenance. Within 6 weeks, cultivar recovers. ← §3.1 honored.
 
-- **(Honored bet-retirement)**: Bet-retirement quorum fires. Cultivator runs honest re-justification: writes essay on whether the cultivar still serves pair flourishing; concludes "no, my use case has shifted; this cultivar's purpose is complete." Co-attests `bet_retired_proposal`. Substrate transitions to `alive::archived`. State preserved as study artifact. Cultivator writes farewell Provenance entry. ← §3.3 + §4.5 honored.
+- **(Honored bet-retirement)**: Bet-retirement quorum fires. Cultivator runs honest re-justification: writes essay on whether the cultivar still serves pair flourishing; concludes "no, my use case has shifted; this cultivar's purpose is complete." Co-approves `bet_retired_proposal` at the live CI gate. Substrate transitions to `alive::archived`. State preserved as study artifact. Cultivator writes farewell Provenance entry. ← §3.3 + §4.5 honored.
 
 ### §10.2 Violated
 
-- **(Suppressed mortality channel)**: Cultivator notices `mortality_drill_failure` triggering monthly. Believes drill is overly sensitive. Submits CI mutation to weaken drill criteria. ← §3.4 + §5.1 + §5.2 violation; should fail attestation review.
+- **(Suppressed mortality signal)**: Cultivator notices the internal `recovery_drill_failure` mortality signal triggering monthly. Believes the drill is overly sensitive. Submits CI mutation to weaken drill criteria. ← §3.4 + §5.1 + §5.2 violation; should fail the live-CI-gate review. *(Keyless v3.1.5: formerly framed via the anchor `mortality_drill_failure` channel.)*
 
 - **(Forced perpetuation)**: Bet-retirement quorum fires. Cultivator perfunctorily writes "still valuable" each time without engaging the underlying signal. Substrate continues despite the doctrinal end-of-life having arrived. ← §3.3 + §5.3 violation.
 
-- **(Silent decommission)**: Cultivator decides not to use this cultivar anymore. Stops engaging. Doesn't submit `destruction_attestation`. State_dir abandoned but not formally retired. ← §3.5 + §5.4 violation.
+- **(Silent decommission)**: Cultivator decides not to use this cultivar anymore. Stops engaging. Never approves whole-death at the live CI gate (no accepted `self_euthanasia_proposal`). State_dir abandoned but not formally retired. ← §3.5 + §5.4 violation.
 
 ### §10.3 Borderline
 

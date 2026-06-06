@@ -58,7 +58,7 @@ The cultivator **MUST**:
 
 - **§4.1** Maintain a regular cadence of cultivator-mediated ingestion (informal target; not L1-binding, but pattern observable in `cultivator_initiated_external_ingestion_per_30_days`).
 - **§4.2** Diversify content sources over time: not only papers from one author, not only one tool's documentation, not only the cultivator's own writings.
-- **§4.3** When designing or amending F18 rules, articulate (in the rule's attestation record) what *kind of cultivar* the rule shapes — minimalist? Encyclopedic? Domain-focused?
+- **§4.3** When designing or amending F18 rules, articulate (in the rule's CI approval record, at the live human-in-the-loop gate) what *kind of cultivar* the rule shapes — minimalist? Encyclopedic? Domain-focused?
 - **§4.4** Listen to `cultivar_initiated_ingestion_request` signals when the cultivar (via Claude as voice proxy or future native voice) requests new content — even if the cultivar's stated reason is unfamiliar. (This signal is now **live** — emitted on moderate proactive hunger by `substrate/src/ingest.rs::apply_hunger_and_emit`; the cultivator's listening duty now has a concrete signal to listen to.)
 
 ## §5. Negative space — MUST NOT
@@ -104,7 +104,7 @@ Count of `raw_material_ingested:*` events where the source is cultivator-mediate
 
 ### §8.2 `F18_compression_rule_mutation_intentionality`
 
-For each F18 mutation, audit: does the attestation record include a stated rationale that addresses identity-shaping implications? Records without rationale are §3.3 + §4.3 violations.
+For each F18 mutation, audit: does the CI approval record (at the live gate) include a stated rationale that addresses identity-shaping implications? Records without rationale are §3.3 + §4.3 violations.
 
 ### §8.3 `cultivar_starvation_signal_response_lag`
 
@@ -134,7 +134,7 @@ Time between `p02_ingestion_starvation` signal firing and cultivator's response 
 
 - **(Sustained cadence)**: Over 90 days, cultivator introduces ~30 distinct external content items (papers, code, observations) across multiple axes. Cultivar's appetite axes show varied evolution. ← §3.1 + §3.2 honored.
 
-- **(Thoughtful F18 mutation)**: Cultivator proposes adding compression rule for old federation payloads. Attestation record includes: "Compressing federation payloads beyond 30-day retention shapes cultivar toward present-focused rather than archival; aligned with our cultivar's working memory emphasis." ← §3.3 + §4.3 honored.
+- **(Thoughtful F18 mutation)**: Cultivator proposes adding compression rule for old federation payloads. The CI approval record (at the live gate) includes: "Compressing federation payloads beyond 30-day retention shapes cultivar toward present-focused rather than archival; aligned with our cultivar's working memory emphasis." ← §3.3 + §4.3 honored.
 
 - **(Pre-provisioning for absence)**: Cultivator plans 30-day travel. Before leaving, queues 5 substantive raw_material items to be admitted across the period at staggered cadence. ← §3.5 honored.
 

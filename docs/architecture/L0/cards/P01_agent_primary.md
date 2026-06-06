@@ -22,8 +22,8 @@ structural_anchors:
 witnesses:
   kind: executable
   positive: "substrate/tests/e2e_layer_c.rs::layer_c_p01_positive_daily_ops_unsupervised"
-  negative: "substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_rejected_without_owner_attestation"
-  edge: "substrate/tests/e2e_owner_key.rs::sprint_6f_owner_key_history_mutation_classifies_as_ci"
+  negative: "substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_accepted_keyless_and_applies"
+  edge: "substrate/tests/e2e_layer_c.rs::layer_c_p03_positive_classifier_path_traversed"
 falsifiability_signals:
   - daily_ops_attestation_request_rate
   - ci_attestation_bypass_attempts
@@ -42,7 +42,7 @@ The substrate exists *for* an LLM agent as its primary consumer and maintainer. 
 
 Myco is **a substrate for LLM-agent inhabitation**, not for human direct-use. The agent is the substrate's *primary consumer* and *daily maintainer*. The human is the cultivator — present at gates, absent from gardens. Without this asymmetry, Myco collapses into either (a) a human tool with an AI assistant, or (b) an autonomous agent without cultivation. Neither is Myco.
 
-The cultivar-cultivator relation is **structurally asymmetric** (see P01c for the carrier dimension): the cultivator holds keys, sets doctrine, attests CI; the cultivar/agent inhabits, metabolizes, refines. The asymmetry is *constitutive of the relationship* — flattening it would not improve Myco; it would dissolve Myco into something else.
+The cultivar-cultivator relation is **structurally asymmetric** (see P01c for the carrier dimension): the cultivator stands at the live CI gate, sets doctrine, approves CI changes; the cultivar/agent inhabits, metabolizes, refines. The asymmetry is *constitutive of the relationship* — flattening it would not improve Myco; it would dissolve Myco into something else.
 
 ## §3. Formulation (current operational definition)
 
@@ -51,14 +51,14 @@ The substrate **MUST** be structured such that:
 - **§3.1 (P1 core)** An LLM agent is the *primary consumer* of the substrate's daily output (gradient state, recent sporocarps, observability digests). An LLM agent is the *primary maintainer* responsible for daily axes perturbation, evolution proposals, and routine federation.
 - **§3.2 (P1.a Self-hosting)** Myco's own kernel (the codebase that implements Myco) MUST itself be a Cultivar under Cultivation. The substrate that hosts Myco-the-software is itself a Myco substrate. No special-case exemption for the implementation.
 - **§3.3 (P1.b' Human OUT of daily-ops)** The cultivator MUST NOT be required for daily operations: curation, ingestion, sporocarp emission, immune detection, gradient updates, federation poll, telos drift sampling. These run unsupervised. Cultivator may *observe* but MUST NOT be a precondition.
-- **§3.4 (P1.b'' Human RETAINED as CI gate)** The cultivator IS REQUIRED for: L0/L1 doctrine mutation, classifier dimension table mutation, mortality threshold + update-rule mutation, owner key history mutation, anchor endpoint mutation, substrate destruction, succession registry mutation, F-row fixed-point mutation. CI = where identity is at stake.
+- **§3.4 (P1.b'' Human RETAINED as CI gate)** The cultivator IS REQUIRED for: L0/L1 doctrine mutation, classifier dimension table mutation, mortality threshold + update-rule mutation, substrate destruction, succession registry mutation, F-row fixed-point mutation. CI = where identity is at stake. The cultivator's authority here is exercised at the **live human-in-the-loop CI gate** (keyless: a present human approving the change in the loop, not an out-of-band signing key — see META §7.8 + L2/TRUST_MODEL); the substrate's BLAKE3-sealed doctrine bundle + its causal DAG are what make the approval auditable.
 
 The asymmetric carrier (P1.c) is split into its own card; see `P01c_asymmetric_carrier.md`.
 
 ## §4. Positive obligations
 
 - **§4.1** The substrate MUST provide an agent interface (handshake → gradient digest → perturb → advance → fruit-sporocarp → federate) that the agent can fully drive without cultivator presence.
-- **§4.2** The substrate MUST classify every mutation envelope via the I2 classifier into {daily, contract_identity_level, untyped}; daily ops proceed without attestation; CI requires owner attestation; untyped rejected at skin (§3.3 / §3.4).
+- **§4.2** The substrate MUST classify every mutation envelope via the I2 classifier into {daily, contract_identity_level, untyped}; daily ops proceed without approval; CI requires the live human-in-the-loop CI approval; untyped rejected at skin (§3.3 / §3.4).
 - **§4.3** The substrate MUST persist axes, gradients, DAG, manifest such that the cultivator's absence over days/weeks does not interrupt operation.
 - **§4.4** The substrate's own kernel (Myco-the-software) MUST be developable under its own doctrine — kernel repo is a Cultivar.
 - **§4.5** The classifier table (F1) MUST itself be CI-classified (fixed-point); the classifier cannot be daily-mutated to widen the daily-permission set.
@@ -66,7 +66,7 @@ The asymmetric carrier (P1.c) is split into its own card; see `P01c_asymmetric_c
 ## §5. Negative space — MUST NOT
 
 - **§5.1** The substrate **MUST NOT** require cultivator approval for daily operations (perturbations, gradient updates, sporocarp emissions, federation pulls). Per-perturbation review is a doctrine violation, NOT a safety enhancement.
-- **§5.2** The substrate **MUST NOT** accept daily-class mutations that touch CI scopes (L0 files, classifier table, F-row fields, owner key, anchor endpoint). The classifier MUST gate.
+- **§5.2** The substrate **MUST NOT** accept daily-class mutations that touch CI scopes (L0 files, classifier table, F-row fields, succession registry). The classifier MUST gate.
 - **§5.3** The substrate **MUST NOT** treat the cultivator as a daily-ops backup (e.g., "if agent fails, route to cultivator"). Failure modes route to substrate's own immune system (quarantine, mortality signal), NOT to cultivator escalation.
 - **§5.4** The substrate **MUST NOT** be operable as a *direct-use tool for humans*. The skin envelope is shaped for agent inhabitation. Humans interact via cultivation gates, not via daily-ops interface.
 - **§5.5** The substrate's own kernel **MUST NOT** be exempted from its own doctrine. "We're just writing the code, doctrine doesn't apply to us yet" is a documented historical failure mode (Phase γ.5: anchor-client and operators sharing npm workspace) and must not recur.
@@ -119,7 +119,7 @@ Count of CI-attestation requests per day. Daily ops should NOT trigger CI attest
 
 ### §8.2 Runtime signal: `ci_attestation_bypass_attempts`
 
-Count of mutation envelopes that touch CI scopes but arrive without attestation. Per §3.4 + §5.2 these MUST be rejected at the I2 classifier (`untyped`) or at the attestation handler (`C5_attestation_invalid`). Any successful bypass is a doctrine violation.
+Count of mutation envelopes that touch CI scopes but arrive without the live human-in-the-loop CI approval. Per §3.4 + §5.2 these MUST be rejected at the I2 classifier (`untyped`) or at the keyless content-validation handler (`C5` — malformed/unapproved CI envelope). Any successful bypass is a doctrine violation.
 
 ### §8.3 Runtime signal: `cultivator_micromanagement_indicator`
 
@@ -129,9 +129,9 @@ Reserved. Future signal: ratio of cultivator perturbations to total perturbation
 
 | Witness | Test ID | What it exercises |
 |---|---|---|
-| **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p01_positive_daily_ops_unsupervised` | Substrate runs N cycles, ingests raw_material, emits sporocarps, all without any cultivator attestation event. Daily-ops is fully unsupervised. |
-| **Negative** | `substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_rejected_without_owner_attestation` | **Deliberate sabotage**: submit a CI-class schema-evolution mutation with no owner attestation. Substrate MUST reject — the daily channel cannot perform a CI mutation without owner co-attestation. |
-| **Edge** | `substrate/tests/e2e_owner_key.rs::sprint_6f_owner_key_history_mutation_classifies_as_ci` | Boundary: a mutation touching owner-key history is correctly classified as CI (not daily) — the daily/CI classifier draws the line at exactly the right place. |
+| **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p01_positive_daily_ops_unsupervised` | Substrate runs N cycles, ingests raw_material, emits sporocarps, all without any cultivator presence. Daily-ops is fully unsupervised. |
+| **Negative** | `substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_accepted_keyless_and_applies` | The keyless CI path: a schema-evolution (CI-class) mutation is accepted + applied through the live human-in-the-loop gate (no owner signing key). This exercises the boundary the daily channel cannot cross on its own — the CI scope is reached only through the CI path, which the classifier (§4.2) routes here. *(Keyless re-grounding v3.1.5: the prior owner-attestation negative is retired with the owner key; the asymmetry is now drawn at the classifier + the live CI gate.)* |
+| **Edge** | `substrate/tests/e2e_layer_c.rs::layer_c_p03_positive_classifier_path_traversed` | Boundary: a mutation traverses the classifier → CI path — the daily/CI classifier draws the daily-vs-CI line at exactly the right place (the line P01's asymmetry depends on). |
 
 ### §8.5 Information-asymmetry test
 
@@ -154,7 +154,7 @@ Reserved — for future cultivar voice. A cultivar voice claim of P01 violation 
 
 - **(Normal operation)**: Cultivator is offline for 2 weeks. Substrate cycles continue, agent ingests raw_material, gradient updates, sporocarps emit, immune system catches malformed envelopes. No cultivator attestation. ← §3.3 + §4.3 honored.
 
-- **(CI gate at L0 change)**: Cultivator drafts an L0 amendment. Substrate's I2 classifier elevates to CI. Substrate requests attestation. Cultivator attests via anchor surface. Mutation accepted. ← §3.4 honored.
+- **(CI gate at L0 change)**: Cultivator drafts an L0 amendment. Substrate's I2 classifier elevates to CI. Substrate surfaces the change for approval. Cultivator approves at the live human-in-the-loop CI gate. Mutation accepted. ← §3.4 honored.
 
 - **(Self-hosting)**: A PR against the Myco kernel repo touches `kernel/governance/classifier.py`. The kernel's own CI pipeline classifies this as F1 mutation (classifier table is itself F1) and requires cultivator attestation before merge. ← §3.2 honored.
 
@@ -187,7 +187,7 @@ Reserved — for future cultivar voice. A cultivar voice claim of P01 violation 
 | `substrate/src/handshake.rs::handle_hello` | Handshake — agent identity pinned (P1.c, separate card). | `// implements L0::P01 §3.1; positive-witness: substrate/tests/e2e_layer_c.rs::layer_c_p01_positive_daily_ops_unsupervised` |
 | `substrate/src/server/dispatch.rs` (ADVANCE arm) | Daily cycle advance — unsupervised. | `// implements L0::P01 §3.3` |
 | `substrate/src/server/dispatch.rs` (PERTURB arm) | Daily perturbation — unsupervised. | `// implements L0::P01 §3.3` |
-| `substrate/src/attestation.rs::handle_submit_mutation` | CI mutations go through classifier + attestation. | `// implements L0::P01 §3.4; negative-witness: substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_rejected_without_owner_attestation` |
+| `substrate/src/attestation.rs::handle_submit_mutation` | CI mutations go through classifier + keyless content-validation at the live CI gate. | `// implements L0::P01 §3.4; negative-witness: substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_accepted_keyless_and_applies` |
 | `kernel/governance/src/myco_kernel_governance/classifier.py` | F1 classifier table — fixed-point. | `// implements L0::P01 §3.4 + §4.5` |
 
 ## §13. Related Layer B chengyu

@@ -96,7 +96,7 @@ Indexed against: [P02, P14, COV01, ...]
 
 **Drift behavior**: sessions accrete; older sessions stay readable. Sessions surface tacit principles that become commentary on Layer B fragments. The catechumenate is *forward-only*; sessions are not edited after they are completed and dual-signed.
 
-**Authority**: sessions are dual-signed (cultivator A + successor candidate); each session emits a DAG event via M-anchor-5-style anchor attestation. Successor activation per F21 (cultivation_successor_chain) REQUIRES a minimum number of dual-signed catechumenate sessions (default: 50, L4-tunable, never zero).
+**Authority**: sessions are dual-confirmed (cultivator A + successor candidate); each session emits a DAG event via the keyless live-CI-gate recording (v3.1.5: no owner/anchor signature). Successor activation per F21 (cultivation_successor_chain) REQUIRES a minimum number of dual-confirmed catechumenate sessions (default: 50, L4-tunable, never zero).
 
 **Status in v0.9**: the directory exists; the format is specified; **zero sessions exist**. This is acknowledged debt. The architectural commitment is now binding; implementation defers until cultivator A and any candidate successor begin actual succession preparation.
 
@@ -183,10 +183,11 @@ Cards in special categories (Anchor Surface, Living Bets, Covenant Duty, Cultiva
 | Layer | Meaning |
 |---|---|
 | **Cultivar essence** | About what the cultivar *is*: P2 ingestion, P3 evolution, P4 iteration, P7 mortality, P10 compression. The body of the cultivar. |
-| **Container property** | About the substrate's *trustworthiness*: §9 anchor, I3 SSoT, I4 DAG, I8 skin. The container that holds the cultivar. |
-| **Anchor surface** | About the cryptographic root (§9 sub-mechanisms). |
+| **Container property** | About the substrate's *trustworthiness*: I3 SSoT, I4 DAG, I8 skin. The container that holds the cultivar. |
 | **Pair relation** | About the cultivator-cultivar relationship: P1.c asymmetric carrier, Cultivator's Covenant cards, succession. |
 | **Transmission** | About how lineage continues across cultivator changes: Layer D semantics. |
+
+*(Keyless v3.1.5: the prior **Anchor surface** card-layer row — "about the cryptographic root, §9 sub-mechanisms" — is removed; the owner-key/anchor surface was retired and the AS card is Superseded. The `layer: Anchor surface` tag survives only on the retained Superseded AS tombstone for provenance. The trust root is now keyless, per §7.8.)*
 
 **Why this distinction matters**: a "completion percentage" reported on a Container Property card is NOT a "completion percentage" on a Cultivar Essence card. Conflating these was a documented v0.9 failure mode (M-anchor-5 was reported as "§9 100% complete," which was true for container but ~5% for cultivar essence). The category + layer tags make this confusion impossible to commit.
 
@@ -358,7 +359,7 @@ A Layer A card is revised by:
 1. **Proposal** — Cultivator or Claude drafts the revision; the proposal includes the diff, the reason, and the trace to the conversation moment that produced the need.
 2. **Multi-AI deliberation** — at least one additional AI (e.g., GPT, Gemini, another Claude instance, or research-kernel agents) reviews and articulates objections.
 3. **Cultivator decision** — Cultivator accepts, rejects, or returns for revision.
-4. **Anchoring (M-anchor-5)** — accepted revision is anchored on-chain via `l0_revision_attest` mutation; the prior-hash and new-hash are committed.
+4. **Sealing (keyless v3.1.5)** — accepted revision is sealed as the BLAKE3 hash of the L0 canonical-bytes bundle; the prior-hash and new-hash are committed to the PROVENANCE chain + recorded as a DAG event at the live CI gate. *(Replaces the prior on-chain `l0_revision_attest` owner co-sign — old M-anchor-5; there is no owner signature.)*
 5. **Version increment + Provenance update** — card's `version` increments; Provenance section gains a row with date, conversation reference, summary of change.
 
 ### §7.2 Layer B fragment revision
@@ -367,7 +368,7 @@ Lighter process:
 1. Cultivator or Claude proposes
 2. Cultivator confirms (single approver)
 3. Fragment added or marked `[DORMANT]`
-4. M-anchor-5 anchor (since Layer B is part of L0)
+4. Keyless seal (BLAKE3 bundle reseal + DAG event at the live CI gate) since Layer B is part of L0
 
 ### §7.3 Layer C witness revision
 
@@ -402,7 +403,7 @@ Cards with `deposit_immutable: true` may not have their *deposit* amended throug
 The ritual:
 1. A formal `species_redefinition_proposal` is drafted, naming the deposit being amended and the new deposit being substituted.
 2. The proposal is reviewed against the question "is what we will have, after this amendment, still Myco?" by cultivator + multi-AI + at least one external observer (where available).
-3. If the answer is "no, this is a different species": the current Myco is formally retired (alive::archived, anchor seals final tip), and the new doctrine is birthed as a new species under a new name.
+3. If the answer is "no, this is a different species": the current Myco is formally retired (alive::archived, the BLAKE3 at-rest seal (F5) seals the final tip), and the new doctrine is birthed as a new species under a new name.
 4. If the answer is "yes, this is still Myco despite the deposit change": the change is recorded as constitutional amendment, with explicit Phase 3-hunt-style adversarial review preserved in Provenance.
 
 This is *deliberately* heavyweight. The intent is that eternity-clause deposits NEVER change in practice; the ritual exists for the case where reality forces a re-cognition.
@@ -415,11 +416,19 @@ When the cultivar's `telos_drift` immune signal (P14.c) fires persistently over 
 
 This puts the cultivar's own telos signal in the role of external witness against cultivator drift. It does NOT solve the fundamental fiduciary problem (no external authority above cultivator + Claude), but it surfaces the drift to whatever external observers eventually exist (successor cultivator reading catechumenate, posterity-trustees if named, etc.).
 
-### §7.8 What CANNOT be revised by daily process
+### §7.8 The trust root (keyless v3.1.5) + what CANNOT be revised by daily process
 
-Eternity-clause cards' deposits (§7.6) are the explicit list. Beyond that:
+**The trust root (THE headline of v3.1.5).** Myco's prior trust root was the out-of-band **anchor surface** — an owner Ed25519 key + anchor-issued nonces + anchor-stamped wall-clock + DAG-tip co-signing + the duress keypair (M-anchor-1..5). **All of that was removed in the v3.1.5 keyless-anchor teardown.** The trust root is now three things, none of them a cryptographic owner key:
+
+1. **The live human-in-the-loop at the CI gate.** A present human reviews and approves every CI-class change in the loop. Authority is exercised by presence + judgment, not by holding a signing key. This is the cultivator's instrument, constitutionally separate from the cultivar (P09).
+2. **The substrate's causal DAG** (P06, eternity-clause). Every state is re-derivable from genesis; retro-edit is caught by C7 Merkle re-derivation; parallel-branch forgery is caught by chain re-derivation (no owner co-sign needed). The DAG is the substrate's tamper-evident self-record.
+3. **The BLAKE3-sealed doctrine bundle.** The L0 doctrine's integrity is the BLAKE3 hash of its canonical-bytes bundle (the keyless seal — no owner signature). Any tampering changes the hash; the PROVENANCE chain records each sealed revision.
+
+The substrate still **cannot self-attest** (the deposit of the now-Superseded AS card): it emits re-derivable **witnesses**, and the **live human-in-the-loop re-derives the verdict at the CI gate** (witnesses-not-verdicts, keyless). What changed is *who/what* holds the external authority — a present human + a causal chain + a sealed bundle, rather than an owner key. The substrate's **own** signing keypair (F24) is kept — it signs its own snapshot.cb + federation hello; it is NOT the owner key. Acknowledged debt: there is no keyless trusted wall-clock, so time-bearing detections (e.g., COV06 heartbeat-staleness, in-the-moment coercion at the gate per D-0047) are deferred until a trusted-time source returns.
+
+**What CANNOT be revised by daily process.** Eternity-clause cards' deposits (§7.6) are the explicit list. Beyond that:
 - The very existence of this Meta document and its four-layer + running-mechanism structure
-- The substrate's M-anchor-1..5 anchor surface (the cryptographic ground of all attestation)
+- The keyless trust root above (the live human-in-the-loop at CI + the causal DAG + the BLAKE3-sealed bundle)
 - The substrate-ID immutability post-genesis (F2)
 
 These can be *clarified*, not erased.
@@ -477,7 +486,7 @@ This Meta and the cards may use English glosses (e.g., "skin / boundary" for 单
 
 Myco is NOT:
 - a documentation system, knowledge base, chatbot memory, file synchronizer, version control, LangChain reimplementation, literal biological organism
-- session-bounded, request/response, silently trusting either party (anchor §9 cards)
+- session-bounded, request/response, silently trusting either party (the keyless trust root — §7.8 — is the live human-in-the-loop at the CI gate + the causal DAG + the BLAKE3-sealed bundle; formerly the anchor §9 cards)
 - safe under adversarial cultivator (Covenant Duty cards bound; not solved)
 - safe under cultivator death without succession (succession in scope via Layer D catechumenate; v0.9 has zero sessions)
 - embodied physically
@@ -519,7 +528,7 @@ Provenance is itself doctrine: a card's history of revisions, including the reas
 5. **`cards/CHAR_*.md`** — to know what kind of being the cultivar is.
 6. **`B_chengyu.md`** — read end-to-end; let the fragments accumulate cross-resonances; sample the commentary on each.
 7. **Remaining P cards** — in P-number order.
-8. **`cards/AS_anchor_surface.md`** — for the cryptographic root.
+8. **`cards/AS_anchor_surface.md`** — **Superseded v3.1.5** (the owner-key/anchor cryptographic root was retired; read it as the tombstone of the prior trust root, and §7.8 for the keyless trust root that replaced it).
 9. **`cards/LB_living_bets.md`** — for the bet falsifiability.
 10. **`canonical_dilemma_corpus/`** — to see Claude's recorded interpretations on canonical cases (relevant before model rollovers).
 11. **`catechumenate/`** — form scaffolding only (no sessions yet) at v0.9 ship; sessions accumulate before any succession.

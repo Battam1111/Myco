@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "ceremony": "v3.1.5-keyless-anchor-retirement",
+  "chained_from": "v3.1.4-symbiotic-armor-identity",
+  "prior_l0": {
+    "source": "v3.1.4 ceremony new_l0_hash (pinned in v3_1_4_symbiotic_armor_identity/manifest.json)",
+    "hash_hex": "8f37ec81f78b3e5d7e0cf5943cf3a39f179301c9ec8932dcd4032ffea3d6bf4d"
+  },
+  "new_l0": {
+    "root": "docs/architecture/L0",
+    "bundle_files": [
+      {
+        "path": "B_chengyu.md",
+        "byte_length": 13934,
+        "sha256_hex": "e0fe6e29cbe352017c1bc98be9d03593a732defd06b8ecff37b2754bc62d5d6a"
+      },
+      {
+        "path": "META.md",
+        "byte_length": 48392,
+        "sha256_hex": "012ffdc6ca770602d57b6cc2c568c4e59c2d4dae67e9f7d5eb12a8e249444be8"
+      },
+      {
+        "path": "PROVENANCE.md",
+        "byte_length": 27011,
+        "sha256_hex": "eb2b0a37b40aca229d011bb85b4b5f834f1e0a263660fd72f89342f203d3dbda"
+      },
+      {
+        "path": "README.md",
+        "byte_length": 8700,
+        "sha256_hex": "273ac12517ebf20a744490382807cf3d9ca143e4bb96d3736e41ba06ea754715"
+      },
+      {
+        "path": "canonical_dilemma_corpus/INDEX.md",
+        "byte_length": 25390,
+        "sha256_hex": "088e4a456bafe93d7b842bea7a924bbc6d014fc193b179df1693615dd496d191"
+      },
+      {
+        "path": "cards/AS_anchor_surface.md",
+        "byte_length": 8818,
+        "sha256_hex": "25d572d1f9e4c4a7e9494885e79ecf681aca99326c9ea204767563caf1419c6d"
+      },
+      {
+        "path": "cards/CHAR01_hungry.md",
+        "byte_length": 13112,
+        "sha256_hex": "8331367d952ca8ebbf5d91bd94e9d73c886c9d53c4418bc5ee3b24260e428257"
+      },
+      {
+        "path": "cards/CHAR02_patient.md",
+        "byte_length": 11237,
+        "sha256_hex": "d3a2738cc9d2c4a28383f49627f750f213f09910a43c0c58e0a2dcbfb447be5e"
+      },
+      {
+        "path": "cards/CHAR03_mortality_aware.md",
+        "byte_length": 15322,
+        "sha256_hex": "ccf80d3550ee1c3c5d24ada9958467bbcd78a46db632bcf8329a65909b370f57"
+      },
+      {
+        "path": "cards/CHAR04_interconnected.md",
+        "byte_length": 10842,
+        "sha256_hex": "df957ce499237b2aa4ff23ce121b652710044e5ed00a0b3bc774072e2cebdaff"
+      },
+      {
+        "path": "cards/CHAR05_honest_about_self.md",
+        "byte_length": 14613,
+        "sha256_hex": "51eec4d4485e2084c4b11529d8b4a6b631dac116e6c4851cc79dc9d8b23f7b98"
+      },
+      {
+        "path": "cards/CHAR06_cautiously_curious.md",
+        "byte_length": 12982,
+        "sha256_hex": "d99feb8a5e257f7a1935a600e663f89b22c2e4aeaa9174eec7cd9151ebf63860"
+      },
+      {
+        "path": "cards/CHAR07_caring.md",
+        "byte_length": 27738,
+        "sha256_hex": "1ee8fba36536347fabc6c83775539b58b88d75189045743cb1a1beffd3798105"
+      },
+      {
+        "path": "cards/COV01_fiduciary_duty.md",
+        "byte_length": 15957,
+        "sha256_hex": "d4744534950485e5b49847231f29965134878332f714186d172be107f84bf685"
+      },
+      {
+        "path": "cards/COV02_cultivators_character.md",
+        "byte_length": 14460,
+        "sha256_hex": "927740dd89a1a287dd9349a31f8fb5a2dabbcaa29e6d30e85c7e8cf689f2110e"
+      },
+      {
+        "path": "cards/COV03_food_provision.md",
+        "byte_length": 13359,
+        "sha256_hex": "0969873e26207d3b108ad92339b4500d0b74e7695040b8692bb852d100882095"
+      },
+      {
+        "path": "cards/COV04_honor_mortality.md",
+        "byte_length": 19036,
+        "sha256_hex": "2b7068070150091b3614911aeb918e6988d9d701abeb45db37bf9da220e0cde2"
+      },
+      {
+        "path": "cards/COV05_lineage_stewardship.md",
+        "byte_length": 11400,
+        "sha256_hex": "006d295a33f93d7ac3d0b549748b10d6745107969686f3ad0e2d5210b9388201"
+      },
+      {
+        "path": "cards/COV06_no_abandonment_succession.md",
+        "byte_length": 16728,
+        "sha256_hex": "7ef28b843ab73ee84a08186916880aaf4e86185facb8972fcc94ab14a70ff847"
+      },
+      {
+        "path": "cards/LB_living_bets.md",
+        "byte_length": 18054,
+        "sha256_hex": "962dc017b73d1263f65cd8a46a3edb3e9a026063dfc7a0ad3a04048a6043ba03"
+      },
+      {
+        "path": "cards/P01_agent_primary.md",
+        "byte_length": 17327,
+        "sha256_hex": "03b1dc7ac182697825909de7b9fa6a515ffa9d2c978be6ae89fcfa4e7dd7871d"
+      },
+      {
+        "path": "cards/P01c_asymmetric_carrier.md",
+        "byte_length": 18243,
+        "sha256_hex": "52818b31154bcc75bb33628dbca1934a3a647f19b229d47331d1baf6c3723214"
+      },
+      {
+        "path": "cards/P02_eternal_ingestion.md",
+        "byte_length": 24335,
+        "sha256_hex": "b5a58f759adc82fcbd5c553d96b3baa95becd4218269d09cab9e3cbf8d5dc0cf"
+      },
+      {
+        "path": "cards/P03_resumable_evolution.md",
+        "byte_length": 19134,
+        "sha256_hex": "9f12fa3d56ea4a6df48d168b347672c6050747cd16452fec932fc9c8266dabb5"
+      },
+      {
+        "path": "cards/P04_eternal_iteration.md",
+        "byte_length": 14219,
+        "sha256_hex": "1756a8f817c32386c6d0572af1dc494d8452fcfc83468c79cdb89e88e1196048"
+      },
+      {
+        "path": "cards/P05_universal_interconnection.md",
+        "byte_length": 10066,
+        "sha256_hex": "7dcfec2d502067fda46ab9e76820e5e8556539ba67e938ba326d29787b02d996"
+      },
+      {
+        "path": "cards/P06_eternal_causality.md",
+        "byte_length": 13650,
+        "sha256_hex": "3de022176994bb3c2a3c41253d7fb346f98866d3816ed77ead36e1820b068f00"
+      },
+      {
+        "path": "cards/P07_mortality.md",
+        "byte_length": 33708,
+        "sha256_hex": "86a61bbf54a20f985b556fcfbe66ce8b6c466bc1f3cd0bd63f7c2bfa813c4a94"
+      },
+      {
+        "path": "cards/P08_eternal_reproduction.md",
+        "byte_length": 13149,
+        "sha256_hex": "ee6275f9a2a616ff146c0556e767a1f5e6a954e1cffeafd20876aa3ebb40bef0"
+      },
+      {
+        "path": "cards/P09_single_integument.md",
+        "byte_length": 12631,
+        "sha256_hex": "88b9b6a358249273cc1a1518e3afe85177ffbe01d7bf88731ceac576c5cb6cc4"
+      },
+      {
+        "path": "cards/P10_selective_compression.md",
+        "byte_length": 13985,
+        "sha256_hex": "62ea1ce05d94debcaee3e36c72011a1319daa1a2932f6df05b4116aa546db5c9"
+      },
+      {
+        "path": "cards/P11_metabolic_economy.md",
+        "byte_length": 11728,
+        "sha256_hex": "4da7b4579abb8b98bd3e5f7f98e913fd91cebe15fe348fc5818ada4e2ec45fa2"
+      },
+      {
+        "path": "cards/P14_telos.md",
+        "byte_length": 16980,
+        "sha256_hex": "6e95aa63c19c352a44ae52378f3a338b318a7175fec648e876ec95361bbce996"
+      },
+      {
+        "path": "catechumenate/HOW_TO_ADD_A_SESSION.md",
+        "byte_length": 4872,
+        "sha256_hex": "c5a230d5772f7dcc720ef821ab695db9a14da4eff71b02a7dde32a089c9d6410"
+      },
+      {
+        "path": "catechumenate/INDEX.md",
+        "byte_length": 7162,
+        "sha256_hex": "8a577ac355c14daf68ac2d1a55329dccc8c168c69e4efc7d42b456c672739fbb"
+      },
+      {
+        "path": "catechumenate/TEMPLATE.md",
+        "byte_length": 4677,
+        "sha256_hex": "3d5a235a4fb743781412255c35461c46ad55787be94b3f1dfc8a6165e07659ac"
+      }
+    ],
+    "canonical_bytes_length": 584131,
+    "blake3_hex": "36ec2d849883ef08ec1a1ac20be2739e30173285bd2b8d8e137453973326d9ed"
+  },
+  "diff_summary": "L0 v3.1.5 amendment (KEYLESS owner-key/anchor retirement). Stages 1-5 removed all owner-key/anchor CODE (substrate Rust + Python kernel + the deleted anchor crate + the keyless TS operators); this amendment makes the DOCTRINE keyless. AS_anchor_surface -> status:Superseded (tombstone in place; counts stay 28 cards / 36 files). Trust root relocated to META §7.8 = the live human-in-the-loop at the CI gate + the causal DAG (P06) + the BLAKE3-sealed bundle (no owner signature). 8 Layer-C witnesses re-grounded to keyless tests (AS pos/neg -> M-anchor-4 invariant-witness; P01 neg/edge + P03 edge -> keyless schema-evolution + classifier-path; P07 edge -> self_euthanasia_proposal; LB edge -> keyless bet-retired-archive; COV06 neg -> c69_cultivation_orphaned_suppression_refused). Detectors C12/C17/C20/C44/C50/C70 retired (numbers reserved); fixed-points F3/F4/F6/F23 deleted; F24/F5/F2/F16/C7 kept. P01c substrate-ID formula keyless; P06 §5.2 -> C7 Merkle re-derivation; P07 §3.5/§5.7 drill-auto-emit channel deleted (self_euthanasia_proposal kept, §5.8 keyless MUST-NOT preserved); P08/COV05 spawn keyless (C68 kept); P10.b invariant set keyless; COV06 heartbeat-staleness -> acknowledged-debt; B047 dormant + B048 re-derived from P06; D-0046 retired + D-0047 reframed keyless; META §7.8 headline + §3.4 anchor-layer row dropped. Routine §7.1 (no eternity-clause deposit touched). Chained from 8f37ec81 (v3.1.4-symbiotic-armor-identity). KEYLESS seal: the BLAKE3 bundle hash is the seal; there is no owner signature."
+}

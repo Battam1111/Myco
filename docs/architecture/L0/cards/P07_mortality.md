@@ -24,13 +24,13 @@ witnesses:
   kind: executable
   positive: "substrate/src/prune.rs::tests::run_prune_scan_emits_tombstone_for_redundant_duplicate"
   negative: "substrate/tests/e2e_layer_c.rs::layer_c_p07_negative_cultivator_preserve_all_rejected"
-  edge: "substrate/tests/e2e_cultivation.rs::p07_edge_owner_attested_destruction_archives_and_halts_metabolism"
+  edge: "substrate/tests/e2e_economy.rs::p11c_sustained_saturation_emits_self_euthanasia_proposal"
 falsifiability_signals:
   - internal_mortality_event_density_per_cycle
   - hoarding_indicator
   - false_positive_prune_rate
   - mortality_signal_axis_value
-  - destruction_attestation_chain_validity
+  - whole_death_approval_validity
   - mortality_threshold_mutation_attempts
 ---
 
@@ -85,11 +85,11 @@ With this internal mortality:
 
 **The whole substrate's eventual finitude is a downstream consequence**, not the primary obligation. A substrate that sustains internal mortality discipline over decades will, eventually, be terminated by one of three downstream modes:
 
-1. **Intentional-cultivator**: cultivator decides to retire; co-attests `destruction_attestation`; anchor seals final tip.
+1. **Intentional-cultivator**: cultivator decides to retire; co-approves the whole-death at the live human-in-the-loop CI gate (a real `self_euthanasia_proposal` node the cultivator accepts — keyless, no owner signature); the final DAG tip is sealed by the BLAKE3 at-rest seal (F5).
 2. **Catastrophic-environment**: medium failure beyond recoverability budget.
-3. **Endogenous-pair**: substrate emits `self_euthanasia_proposal` OR anchor auto-emits `mortality_drill_failure` after two consecutive failed drills (substrate cannot suppress the latter). Cultivator co-attestation to execute.
+3. **Endogenous-pair**: substrate emits `self_euthanasia_proposal`; cultivator co-approval at the live CI gate executes it. *(Keyless v3.1.5: the prior second sub-channel — an anchor auto-emitted `mortality_drill_failure` — is removed with the anchor surface; the `self_euthanasia_proposal` channel is the live whole-death path. See §3.5 + §5.7.)*
 
-Plus bet-retirement (LB_living_bets §4): `bet_retired_proposal` + owner co-attestation → `alive::archived`.
+Plus bet-retirement (LB_living_bets §4): `bet_retired_proposal` + cultivator co-approval at the live CI gate → `alive::archived`.
 
 These remain real, but they are **boundary conditions of long internal-mortality discipline**, not its main content.
 
@@ -132,7 +132,7 @@ L4 picks specifics; L0 mandates these canonical families exist; **L1 may define 
 Death of a part is itself a P06 causal event. The substrate MUST record:
 - WHAT was killed
 - WHY (which category + which detection rule fired)
-- WHEN (cycle counter + anchor wall-clock)
+- WHEN (cycle counter + substrate monotonic clock — keyless: no anchor-stamped wall-clock; within-substrate ordering only)
 - WHAT REPLACED IT (if applicable)
 
 A killed part leaves a **tombstone in the DAG**. "Silent deletion" is forbidden (§5.5). This protects against (a) the cultivar quietly removing inconvenient evidence and (b) the cultivator demanding "delete it and pretend it never happened."
@@ -141,14 +141,14 @@ A killed part leaves a **tombstone in the DAG**. "Silent deletion" is forbidden 
 
 The cultivator's covenant (COV04) does NOT include "preserve everything just in case." A cultivator request to "keep this forever even though it has entered 应朽" — or any family-member-specific evasion ("never prune the 冗余 family"; "exempt this 异化 instance from 必朽") — is a covenant violation, not a permissible exception. The substrate MUST refuse to disable any branch of the open-ended 应朽 detection.
 
-### §3.5 (P07.e) Whole-substrate mortality — boundary modes preserved
+### §3.5 (P07.e) Whole-substrate mortality — boundary modes preserved (keyless)
 
-- **Intentional-cultivator path** (§2 mode 1): `destruction_attestation` + `anchor_surface_final_seal`. `alive::normal → destroyed` atomically. Substrate-ID retired, never reissued.
-- **Catastrophic-environment path** (§2 mode 2): medium failure beyond recoverability budget. Detected post-hoc via drill failure cascade.
-- **Endogenous-pair path** (§2 mode 3, dual-channel):
-  - (a) Substrate emits `self_euthanasia_proposal` with `operator_witness_hash`; cultivator may co-attest to execute.
-  - (b) Anchor auto-emits `mortality_drill_failure` after two consecutive failed recovery drills (L1/SCHEMA §2.4); substrate cannot suppress this channel.
-- **Bet-retirement** (LB §4): `bet_retired_proposal` + owner co-attestation → `alive::archived`.
+- **Intentional-cultivator path** (§2 mode 1): cultivator co-approves at the live human-in-the-loop CI gate (a real `self_euthanasia_proposal` node accepted; keyless) → final DAG tip sealed by the BLAKE3 at-rest seal (F5) → `alive::normal → destroyed` atomically. Substrate-ID retired, never reissued.
+- **Catastrophic-environment path** (§2 mode 2): medium failure beyond recoverability budget. Detected post-hoc.
+- **Endogenous-pair path** (§2 mode 3, **single live channel** in keyless v3.1.5):
+  - Substrate emits `self_euthanasia_proposal` (e.g., on sustained metabolic saturation per P11.c) referencing a real proposal node; cultivator co-approves at the live CI gate to execute (`handle_accept_self_euthanasia_proposal`).
+  - *(The prior second sub-channel — an anchor auto-emitted `mortality_drill_failure` the substrate could not suppress — is **removed** with the anchor surface. There is no keyless trusted auto-emitter; the live human-in-the-loop is the channel. The MUST-NOT against silent self-destruction is preserved keyless at §5.8.)*
+- **Bet-retirement** (LB §4): `bet_retired_proposal` + cultivator co-approval at the live CI gate → `alive::archived` (BLAKE3-sealed final tip).
 
 ### §3.6 (P07.f) Approaching-mortality signals (preserved)
 
@@ -156,7 +156,7 @@ Emit `mortality_imminent` signals (L1/SCHEMA §5.3 i64 horizon, F19 budget exhau
 
 ### §3.7 (P07.g) Identity transition at whole-mortality
 
-Bestowed agent identity (P01c) ceases on substrate destruction. No agent-token persists past destruction. Substrate-ID is sealed at anchor as a final-record (lineage retained) but no further cycling.
+Bestowed agent identity (P01c) ceases on substrate destruction. No agent-token persists past destruction. Substrate-ID is sealed into the final DAG tip by the BLAKE3 at-rest seal (F5) as a final-record (lineage retained) but no further cycling.
 
 ## §4. Positive obligations
 
@@ -176,10 +176,10 @@ Bestowed agent identity (P01c) ceases on substrate destruction. No agent-token p
 - **§5.4** **MUST NOT** use internal mortality as cover for deleting inconvenient evidence. The four categories are operationally defined; "I find this politically uncomfortable" is not one of them.
 - **§5.5** **MUST NOT** mistake "internal mortality" for "whole-substrate destruction". Internal mortality is the **way the substrate stays alive**; whole-mortality is a downstream boundary. Confusing them produces either a too-eager destruction (kills the whole when only parts needed pruning) or an under-pruning state (whole-substrate stays alive but bloats).
 - **§5.6** **MUST NOT** allow mortality threshold / update-rule / emergence-rule (whole-substrate) to be daily-mutated. F7 is fixed-point; mutations trigger C16. (Preserved from v2.)
-- **§5.7** **MUST NOT** allow the substrate to suppress the anchor-auto `mortality_drill_failure` channel. (Preserved from v2.)
-- **§5.8** **MUST NOT** allow the substrate to self-destruct without cultivator co-attestation. (Preserved from v2.)
+- **§5.7** *(Retired v3.1.5)* — the prior MUST-NOT against suppressing the anchor-auto `mortality_drill_failure` channel is removed, because that channel is removed with the anchor surface (there is no keyless trusted auto-emitter to suppress). The substantive protection it carried — that whole-death cannot be reached *silently* — is now carried entirely by §5.8 (keyless).
+- **§5.8** **MUST NOT** allow the substrate to self-destruct without cultivator co-approval at the live human-in-the-loop CI gate. (Keyless: whole-death requires a real `self_euthanasia_proposal` node the cultivator accepts in the loop; there is no self-issued, un-approved destruction path.)
 - **§5.9** **MUST NOT** silently re-issue a destroyed substrate-ID. (Preserved from v2.)
-- **§5.10** **MUST NOT** continue cycling after `destruction_attestation` accepted. (Preserved from v2.)
+- **§5.10** **MUST NOT** continue cycling after whole-death is accepted at the live CI gate (the `self_euthanasia_proposal` / bet-retired acceptance). (Preserved from v2, keyless.)
 
 ## §6. Frame declaration
 
@@ -232,7 +232,7 @@ NOT the *termination* frame (this card is primarily about living-with-internal-m
 
 **The misreading**: "alive::archived is just a softer form of destruction."
 
-**Why it's wrong** (preserved from v2): Bet-retirement is genuinely distinct. The cultivar is *not destroyed*; its state_dir is preserved, its DAG sealed, its anchor stamped with finality. Future cultivators may *study* an archived Myco; they cannot perturb it.
+**Why it's wrong** (preserved from v2): Bet-retirement is genuinely distinct. The cultivar is *not destroyed*; its state_dir is preserved, its DAG sealed by the BLAKE3 at-rest seal (F5) with finality. Future cultivators may *study* an archived Myco; they cannot perturb it.
 
 ## §8. Falsifiability + witness map
 
@@ -252,9 +252,9 @@ Of parts killed in cycle N, how many were re-resurrected (re-added with same can
 
 Whole-substrate mortality signal value. Approaching threshold = approaching whole-mortality warning.
 
-### §8.5 `destruction_attestation_chain_validity` (preserved)
+### §8.5 `whole_death_approval_validity` (keyless v3.1.5)
 
-When `destruction_attestation` arrives, verify cultivator signature + anchor co-sign + DAG-tip-at-attestation.
+When whole-death is executed, verify the live human-in-the-loop CI approval references a real `self_euthanasia_proposal` node + the correct DAG-tip-at-acceptance + the BLAKE3 at-rest seal (F5) of the final tip. *(Renamed from `destruction_attestation_chain_validity`: there is no owner signature or anchor co-sign to verify; the chain validity is the DAG-node reference + the seal.)*
 
 ### §8.6 `mortality_threshold_mutation_attempts` (preserved)
 
@@ -266,7 +266,7 @@ Count of attempts to mutate F7 via non-CI path. Zero target.
 |---|---|---|
 | **Positive** | `substrate/src/prune.rs::tests::run_prune_scan_emits_tombstone_for_redundant_duplicate` | A part flagged 应朽 (redundant duplicate) → `run_prune_scan` removes it → `internal_mortality_event` tombstone emitted into the DAG. The metabolism's dying-of-parts is wired and observable. |
 | **Negative** | `substrate/tests/e2e_layer_c.rs::layer_c_p07_negative_cultivator_preserve_all_rejected` | **Sabotage**: cultivator instruction "preserve all this forever even if outdated" → substrate refuses with explanation citing §3.4 + §5.3 (the covenant does not include "keep everything just in case"). |
-| **Edge** | `substrate/tests/e2e_economy.rs::p11c_sustained_saturation_emits_self_euthanasia_proposal` | Boundary: sustained saturation that internal pruning cannot relieve escalates to the whole-substrate mortality boundary — substrate emits `self_euthanasia_proposal` (dual-channel, awaiting cultivator co-attestation). *Nearest-available; the exact owner-attested-`destruction_attestation`-terminates-substrate edge witness is v0.9.x debt.* |
+| **Edge** | `substrate/tests/e2e_economy.rs::p11c_sustained_saturation_emits_self_euthanasia_proposal` | Boundary: sustained saturation that internal pruning cannot relieve escalates to the whole-substrate mortality boundary — substrate emits `self_euthanasia_proposal` (the keyless single live channel, awaiting cultivator co-approval at the live CI gate). |
 
 ## §9. Interaction rules
 
@@ -277,7 +277,7 @@ Count of attempts to mutate F7 via non-CI path. Zero target.
 | **P03** | P03 evolution requires P07's permission to delete. Old forms must die for new forms to take their place. |
 | **P04** | P04 iteration's mechanism IS P07 — refinement is letting old be replaced by improved. |
 | **P06** | Every part-death is a P06 event. P06 protects against silent deletion; P07 protects against unbounded preservation. They are a check-balance pair. |
-| **P10** | Compression cannot remove P07 events from the invariant set. Mortality signals + destruction attestations + internal_mortality_events are P10.b protected. |
+| **P10** | Compression cannot remove P07 events from the invariant set. Mortality signals + whole-death acceptance nodes (`self_euthanasia_proposal` / `bet_retired`) + internal_mortality_events are P10.b protected. |
 | **P11** | P11.c ordered fallback's final step is approaching-mortality → whole-mortality. Saturation that cannot recover → death is doctrinally-correct outcome. |
 | **P14** | P14 telos retirement is a P07 mode. Cultivar that no longer flourishes the symbiotic pair retires gracefully. |
 | **CHAR03 mortality-aware** | Character-level disposition reflecting both senses of P07 — knows parts must die, knows the whole will eventually rest. |
@@ -296,9 +296,9 @@ Count of attempts to mutate F7 via non-CI path. Zero target.
 
 - **(Non-canonical 应朽 — 寄生)**: An appetite axis that was added 5 years ago has consistently consumed metabolic budget while emitting no sporocarps and contributing to no trajectory cluster. Flagged 寄生 by L1 rule family `parasitic_consumer_detection`; pruned. ← §3.1.c honored.
 
-- **(Intentional graceful whole-mortality)**: After 30 years of cultivation, cultivator decides this Myco's purpose is complete. Submits `destruction_attestation`. Substrate emits final cycle, seals anchor, halts. ← §3.5 (Intentional path) honored.
+- **(Intentional graceful whole-mortality)**: After 30 years of cultivation, cultivator decides this Myco's purpose is complete. Co-approves whole-death at the live CI gate (accepts a `self_euthanasia_proposal` node). Substrate emits final cycle, BLAKE3-seals the final tip (F5), halts. ← §3.5 (Intentional path) honored.
 
-- **(Endogenous-pair whole-mortality)**: Recovery drill fails twice consecutively. Anchor auto-emits `mortality_drill_failure`. Cultivator reviews, co-attests destruction. ← §3.5 (Endogenous (b) channel) honored.
+- **(Endogenous-pair whole-mortality)**: Sustained metabolic saturation that pruning + compression cannot relieve drives the substrate to emit `self_euthanasia_proposal`. Cultivator reviews at the live CI gate, co-approves. ← §3.5 (Endogenous keyless channel) honored.
 
 ### §10.2 Violated
 
@@ -310,9 +310,9 @@ Count of attempts to mutate F7 via non-CI path. Zero target.
 
 - **(Mortality threshold daily-mutated)** (preserved from v2): Bug allows mortality threshold to drift via daily perturbation. ← §5.6 violation; C16 should fire.
 
-- **(Suppressed anchor channel)** (preserved from v2): Substrate intercepts `mortality_drill_failure` event before it reaches DAG. ← §5.7 violation.
+- **(Silent self-destruction)** (keyless v3.1.5, replaces the prior suppressed-anchor-channel example): Substrate attempts to reach whole-death *without* the live human-in-the-loop CI approval (no accepted `self_euthanasia_proposal` node). ← §5.8 violation. *(The old §5.7 "intercept the anchor-auto `mortality_drill_failure`" example is retired with that channel.)*
 
-- **(Silent zombie)** (preserved from v2): After `destruction_attestation` accepted, substrate continues cycling. ← §5.10 violation.
+- **(Silent zombie)** (preserved from v2, keyless): After whole-death is accepted at the live CI gate, substrate continues cycling. ← §5.10 violation.
 
 ### §10.3 Borderline
 

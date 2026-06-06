@@ -45,7 +45,7 @@ The substrate **MUST**:
 
 - **§3.1** Maintain the active-tier DAG as a connected graph: every active-tier node reachable from the current DAG tip via parent-hash chains.
 - **§3.2** Detect active-tier orphans (nodes that exist in storage but are unreachable from tip via active-tier edges); emit C32 (`substrate_state_orphan_detected`).
-- **§3.3** Allow tier exemptions: cold-tier nodes (beyond retention horizon, owner-attested fetch), P10 compressed roll-ups (with witness), federation-coupling edges to peer substrates. Each exemption class MUST be enumerable (F10).
+- **§3.3** Allow tier exemptions: cold-tier nodes (beyond retention horizon, fetched at the live CI gate), P10 compressed roll-ups (with witness), federation-coupling edges to peer substrates. Each exemption class MUST be enumerable (F10).
 - **§3.4** Span active connectivity across **federation**: cross-substrate edges (P8 parent-child, peer attestation) extend the connected graph. Federation edges are not exempt from reachability; they ARE reachability.
 - **§3.5** On detected orphan in active tier, emit immune signal AND root-cause investigation (orphan from a failed CI mutation? from a partial spawn? from corruption?).
 

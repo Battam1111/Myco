@@ -824,7 +824,9 @@ _None yet._
 
 ---
 
-## §12. Anchor surface and falsifiability — fragments around AS / LB
+## §12. Trust-root and falsifiability — fragments around AS (Superseded) / LB
+
+> *(Keyless v3.1.5: B047 錨在身外 is now `[DORMANT]` — the cryptographic anchor it imaged was retired; AS is Superseded. B048 證據非裁決 re-derives from P06 — evidence-not-verdict survives keyless, the live human-in-the-loop renders the verdict at the CI gate. B049/B050 (the bet) are unchanged.)*
 
 ### B047
 
@@ -833,10 +835,10 @@ _None yet._
 > *The anchor lies outside the body.*
 
 derives_from: [AS]
-status: Active
+status: [DORMANT]
 
 #### Commentary
-_None yet._
+- **2026-06-06** (v3.1.5 keyless-anchor retirement): marked `[DORMANT]` per META §4.3. The out-of-band cryptographic anchor this fragment imaged was removed (AS card Superseded; trust root relocated to META §7.8 — the live human-in-the-loop + the causal DAG + the BLAKE3-sealed bundle). The fragment text is retained, not deleted; a future reader may rediscover insight in it (e.g., the live human-in-the-loop is itself a kind of trust-anchor "outside the body").
 
 ---
 
@@ -846,11 +848,11 @@ _None yet._
 
 > *Evidence, not verdict.*
 
-derives_from: [AS]
+derives_from: [P06]
 status: Active
 
 #### Commentary
-_None yet._
+- **2026-06-06** (v3.1.5 keyless-anchor retirement): re-derived from **P06** (was: AS). The witnesses-not-verdicts principle survives the anchor's retirement: the substrate emits **causal-DAG evidence** (re-derivable inputs, P06) and the **live human-in-the-loop renders the verdict at the CI gate** — it does not self-assert a verdict. The eye is unchanged; only its doctrinal source moved from the (Superseded) anchor card to the causal-chain card that now carries it.
 
 ---
 

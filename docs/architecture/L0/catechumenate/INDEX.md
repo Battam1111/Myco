@@ -52,7 +52,7 @@ Indexed against: [card-ids, B-fragment-ids, prior-dilemma-references]
 <1-2 paragraphs: what tacit principle does this dilemma surface? Add to Layer B fragment commentary if relevant.>
 
 ## Dual signature
-<Confirmation that both cultivator-A and successor candidate accept this session as canonical record. Anchor surface attestation via M-anchor-5-style mechanism.>
+<Confirmation that both cultivator-A and successor candidate accept this session as canonical record. Keyless dual-confirmation recorded as a DAG event at the live human-in-the-loop CI gate (v3.1.5: no owner/anchor signature; the BLAKE3-sealed bundle + the causal DAG carry the record).>
 ```
 
 ## §4. Indexing discipline
@@ -87,8 +87,8 @@ This matches the *isnad* principle: transmission chain preservation. A successor
 ## §7. Activation handoff
 
 When successor F21 activation conditions are met:
-1. Cultivator-A signs F21 entry promoting successor to active.
-2. Anchor surface emits `succession_completed` (T3 transition per L1/GOVERNANCE §3.2.C).
+1. Cultivator-A approves the F21 entry promoting successor to active, at the live human-in-the-loop CI gate (keyless; the only gate is the ≥50-session catechumenate floor enforced by C46).
+2. The substrate emits `succession_completed` (T3 transition per L1/GOVERNANCE §3.2.C).
 3. Cultivator-A writes a final **handoff Provenance entry** (per COV06 §4.5).
 4. From this point, the catechumenate continues as cultivator-B + future successor candidates; old sessions remain canonical historical record.
 

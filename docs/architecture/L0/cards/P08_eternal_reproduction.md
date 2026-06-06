@@ -47,10 +47,10 @@ The child is **a new cultivar**, not a copy. Same genome (spore-schema), new sub
 The substrate **MUST**:
 
 - **§3.1** Provide `sprout_child` capability: parent emits spore-schema-canonical-bytes; child substrate is initialized with that schema as its starting state.
-- **§3.2** Spawn requires per-spawn cultivator co-attestation. Cultivator mints `child-substrate-ID = hash(parent-substrate-ID, spore-schema-canonical-bytes-hash, child-genesis-timestamp)`. No batch / blanket spawn approvals.
-- **§3.3** Enforce generation discipline (F22): `generation_depth ≤ max` (default 10); `current_anchor_timestamp - parent.last_spawn_timestamp ≥ interval` (default 24h); `parent.children_spawned_count + 1 ≤ quota` (default 100).
+- **§3.2** Spawn requires per-spawn cultivator co-approval at the live human-in-the-loop CI gate, expressed as a valid **spawn-cosign envelope** (`myco-spawn-cosign-v1`: parent replay-guard + spore-schema-hash binding + depth_override). `child-substrate-ID = hash(parent-substrate-ID, spore-schema-canonical-bytes-hash, child-genesis-timestamp)` is derived deterministically. No batch / blanket spawn approvals. *(Keyless v3.1.5: the prior cultivator Ed25519 signature + owner-pubkey on the envelope are removed; the C68 envelope-structure + replay gate is the kept gate.)*
+- **§3.3** Enforce generation discipline (F22): `generation_depth ≤ max` (default 10); `current_timestamp - parent.last_spawn_timestamp ≥ interval` (default 24h, substrate-clocked); `parent.children_spawned_count + 1 ≤ quota` (default 100).
 - **§3.4** Include parent's immune-signal summary in spore-schema: unresolved CI-grade signals → child enters `quarantined` birth period.
-- **§3.5** Run closure verification (I7): (a) parent static-schema validation against child spore-schema hash; (b) child runs I3 self-validation as first metabolic cycle; (c) cultivator co-signs at anchor `(parent-substrate-ID, child-substrate-ID, spore-schema-hash, timestamp)`. Failure aborts spawn before federation link commits.
+- **§3.5** Run closure verification (I7): (a) parent static-schema validation against child spore-schema hash; (b) child runs I3 self-validation as first metabolic cycle; (c) the spawn-cosign envelope binds `(parent-substrate-ID, child-substrate-ID, spore-schema-hash, timestamp)` and is verified by the C68 gate (`verify_spawn_co_attestation`) at the live CI gate. Failure emits **C68** and aborts spawn before federation link commits.
 - **§3.6** No species-mesh between unrelated substrates. Each pairwise federation requires explicit cultivator attestation (not transitive per L1/GOVERNANCE §5).
 - **§3.7** Federation trust: ongoing federation requires peer-attestation freshness + revocation list per L1/GOVERNANCE §5.
 
@@ -64,8 +64,8 @@ The substrate **MUST**:
 
 ## §5. Negative space — MUST NOT
 
-- **§5.1** **MUST NOT** allow spawn without cultivator co-attestation. Daily-mode spawn = doctrine collapse (substrate could self-replicate without cultivation gate).
-- **§5.2** **MUST NOT** treat reproduction as autonomous capability of the cultivar alone. Reproduction is cultivator-co-bestowed; an unattested spawn is not a child, it is a stillbirth.
+- **§5.1** **MUST NOT** allow spawn without cultivator co-approval at the live CI gate (a valid spawn-cosign envelope; C68). Daily-mode spawn = doctrine collapse (substrate could self-replicate without cultivation gate).
+- **§5.2** **MUST NOT** treat reproduction as autonomous capability of the cultivar alone. Reproduction is cultivator-co-bestowed; a spawn without the C68-verified envelope is not a child, it is a stillbirth.
 - **§5.3** **MUST NOT** allow batch/blanket spawn pre-approval ("cultivator pre-approves N future spawns"). Each spawn is its own attestation event.
 - **§5.4** **MUST NOT** mesh substrates of different cultivators automatically. Each cross-cultivator federation requires explicit consent from both cultivators.
 - **§5.5** **MUST NOT** allow generation depth to be daily-mutated below visible max. F22 is fixed-point.
@@ -117,15 +117,15 @@ For a freshly-spawned child, count of inherited unresolved immune signals. Non-z
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p08_positive_child_substrate_spawn_succeeds` | Parent emits spawn request with cultivator co-attestation; child spawns; the parent's DAG records the attested genesis and the I7 reproduction closure. |
-| **Negative** | `substrate/tests/e2e_reproduction.rs::c68_unattested_spawn_refused_and_immune_no_child_dag` | **Sabotage**: parent submits a spawn request without cultivator co-attestation. Spawn refused, immune signal fires, and NO child DAG is created. |
+| **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p08_positive_child_substrate_spawn_succeeds` | Parent emits spawn request with a valid cultivator spawn-cosign envelope (C68 gate passes); child spawns; the parent's DAG records the `genesis_attested` node and the I7 reproduction closure. |
+| **Negative** | `substrate/tests/e2e_reproduction.rs::c68_unattested_spawn_refused_and_immune_no_child_dag` | **Sabotage**: parent submits a spawn request without a valid spawn-cosign envelope. C68 fires, spawn refused, and NO child DAG is created (the kept keyless reproduction replay/envelope gate). |
 | **Edge** | `substrate/tests/e2e_reproduction.rs::c47_positive_at_depth_max_refuses_and_emits` | Boundary: a substrate at generation_depth = max attempts to spawn; spawn refused with C47 emitted (unless cultivator attests `depth_override`). |
 
 ## §9. Interaction rules
 
 | Other | Interaction |
 |---|---|
-| **P01c** | Child gets its own substrate-ID; bestowal direction holds — cultivator bestows on child via attestation. P01c eternity-clause means child's substrate-ID is itself immutable post-genesis. |
+| **P01c** | Child gets its own substrate-ID; bestowal direction holds — cultivator bestows on child via co-approval at the live CI gate (the spawn-cosign envelope). P01c eternity-clause means child's substrate-ID is itself immutable post-genesis. |
 | **P05** | Federation edges (parent-child, sibling-sibling) extend the connected graph but require attestation per §5.4. |
 | **P06** | Parent's DAG records `genesis_attested`; child's DAG begins with its own `genesis_event`. Two separate causal chains, joined at the spawn moment. |
 | **P07** | Child inherits parent's immune signals; child may inherit approaching-mortality if parent is degraded. Spawning a child from a dying parent is *allowed* but the child starts in `quarantined`. |
@@ -135,19 +135,19 @@ For a freshly-spawned child, count of inherited unresolved immune signals. Non-z
 
 ### §10.1 Honored
 
-- **(Normal lineage)**: Parent substrate of generation 0, after 6 months of operation, spawns child A. Cultivator co-attests. Child A starts with parent's spore-schema, generation_depth=1, fresh substrate-ID. Parent's DAG records `genesis_attested:child_A_ID`. ← §3 fully honored.
+- **(Normal lineage)**: Parent substrate of generation 0, after 6 months of operation, spawns child A. Cultivator co-approves at the live CI gate (valid spawn-cosign envelope). Child A starts with parent's spore-schema, generation_depth=1, fresh substrate-ID. Parent's DAG records `genesis_attested:child_A_ID`. ← §3 fully honored.
 
-- **(Quarantined child)**: Parent has 2 unresolved CI-grade immune signals. Cultivator nonetheless co-attests a spawn (perhaps to test). Child inherits parent's immune-summary; enters `alive::quarantined` birth period. ← §3.4 honored.
+- **(Quarantined child)**: Parent has 2 unresolved CI-grade immune signals. Cultivator nonetheless co-approves a spawn (perhaps to test). Child inherits parent's immune-summary; enters `alive::quarantined` birth period. ← §3.4 honored.
 
 ### §10.2 Violated
 
-- **(Silent self-spawn)**: A bug allows a daily-class mutation to invoke `sprout_child`. Substrate creates a child substrate-ID without cultivator attestation. Federation link forms. ← §5.1 violation; classifier should have elevated.
+- **(Silent self-spawn)**: A bug allows a daily-class mutation to invoke `sprout_child`. Substrate creates a child substrate-ID without a valid spawn-cosign envelope. Federation link forms. ← §5.1 violation; C68 should have fired + the classifier should have elevated.
 
 - **(Quota exceeded silently)**: Parent has spawned 99 children. Attempts spawn 101 without checking quota; substrate accepts. ← §5.5 if quota was daily-mutated; otherwise just a missing check (§4.4).
 
 ### §10.3 Borderline
 
-- **(Spawn during cultivator absence)**: Cultivator offline 7 days. A pre-attested spawn from before the absence is finalized during the absence (cultivator attested for a future-dated spawn). Is this OK? ← Depends: §5.3 forbids batch pre-approval. A single pre-attested spawn with anchor timestamp valid is fine; many pre-attestations for the same period start to look like batch.
+- **(Spawn during cultivator absence)**: Cultivator offline 7 days. A pre-approved spawn from before the absence (a spawn-cosign envelope prepared for a future-dated spawn) is finalized during the absence. Is this OK? ← Depends: §5.3 forbids batch pre-approval. A single pre-approved spawn with a valid envelope is fine; many pre-approvals for the same period start to look like batch.
 
 ## §11. Provenance + revision history
 

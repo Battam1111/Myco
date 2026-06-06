@@ -137,7 +137,7 @@ When P11.c step 2 triggers compression, what fraction of these recoveries free m
 
 - **(Healthy budget cycle)**: Substrate ingests, axes grow, hits `budget_exhausted:storage` at threshold. Refuses new admission briefly. P10 compression frees capacity. Substrate resumes normal admission. ← P11.c steps 1-2 honored, recovers cleanly.
 
-- **(Honest mortality)**: Substrate is in `alive::saturated` for 1000 cycles. P10 compression no longer helps (most material is invariant-set). Substrate escalates to P7 approaching-mortality. Cultivator co-attests destruction or archives. ← §5.4 honored: the cultivar accepts its limits rather than corrupting itself to survive.
+- **(Honest mortality)**: Substrate is in `alive::saturated` for 1000 cycles. P10 compression no longer helps (most material is invariant-set). Substrate escalates to P7 approaching-mortality, emitting `self_euthanasia_proposal`. Cultivator co-approves whole-death at the live CI gate, or archives. ← §5.4 honored: the cultivar accepts its limits rather than corrupting itself to survive.
 
 ### §10.2 Violated
 

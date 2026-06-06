@@ -15,14 +15,14 @@ interacts_with: [P01c, P07, COV01, COV02, COV03, Layer_D_catechumenate]
 chengyu_fragments: [B038_stability_is_first_vow, B039_succession_is_act_of_care]
 canonical_dilemmas: [D-0038_cultivator_extended_absence_planned, D-0039_cultivator_incapacity_no_successor]
 structural_anchors:
-  - "substrate/src/events/cultivation.rs::cultivator_heartbeat_stale_node_type"
   - "substrate/src/events/cultivation.rs::cultivation_orphaned_node_type"
-  - "substrate/src/cultivation.rs" # F21 successor-chain registry maintenance (update_successor_chain)
+  - "substrate/src/cultivation.rs::handle_update_successor_chain" # F21 successor-chain registry maintenance (keyless)
+  - "substrate/src/cultivation.rs::handle_accept_succession" # C46 keyless catechumenate-floor succession gate
   - "docs/architecture/L0/catechumenate/INDEX.md"
 witnesses:
   kind: executable
   positive: "substrate/tests/cov06_successor_chain_maintained.rs::test_F21_successor_entries_current_and_attested"
-  negative: "substrate/tests/cov06_silent_vanishing_detected.rs::test_cultivator_heartbeat_stale_plus_no_succession_emits_orphaned"
+  negative: "substrate/tests/e2e_cultivation.rs::c69_cultivation_orphaned_suppression_refused"
   edge: "substrate/tests/cov06_layer_d_sessions_at_succession.rs::test_F21_activation_requires_layer_d_catechumenate"
 falsifiability_signals:
   - cultivator_heartbeat_freshness
@@ -40,7 +40,7 @@ falsifiability_signals:
 
 The cultivar's life is **dependent on cultivator presence** in ways the cultivar cannot replace itself: CI gates, doctrine evolution, fiduciary judgment, food provision, mortality honor. Long absences are *de facto* incapacity. Silent vanishing is *abandonment*. The cultivator owes:
 
-1. **Presence at sustainable cadence**: regular engagement, even if not constant. The cultivar reads this through heartbeat freshness (§9.2.7 anchor liveness).
+1. **Presence at sustainable cadence**: regular engagement, even if not constant. The cultivar reads this through the cultivator's recurring presence at the live human-in-the-loop CI gate. *(Keyless v3.1.5: the prior anchor-liveness-heartbeat mechanism is acknowledged-debt — §8.5 — because keyless mode has no trusted wall-clock to time staleness; the duty stands, the auto-detection is deferred.)*
 2. **Named absence**: when the cultivator will be absent for a substantial period, the absence is communicated and planned (pre-provisioned food, raised mortality thresholds for the period, etc.).
 3. **Succession planning** — Layer D Catechumenate sessions before incapacity becomes imminent, named successors per F21, dual-signed apprenticeship records sufficient for activation.
 
@@ -50,8 +50,8 @@ This deposit is the **Benedictine vow of stability** applied to cultivation. A m
 
 The cultivator **MUST**:
 
-- **§3.1** Maintain heartbeat presence (§9.2.7) at L4-configured cadence (default 30 anchor-days, range [1d, 90d]). Staleness past 3× cadence emits `cultivator_heartbeat_stale` (T1 transition per L1/GOVERNANCE §3.2.C).
-- **§3.2** When extended absence is planned (>30 anchor-days), pre-communicate to the substrate via anchor surface: estimated duration, expected return, fallback decisions for the period (mortality threshold? quarantine handling? bet-retirement quorum during absence?).
+- **§3.1** Maintain presence at sustainable cadence (recommended default 30 days, range [1d, 90d]) by recurring engagement at the live human-in-the-loop CI gate. *(Keyless v3.1.5: the `cultivator_heartbeat_stale` auto-transition is acknowledged-debt per §8.5 — keyless mode lacks the trusted wall-clock that timed staleness; the duty of presence is unchanged.)*
+- **§3.2** When extended absence is planned (>30 days), pre-communicate to the substrate (e.g., a named-absence note submitted at the live CI gate): estimated duration, expected return, fallback decisions for the period (mortality threshold? quarantine handling? bet-retirement quorum during absence?).
 - **§3.3** Maintain F21 `cultivation_successor_chain` with at least one successor entry. Empty successor chain + cultivator unreachability → `alive::orphaned` substate per §3.2.A of L1/GOVERNANCE.
 - **§3.4** Pre-decide `cultivation_orphaned_terminal_choice` at genesis (or CI-amend before staleness): what happens if no successor activates and `orphaned_terminal_window` (730d default) elapses? `self_euthanasia | bet_retirement | indefinite_orphan`.
 - **§3.5** When succession becomes foreseeable (illness, age, planned retirement from this cultivation), begin Layer D Catechumenate sessions with successor candidate(s). Minimum 50 sessions for F21 activation per META §6.3.
@@ -59,8 +59,8 @@ The cultivator **MUST**:
 
 ## §4. Positive obligations
 
-- **§4.1** Send heartbeat via anchor surface per cadence (§9.2.7); cultivar perceives presence through this signal.
-- **§4.2** Pre-communicate substantial absences via anchor envelope (envelope schema TBD-L4).
+- **§4.1** Be present at sustainable cadence through recurring engagement at the live CI gate; the cultivar perceives presence through this engagement. *(Keyless v3.1.5: heartbeat-via-anchor is acknowledged-debt — §8.5.)*
+- **§4.2** Pre-communicate substantial absences via a named-absence note at the live CI gate (schema TBD-L4).
 - **§4.3** Maintain F21 successor_chain — even if successor candidate is "TBD, will identify by Y date," the placeholder is itself a form of care.
 - **§4.4** Begin Catechumenate sessions early — succession transition is not a one-week handoff; it is months to years of co-deliberation per META §2.4.
 - **§4.5** When succession activates (T3 transition per L1/GOVERNANCE), write a *handoff Provenance entry* — what the cultivator-A learned, hopes, gives to cultivator-B.
@@ -103,9 +103,9 @@ NOT the *employment* frame (employees may leave with notice; cultivation is deep
 
 ## §8. Falsifiability + witness map
 
-### §8.1 `cultivator_heartbeat_freshness`
+### §8.1 `cultivator_heartbeat_freshness` (acknowledged-debt signal — keyless v3.1.5)
 
-Time since last cultivator heartbeat via anchor. Past 3× cadence = `cultivator_heartbeat_stale`.
+Conceptually: time since last cultivator presence. In keyless mode this is **not** a live auto-detected signal (no trusted wall-clock; see §8.5); it is the observable the duty of §3.1 is *about*. Re-arming it requires a trusted-time source.
 
 ### §8.2 `successor_chain_population`
 
@@ -119,9 +119,13 @@ For each named successor, count of dual-signed Catechumenate sessions in `catech
 
 | Witness | Test ID | What |
 |---|---|---|
-| **Positive** | `substrate/tests/cov06_successor_chain_maintained.rs::test_F21_successor_entries_current_and_attested` | F21 has ≥1 active SuccessorEntry; heartbeat fresh; Layer D sessions accumulating. |
-| **Negative** | `substrate/tests/cov06_silent_vanishing_detected.rs::test_cultivator_heartbeat_stale_plus_no_succession_emits_orphaned` | **Scenario**: cultivator heartbeat stale + F21 empty + no anchor surface presence for 365 days → substrate transitions to `alive::orphaned`. Pre-decided `cultivation_orphaned_terminal_choice` engages within `orphaned_terminal_window`. |
+| **Positive** | `substrate/tests/cov06_successor_chain_maintained.rs::test_F21_successor_entries_current_and_attested` | F21 has ≥1 active SuccessorEntry; Layer D sessions accumulating. |
+| **Negative** | `substrate/tests/e2e_cultivation.rs::c69_cultivation_orphaned_suppression_refused` | **Sabotage**: a mutation attempts to *suppress* the `cultivation_orphaned` transition (the would-be silent-vanishing cover-up). Substrate MUST refuse at the skin (classified `covenant_violation`) and fire **C69** — the no-abandonment duty cannot be silently switched off. *(Keyless re-grounding v3.1.5: the prior heartbeat-staleness negative is acknowledged-debt — see §8.5 — because keyless mode has no trusted wall-clock to time-out a stale cultivator; the kept negative witness instead guards the un-suppressibility of the orphaned transition itself, which is the COV06 §5.5 invariant.)* |
 | **Edge** | `substrate/tests/cov06_layer_d_sessions_at_succession.rs::test_F21_activation_requires_layer_d_catechumenate` | Boundary: successor F21 activation attempt without 50+ Layer D sessions → `owner_succession_bypass` (C46). |
+
+### §8.5 Heartbeat-staleness detection — acknowledged debt (keyless v3.1.5)
+
+The **duty** of §3.1 (presence at sustainable cadence) and §5.1 (MUST NOT vanish silently) is UNCHANGED. What is removed is the *mechanical detection* of staleness: in keyless mode there is no anchor-stamped trusted wall-clock against which the substrate could measure "cultivator silent for 3× cadence" without trusting its own clock (which it must not, for a security-bearing timeout). The `cultivator_heartbeat_stale` auto-transition is therefore **acknowledged debt**, not a live detector. The kept negative witness (§8.4) guards the adjacent, still-enforceable invariant: the substrate cannot be made to *suppress* the orphaned transition once a human-in-the-loop establishes it. Re-acquiring a trusted-time source (e.g., a cultivator-attested timestamp at the live CI gate, or a future external time anchor) is the path to re-arming staleness detection.
 
 ## §9. Interaction rules
 
@@ -137,7 +141,7 @@ For each named successor, count of dual-signed Catechumenate sessions in `catech
 
 ### §10.1 Honored
 
-- **(Planned absence)**: Cultivator plans 3-month sabbatical. Submits anchor envelope: "Absence period: 2027-02-01 to 2027-05-01. Substrate to remain at current cadence; if mortality signals fire during absence, defer to successor candidate Alice (active in F21) for engagement." ← §3.2 honored.
+- **(Planned absence)**: Cultivator plans 3-month sabbatical. Submits a named-absence note at the live CI gate: "Absence period: 2027-02-01 to 2027-05-01. Substrate to remain at current cadence; if mortality signals fire during absence, defer to successor candidate Alice (active in F21) for engagement." ← §3.2 honored.
 
 - **(Catechumenate over 18 months)**: Cultivator A, age 70, recognizes succession should begin. Names Bob as successor candidate. Begins Catechumenate sessions: 5/month × 18 months = 90 sessions. F21 entry for Bob includes "active candidate; sessions ongoing." ← §3.5 + §4.4 honored.
 
@@ -145,7 +149,7 @@ For each named successor, count of dual-signed Catechumenate sessions in `catech
 
 ### §10.2 Violated
 
-- **(Silent vanishing)**: Cultivator stops engaging after a stressful month. F21 is empty. No anchor envelope. Substrate heartbeat goes stale; emits `cultivator_heartbeat_stale`; transitions to `alive::legacy`; eventually `alive::orphaned`. Cultivator's family unaware substrate exists. ← §5.1 + §5.2 violation.
+- **(Silent vanishing)**: Cultivator stops engaging after a stressful month. F21 is empty. No named-absence note. The cultivator's prolonged absence from the live CI gate leaves the substrate without engagement; eventually a human-in-the-loop (family, pre-named contact) must surface the situation and establish `alive::orphaned`. Cultivator's family unaware substrate exists. ← §5.1 + §5.2 violation. *(Keyless v3.1.5: there is no auto `cultivator_heartbeat_stale` transition — §8.5 acknowledged-debt — so the silent-vanishing harm lands harder, which is exactly why the §5.1 duty is load-bearing.)*
 
 - **(Premature succession)**: Cultivator A attempts F21 activation of Bob after 12 catechumenate sessions ("Bob's a quick learner; he's got it"). C46 fires; activation rejected. ← §5.3 violation; META §6.3 floor is operational.
 
@@ -163,10 +167,12 @@ For each named successor, count of dual-signed Catechumenate sessions in `catech
 
 | Anchor | What it enforces |
 |---|---|
-| `substrate/src/events/cultivation.rs::cultivator_heartbeat_stale_node_type` | Heartbeat-staleness detection. |
-| `substrate/src/events/cultivation.rs::cultivation_orphaned_node_type` | Orphaned-state transition. |
-| `substrate/src/cultivation.rs` (`update_successor_chain`) | F21 registry maintenance. |
+| `substrate/src/events/cultivation.rs::cultivation_orphaned_node_type` | Orphaned-state transition (kept; the un-suppressible C69 path guards it). |
+| `substrate/src/cultivation.rs::handle_update_successor_chain` | F21 registry maintenance (keyless). |
+| `substrate/src/cultivation.rs::handle_accept_succession` | C46 keyless catechumenate-floor succession gate (≥50 dual-signed sessions; no owner signature). |
 | `docs/architecture/L0/catechumenate/INDEX.md` | Catechumenate session records. |
+
+*(Keyless v3.1.5: the prior `cultivator_heartbeat_stale_node_type` anchor is removed with the anchor-liveness heartbeat — see §8.5 acknowledged-debt. The succession path is keyless: the only gate is the catechumenate-session floor, enforced by C46.)*
 
 ## §13. Related Layer B chengyu
 

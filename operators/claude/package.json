@@ -13,7 +13,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec tests/protocol.test.ts tests/framing.test.ts tests/canonical_bytes_parity.test.ts tests/float_parity.test.ts tests/substrate_client.test.ts tests/mcp_server.test.ts tests/witness_lint.test.ts ceremonies/v3_1_4_symbiotic_armor_identity/verify_hashes.test.ts",
+    "test": "node --experimental-strip-types --no-warnings --test --test-reporter=spec tests/protocol.test.ts tests/framing.test.ts tests/canonical_bytes_parity.test.ts tests/float_parity.test.ts tests/substrate_client.test.ts tests/mcp_server.test.ts tests/witness_lint.test.ts ceremonies/v3_1_5_keyless_anchor_retirement/verify_hashes.test.ts",
     "ceremony:v3_1:hashes": "node --experimental-strip-types --no-warnings ceremonies/v3_1_transition/compute_hashes.ts",
     "ceremony:v3_1:dry-run": "node --experimental-strip-types --no-warnings ceremonies/v3_1_transition/run_ceremony.ts --mode dry-run",
     "ceremony:v3_1:production": "node --experimental-strip-types --no-warnings ceremonies/v3_1_transition/run_ceremony.ts --mode production",
@@ -35,6 +35,9 @@
     "ceremony:v3_1_4:hashes": "node --experimental-strip-types --no-warnings ceremonies/v3_1_4_symbiotic_armor_identity/compute_hashes.ts",
     "ceremony:v3_1_4:dry-run": "node --experimental-strip-types --no-warnings ceremonies/v3_1_4_symbiotic_armor_identity/run_ceremony.ts --mode dry-run",
     "ceremony:v3_1_4:production": "node --experimental-strip-types --no-warnings ceremonies/v3_1_4_symbiotic_armor_identity/run_ceremony.ts --mode production",
+    "ceremony:v3_1_5:hashes": "node --experimental-strip-types --no-warnings ceremonies/v3_1_5_keyless_anchor_retirement/compute_hashes.ts",
+    "ceremony:v3_1_5:dry-run": "node --experimental-strip-types --no-warnings ceremonies/v3_1_5_keyless_anchor_retirement/run_ceremony.ts --mode dry-run",
+    "ceremony:v3_1_5:production": "node --experimental-strip-types --no-warnings ceremonies/v3_1_5_keyless_anchor_retirement/run_ceremony.ts --mode production",
     "test:all": "npm run typecheck && npm test",
     "start": "node --experimental-strip-types src/cli.ts"
   },

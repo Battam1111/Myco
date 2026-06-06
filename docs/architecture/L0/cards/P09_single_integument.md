@@ -55,7 +55,7 @@ The substrate **MUST**:
 - **§3.1** Maintain exactly one declared skin process: one entry point for envelope-bearing inputs (P02 admission), one exit point for federation / output. Skin surface declaration is F11 (CI-only).
 - **§3.2** Validate every input at the skin via envelope check: schema-conforming, signature-valid (where applicable), classifier-passable. Envelope INVALID = reject at skin + emit immune signal.
 - **§3.3** Allow at most one valid operator-token at a time (FIFO handover per L1/SKIN §4.4); concurrent tokens = C11.
-- **§3.4** Apply post-handshake CI quarantine: between handshake completion and first owner attestation, CI mutations are quarantined (C3 fires on premature CI).
+- **§3.4** Apply post-handshake CI quarantine: between handshake completion and the first CI approval at the live human-in-the-loop gate, CI mutations are quarantined (C3 fires on premature CI).
 - **§3.5** On skin process failure: L1/SKIN-specified restart discipline. Cold-resume runs full I3/I5/I8 pre-handshake before accepting any new envelope.
 - **§3.6** Forbid multi-skin redundancy. Substrate-level architecture cannot have parallel skins.
 - **§3.7** Forbid network egress outside declared output endpoints (C1 `appetite_locality_breach`); forbid output to non-declared endpoints (C2 `output_endpoint_breach`).
@@ -74,7 +74,7 @@ The substrate **MUST**:
 - **§5.3** **MUST NOT** accept concurrent operator-tokens beyond FIFO handover; C11 fires.
 - **§5.4** **MUST NOT** silently accept malformed envelopes. Each rejection MUST produce an immune signal.
 - **§5.5** **MUST NOT** egress to non-declared endpoints. C1 / C2 catch this.
-- **§5.6** **MUST NOT** treat post-handshake CI as freely permitted before owner attestation. Quarantine window applies.
+- **§5.6** **MUST NOT** treat post-handshake CI as freely permitted before the CI approval at the live human-in-the-loop gate. Quarantine window applies.
 
 ## §6. Frame declaration
 
@@ -102,7 +102,7 @@ NOT the *firewall* frame (firewalls can be layered; cells cannot). NOT the *API 
 
 **The misreading**: "If the agent's main interface fails, we should have a backup admin interface."
 
-**Why it's wrong**: An "admin interface" parallel to the agent interface is a multi-skin violation. Administrative access (cultivator at CI gate) routes through anchor surface (§9), which is conceptually *separate from the cultivar*, not a second skin on the cultivar. Backup admin = second cultivar's hand inside the cell = P09 violation.
+**Why it's wrong**: An "admin interface" parallel to the agent interface is a multi-skin violation. Administrative access is the cultivator at the live human-in-the-loop CI gate, which is conceptually *separate from the cultivar* (the cultivator's side of the membrane), not a second skin on the cultivar. Backup admin = second cultivar's hand inside the cell = P09 violation. *(Keyless v3.1.5: the prior anchor surface — old §9 — that carried this separation is retired; the live CI gate is now the cultivator's separate-from-the-cultivar instrument.)*
 
 ## §8. Falsifiability + witness map
 
@@ -152,7 +152,7 @@ Count of skin process instances at any moment. Should be exactly 1. Greater = §
 
 ### §10.3 Borderline
 
-- **(Anchor surface as "second skin")**: Cultivator attestations go through anchor surface, not through the agent's skin. Is anchor surface a second skin? ← No: anchor surface is constitutionally *separate from the cultivar* (§9). It is the cultivator's instrument, not the cultivar's. The cultivar has one skin; the cultivator-cultivar pair has cultivar's skin + the anchor surface, but the anchor surface is on the cultivator side of the cell membrane.
+- **(The live CI gate as "second skin")**: Cultivator CI approvals happen at the live human-in-the-loop gate, not through the agent's skin. Is that gate a second skin? ← No: the CI gate is constitutionally *separate from the cultivar*. It is the cultivator's instrument, not the cultivar's. The cultivar has one skin; the cultivator-cultivar pair has the cultivar's skin + the live CI gate, but the CI gate is on the cultivator side of the cell membrane. *(Keyless v3.1.5: this was formerly framed via the anchor surface — old §9; the live CI gate now plays that separate-from-the-cultivar role.)*
 
 ## §11. Provenance + revision history
 

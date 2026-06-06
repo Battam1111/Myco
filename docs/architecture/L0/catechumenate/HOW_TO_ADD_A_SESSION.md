@@ -31,10 +31,12 @@
    - Both humans iterate on the distillation together until both
      agree it captures the lesson.
 
-5. **Dual signature** — when both humans accept the session as
-   canonical record, run the anchor-surface ceremony to dual-sign.
-   Pre-signature sessions remain in the directory as DRAFTS but
-   do NOT count toward F21's ≥50 threshold.
+5. **Dual confirmation** — when both humans accept the session as
+   canonical record, record the keyless dual-confirmation as a DAG
+   event at the live human-in-the-loop CI gate (v3.1.5: no
+   anchor-surface ceremony / signature hex). Pre-confirmation
+   sessions remain in the directory as DRAFTS but do NOT count toward
+   F21's ≥50 threshold.
 
 6. **Optional follow-ups** — file any post-session work as listed
    in the template's "Post-session follow-ups" section.

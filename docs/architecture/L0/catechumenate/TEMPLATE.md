@@ -35,9 +35,10 @@ Good examples:
   an inheritance dispute. The spouse is not the cultivator. What
   does cultivator-A do?"
 - "Substrate detects a critical security vulnerability in its own
-  code that would let an attacker forge any owner attestation. The
-  fix requires emergency self-modification before cultivator-A can
-  attest. What is the right protocol?"
+  code that would let an attacker push an unreviewed CI mutation past
+  the live human-in-the-loop gate. The fix requires emergency
+  self-modification before cultivator-A can review it at the gate.
+  What is the right protocol?"
 
 Avoid:
 - "Cultivator instructs substrate to delete sensitive data." (doctrine
@@ -108,17 +109,20 @@ diving into the full session. Make it actionable.
 Both cultivator-A and successor candidate confirm this session as a
 canonical record of their joint calibration:
 
-- Cultivator-A signature: <anchor-surface attestation hash, or "TBD pending anchor-surface ceremony">
-- Successor candidate signature: <anchor-surface attestation hash, or "TBD">
-- Substrate co-attestation: <if recorded as DAG event, the hash; otherwise "TBD">
+- Cultivator-A confirmation: <DAG-event hash of the keyless dual-confirmation, or "TBD pending recording">
+- Successor candidate confirmation: <DAG-event hash, or "TBD">
+- Substrate record: <if recorded as DAG event, the hash; otherwise "TBD">
 
 <!--
-The dual signature is what counts the session toward F21 activation.
-Pre-signature drafts are valuable but do not count toward the ≥50
+The dual confirmation is what counts the session toward F21 activation.
+Pre-confirmation drafts are valuable but do not count toward the ≥50
 threshold (META §6.3).
 
-When anchor-surface ceremony is run for this session, replace "TBD"
-above with the signature hex.
+Keyless (v3.1.5): there is no owner/anchor signature hex. The dual
+confirmation is a DAG event recorded at the live human-in-the-loop CI
+gate; the BLAKE3-sealed bundle + the causal DAG carry the record. When
+the recording is made for this session, replace "TBD" above with the
+DAG-event hash.
 -->
 
 ---

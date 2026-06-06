@@ -73,7 +73,7 @@ Admission is **envelope-gated** (P9 single integument): any agent-pointable inpu
 - **§5.3** The substrate **MUST NOT** treat saturation (P11 ordered fallback) as a permanent state. Saturation is a *temporary* mode; P11.c requires eventual recovery. Permanent ingestion-block without mortality is P02 violation.
 - **§5.4** The substrate **MUST NOT** silently drop ingested content without DAG record. Either it admits + records (P06), or it rejects + records the rejection (immune signal). Silent ingestion is C7 territory.
 - **§5.5** The substrate **MUST NOT** semantically pre-filter input. Envelope validity is the only admission criterion. Content judgment is downstream of admission.
-- **§5.6** The substrate **MUST NOT** require cultivator approval per-ingestion. Cultivator co-attestation is for CI mutations; daily ingestion is unsupervised by design (P1.b' — human OUT of daily-ops).
+- **§5.6** The substrate **MUST NOT** require cultivator approval per-ingestion. Cultivator co-approval (at the live CI gate) is for CI mutations; daily ingestion is unsupervised by design (P1.b' — human OUT of daily-ops).
 - **§5.7** The substrate **MUST NOT** read "external" so narrowly as to exclude content the cultivar might one day reach for itself. The intended meaning of "external" includes the *whole world the cultivar might want to eat*: new techniques, evolving practices, other people's projects, the cultivator's reading, papers the cultivar judges relevant to its own evolution.
 
 ## §6. Frame declaration

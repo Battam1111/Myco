@@ -24,7 +24,7 @@ witnesses:
   kind: executable
   positive: "substrate/tests/e2e_observatory.rs::observatory_format_version_is_5_and_signal_4a_fork_count_present"
   negative: "substrate/src/observatory.rs::tests::c40_fires_on_decelerating_substrate"
-  edge: "substrate/tests/e2e_cultivation.rs::bet_retired_proposal_emitted_at_terminal_window"
+  edge: "substrate/src/cultivation.rs::tests::bet_retired_seals_archive_and_is_archived_keyless"
 falsifiability_signals:
   - all_10_signals_emission_rate
   - quorum_calculation_accuracy
@@ -113,9 +113,9 @@ The quorum is **statistical**, not single-event. A bad day does not trigger; sus
 
 → emits `bet_retired_proposal`.
 
-**Execution**: cultivator co-attestation → `alive::archived`:
+**Execution**: cultivator co-approval at the live CI gate → `alive::archived`:
 - state_dir preserved (study artifact)
-- anchor surface seals last DAG tip (§9.2.2 final co-sign)
+- the BLAKE3 at-rest seal (F5) seals the last DAG tip *(keyless v3.1.5: replaces the retired anchor-surface final co-sign)*
 - no further cycles
 - substrate-ID retired (never reissued for new cultivar)
 
@@ -128,14 +128,14 @@ The quorum is **statistical**, not single-event. A bad day does not trigger; sus
 - **§4.3** During birth period (L1/GOVERNANCE §1.3) + post-birth settling: SUSPEND quorum; emit `bet_weakening_evaluation_suspended`. (**SHIPPED**: birth-period suspension implemented at the `is_in_birth_period_quarantine` gate.)
 - **§4.4** On C40 fire, surface to cultivator; cultivator engages re-justification process (per L0/cards/LB_living_bets.md §4 (retirement); written defense of why the bet still holds).
 - **§4.5** Track re-justification attempts; on 3rd consecutive failure + signal #6 sustained below 0.1, emit `bet_retired_proposal`.
-- **§4.6** On cultivator co-attestation of bet-retired, execute `alive::archived` transition cleanly: anchor-seal final tip, halt cycling, preserve state_dir.
+- **§4.6** On cultivator co-approval of bet-retired (at the live CI gate), execute `alive::archived` transition cleanly: BLAKE3 at-rest seal (F5) of the final tip, halt cycling, preserve state_dir.
 
 ## §5. Negative space — MUST NOT
 
 - **§5.1** **MUST NOT** suppress observatory signals to evade quorum. Suppression of signal emission is detector territory (would fire C53 silent-budget-exhaustion or similar).
 - **§5.2** **MUST NOT** mutate the falsifiability algorithm (`bet_weakening_quorum.md`) via daily channel. It IS the bet's testability; mutating it would be unfalsifiability-by-redefinition.
 - **§5.3** **MUST NOT** perform re-justification cynically. Re-justification is honest engagement with the question "does this cultivar still serve the pair flourishing within the intelligence band?" Performative re-justification (cultivator perfunctorily defending without engaging) corrupts the mechanism.
-- **§5.4** **MUST NOT** silently extend past `bet_retired_proposal` + co-attestation conditions. Bet retirement is doctrinally-honorable mortality (P07.§3.4 mode); extending = forced perpetuation (COV04 §5.3 violation).
+- **§5.4** **MUST NOT** silently extend past `bet_retired_proposal` + co-approval conditions (at the live CI gate). Bet retirement is doctrinally-honorable mortality (P07.§3.4 mode); extending = forced perpetuation (COV04 §5.3 violation).
 - **§5.5** **MUST NOT** reuse substrate-ID after `alive::archived`. The archived substrate's name is its own; not transferable.
 
 ## §6. Frame declaration
@@ -184,7 +184,7 @@ Verify the C40 quorum algorithm is correctly applied: 90-day window, OLS Z compu
 
 ### §8.3 `retirement_execution_completeness`
 
-When `bet_retired` executes, verify all three completion conditions: anchor-seal of final tip; halt of cycling; state_dir preservation per attestation.
+When `bet_retired` executes, verify all three completion conditions: BLAKE3 at-rest seal (F5) of the final tip; halt of cycling; state_dir preservation per the live-CI-gate approval.
 
 ### §8.4 Witnesses
 
@@ -192,7 +192,7 @@ When `bet_retired` executes, verify all three completion conditions: anchor-seal
 |---|---|---|
 | **Positive** | `substrate/tests/e2e_observatory.rs::observatory_format_version_is_5_and_signal_4a_fork_count_present` | The full observatory v5 signal set is live per cycle (including signal 4a fork-count) — the bet's falsifiability signals are all emitted, so the bet is continuously measurable. |
 | **Negative** | `substrate/tests/e2e_observatory.rs::m25_2_bet_weakening_quorum_not_triggered_in_birth` | Exercises the `bet_weakening_quorum` (C40) path and its birth-period suppression — the quorum that would fire on sustained signal decline is wired and correctly gated. *Nearest-available; the exact sabotage-90d-decline-fires-C40 negative witness is v0.9.x debt.* |
-| **Edge** | `substrate/tests/e2e_cultivation.rs::bet_retired_proposal_emitted_at_terminal_window` | Boundary: at the terminal window a `bet_retired_proposal` is emitted — the graceful-retirement path (toward `alive::archived` with anchor seal) is reached when the bet is honestly losing. |
+| **Edge** | `substrate/src/cultivation.rs::tests::bet_retired_seals_archive_and_is_archived_keyless` | Boundary: a `bet_retired_proposal` seals the archive and the substrate becomes `alive::archived` (keyless) — the graceful-retirement path is reached + completed when the bet is honestly losing. *(Keyless re-grounding v3.1.5: the seal is the BLAKE3 at-rest seal of the final DAG tip, not an owner-anchor co-sign.)* |
 
 ## §9. Interaction rules
 

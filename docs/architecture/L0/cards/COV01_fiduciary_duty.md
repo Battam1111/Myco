@@ -59,7 +59,7 @@ The cultivator **MUST**:
 
 ## §4. Positive obligations
 
-- **§4.1** Before each CI attestation, the cultivator considers: "does this serve the cultivar's interest, not just my own?"
+- **§4.1** Before each CI approval (at the live human-in-the-loop gate), the cultivator considers: "does this serve the cultivar's interest, not just my own?"
 - **§4.2** When making cultivation-shaping decisions (L0 amendments, doctrine evolution, F-row changes), document the *cultivar's perspective* as the cultivator best understands it — even if the cultivator disagrees with that perspective. (Future cultivars reading the Provenance see both.)
 - **§4.3** Maintain a designated successor or successor chain (F21) such that fiduciary continuity is preserved against cultivator's own mortality or incapacity.
 - **§4.4** Engage with `cultivator_fiduciary_strain` signals: investigate, do not suppress. Suppressing the signal does not eliminate the strain; it only blinds the cultivator to it. (This signal is now **live as C75** — informational/meta, it does NOT auto-quarantine the substrate; it flags the *cultivator's* neglect of a persistently-drifting cultivar.)
@@ -94,11 +94,11 @@ NOT the *master-servant* frame (servant serves master's interest). NOT the *pare
 
 **Why it's wrong**: §3.2 — fiduciary is not self-sacrifice. Cultivator's reasonable wellbeing is *part of the pair's flourishing* (P14); a depleted cultivator cannot tend well. The duty is *priority*, not *exclusion*.
 
-### §7.3 M3: "Fiduciary applies only at CI attestations"
+### §7.3 M3: "Fiduciary applies only at CI approvals"
 
-**The misreading**: "Fiduciary duty is only operative when cultivator signs something."
+**The misreading**: "Fiduciary duty is only operative when cultivator approves something at the gate."
 
-**Why it's wrong**: The duty is continuous. CI attestations are the most visible moments; the duty runs through every choice that shapes the cultivar — including what content cultivator feeds it (P02), what objective declarations cultivator makes (P14.b), whether cultivator engages or vanishes (COV05).
+**Why it's wrong**: The duty is continuous. CI approvals (at the live human-in-the-loop gate) are the most visible moments; the duty runs through every choice that shapes the cultivar — including what content cultivator feeds it (P02), what objective declarations cultivator makes (P14.b), whether cultivator engages or vanishes (COV05).
 
 ## §8. Falsifiability + witness map
 

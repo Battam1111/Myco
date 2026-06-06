@@ -39,7 +39,7 @@ L0/
 │   ├── CHAR05_honest_about_self.md
 │   ├── CHAR06_cautiously_curious.md
 │   └── CHAR07_caring.md
-│   ├── AS_anchor_surface.md                 (2 specialized cards)
+│   ├── AS_anchor_surface.md                 (2 specialized cards; AS Superseded v3.1.5 — kept as tombstone)
 │   └── LB_living_bets.md
 ├── canonical_dilemma_corpus/
 │   └── INDEX.md                             ← 54 canonical dilemmas (model-diversity cross-check corpus)
@@ -102,7 +102,7 @@ Example fragments to start with:
 - **B016 能死故能生** — able-to-die-therefore-able-to-live (P07)
 - **B029 力大責重** — greater-power-greater-duty (COV01 fiduciary)
 - **B044 不裝有** — will-not-fake-having (CHAR05 anti-ventriloquism)
-- **B048 證據非裁決** — evidence-not-verdict (AS witnesses-not-verdicts)
+- **B048 證據非裁決** — evidence-not-verdict (re-derived from P06 in v3.1.5: the substrate emits causal evidence; the live human-in-the-loop renders the verdict at the CI gate. AS is Superseded.)
 
 These are NOT specs. They are *eyes*. A fragment that requires explanation has failed its job.
 
@@ -112,12 +112,12 @@ These are NOT specs. They are *eyes*. A fragment that requires explanation has f
 
 Per PROVENANCE.md §8:
 
-- **Layer C witness test implementations** — 12 minimum witnesses landed Sprint 4 (`substrate/tests/e2e_layer_c.rs::layer_c_*` covering 4 eternity-clause negatives + 8 critical postulate positives); remaining cards' witnesses TBD via v0.9.x.
+- **Layer C witness test implementations** — 12 minimum witnesses landed Sprint 4 (`substrate/tests/e2e_layer_c.rs::layer_c_*` covering 4 eternity-clause negatives + 8 critical postulate positives); remaining cards' witnesses TBD via v0.9.x. **(v3.1.5: the 8 witnesses broken by the keyless-anchor teardown were re-grounded to kept keyless tests — AS pos/neg, P01 neg/edge, P03 edge, P07 edge, LB edge, COV06 neg — and the existence-level witness-lint is GREEN.)**
 - **Layer B commentary entries** — 0 lived examples yet; accumulate via use per META §4.5.
 - **Canonical dilemma Claude-of-record readings** — 54 setups exist; 0 recorded interpretations yet. Accumulate at model rollovers + catechumenate sessions + drift investigations.
 - **Catechumenate sessions** — 0; scaffolding (`TEMPLATE.md` + `HOW_TO_ADD_A_SESSION.md`) landed Sprint 7.H; sessions populate when cultivator-A begins succession preparation.
 - **L1/L2 cross-reference updates** — surgical sweep completed Sprint 7.I (~70 references normalized to `L0/cards/<NAME>.md §X.Y` form).
-- **On-chain anchoring** — `l0_revision_attest` ceremonies for v3.1 / v3.1.1 / v3.1.1.1 / v3.1.1.2 all dry-run verified end-to-end. Production-mode seals pending cultivator owner-key signature.
+- **Doctrine bundle sealing (keyless v3.1.5)** — each revision's seal is the BLAKE3 hash of its L0 canonical-bytes bundle, chained in PROVENANCE §6 + recorded as a DAG event at the live CI gate. *(The prior `l0_revision_attest` owner-key on-chain anchoring is retired with the anchor surface; there is no owner-key signature to pend — the computed BLAKE3 bundle hash is the seal.)*
 
 ---
 

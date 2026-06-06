@@ -23,7 +23,7 @@ witnesses:
   kind: executable
   positive: "substrate/tests/e2e_layer_c.rs::layer_c_p03_positive_classifier_path_traversed"
   negative: "substrate/tests/e2e_schema_migration.rs::migration_diverges_and_rolls_back"
-  edge: "substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_rejected_without_owner_attestation"
+  edge: "substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_accepted_keyless_and_applies"
 falsifiability_signals:
   - evolution_failure_rate_rolling_30d
   - rollback_completeness_per_failure
@@ -115,7 +115,7 @@ Every lexicon mutation MUST have an attached attestation event. Lexicon mutation
 |---|---|---|
 | **Positive** | `substrate/tests/e2e_layer_c.rs::layer_c_p03_positive_classifier_path_traversed` | A mutation traverses the classifier → CI path: the resumable-evolution gate is wired and the classifier routes the mutation correctly. |
 | **Negative** | `substrate/tests/e2e_schema_migration.rs::migration_diverges_and_rolls_back` | **Deliberate sabotage**: a two-phase migration diverges mid-window. Substrate MUST detect the divergence AND roll back to the pre-evolution state (resumability requires clean rollback). |
-| **Edge** | `substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_rejected_without_owner_attestation` | Boundary: a schema-evolution (CI-class) mutation without owner attestation is rejected — evolution is CI-gated, not a daily free action. |
+| **Edge** | `substrate/tests/e2e_attestation.rs::sprint_5b_schema_evolution_accepted_keyless_and_applies` | Boundary: a schema-evolution (CI-class) mutation is accepted + applied through the live human-in-the-loop CI gate (keyless) — evolution is CI-gated (reached only via the CI path), not a daily free action. *(Keyless re-grounding v3.1.5: the prior owner-attestation-rejection edge is retired with the owner key; the CI gate is now the live human-in-the-loop + the classifier + the BLAKE3-sealed bundle.)* |
 
 ## §9. Interaction rules
 

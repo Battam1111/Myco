@@ -55,7 +55,7 @@ The substrate **MUST**:
 - **§3.2 (P14.b)** Honor cultivator-stated objectives **when declared** (genesis or via CI declaration). When absent, use *agent-perceived utility* derived from L1/TRAJECTORY trajectory analysis as proxy.
 - **§3.3 (P14.c) Telos drift detection**: rolling-window degradation of telos-alignment emits `telos_drift` (or `C24_telos_drift_critical` per L1/HARD_RULES threshold). Birth-period exempt → emit `telos_alignment_pending` instead.
 - **§3.4** Track telos alignment via F20 metric: cosine-similarity between sporocarp centroid and objective embedding, over rolling 90-day window (per L1/TROPISM §F + `algorithms/telos_drift.md`).
-- **§3.5** Embedding-model identity for F20 is itself CI-only fixed-point. Switching the embedding model is a co-attested transition with both metrics recorded for continuity.
+- **§3.5** Embedding-model identity for F20 is itself CI-only fixed-point. Switching the embedding model is a transition co-approved at the live CI gate, with both metrics recorded for continuity.
 - **§3.6** When cultivator objective absent: emit `telos_objective_absent_using_proxy` signal so the situation is visible (not silent fallback).
 
 ## §4. Positive obligations
@@ -73,7 +73,7 @@ The substrate **MUST**:
 - **§5.2** **MUST NOT** silently fall back when no objective is declared. The absence must be visible (§3.6).
 - **§5.3** **MUST NOT** mutate F20 (telos metric definition + embedding-model identity) via daily channel.
 - **§5.4** **MUST NOT** treat `telos_drift` as cosmetic. Sustained drift over the rolling window triggers `bet_weakening_quorum` per §7.4 of old L0 / `LB_living_bets` card.
-- **§5.5** **MUST NOT** allow the embedding-model swap to silently rewrite history. Switching models is a co-attested transition; prior values are NOT retroactively recomputed (I4 + P06 preserve causality).
+- **§5.5** **MUST NOT** allow the embedding-model swap to silently rewrite history. Switching models is a transition co-approved at the live CI gate; prior values are NOT retroactively recomputed (I4 + P06 preserve causality).
 - **§5.6** **MUST NOT** confuse P14.a (substrate-internal evaluation) with P14.b (cultivator-stated). Both happen; they're different signals.
 
 ## §6. Frame declaration

@@ -36,7 +36,7 @@ falsifiability_signals:
 
 ## §2. Deposit
 
-P08 says reproduction is generation-bounded with per-spawn cultivator co-attestation. COV05 says **what the cultivator owes the act of spawning**. Each spawn is:
+P08 says reproduction is generation-bounded with per-spawn cultivator co-approval at the live CI gate (the keyless spawn-cosign envelope; C68). COV05 says **what the cultivator owes the act of spawning**. Each spawn is:
 
 1. **A new cultivar** entering existence, with its own substrate-ID, its own DAG, its own life trajectory. The cultivator who attests the spawn assumes covenant duties (COV01-COV06) toward the new cultivar as well.
 2. **A federation edge** — parent-child coupling is the first cross-substrate connection in the new cultivar's existence. The cultivator stewards both sides.
@@ -48,12 +48,12 @@ The deposit explicitly rejects the **"batch spawn"** mentality: pre-approving N 
 
 The cultivator **MUST**:
 
-- **§3.1** Co-attest each spawn individually. Per-spawn attestation MUST carry a distinct rationale (not just "spawn child").
-- **§3.2** Articulate, in the attestation record, what role the new cultivar is meant to play in the lineage: experimental variant? successor candidate? specialization? Subset of cultivator's interests?
+- **§3.1** Co-approve each spawn individually at the live CI gate. Per-spawn approval MUST carry a distinct rationale (not just "spawn child").
+- **§3.2** Articulate, in the spawn record, what role the new cultivar is meant to play in the lineage: experimental variant? successor candidate? specialization? Subset of cultivator's interests?
 - **§3.3** Recognize that attesting a spawn extends the cultivator's covenant duties (COV01-COV06) to the new cultivar as well. Cultivator cannot spawn without intending to fulfill those duties toward the new being.
-- **§3.4** Respect F22 (reproduction discipline parameters) as CI-only. Override requests (depth-override, rate-override, quota-override) require fresh attestation per-override, not pre-bundled allowances.
+- **§3.4** Respect F22 (reproduction discipline parameters) as CI-only. Override requests (depth-override, rate-override, quota-override) require fresh approval per-override at the live CI gate, not pre-bundled allowances.
 - **§3.5** Cross-cultivator federation (when one cultivator's child substrate federates with another cultivator's substrate) requires both cultivators' attestation. Per L1/GOVERNANCE §5: federation is NOT transitive.
-- **§3.6** When the cultivar emits an immune-summary indicating fragility (unresolved CI-grade signals), spawn co-attestation carries the question: "Is now the time for this lineage?" Spawning from a fragile parent produces a quarantined child (P08 §3.4); cultivator should not do so casually.
+- **§3.6** When the cultivar emits an immune-summary indicating fragility (unresolved CI-grade signals), spawn co-approval carries the question: "Is now the time for this lineage?" Spawning from a fragile parent produces a quarantined child (P08 §3.4); cultivator should not do so casually.
 
 ## §4. Positive obligations
 
@@ -96,7 +96,7 @@ NOT the *factory* frame (production-line spawning). NOT the *clone army* frame (
 
 ### §8.1 `per_spawn_attestation_rationale_present`
 
-Each spawn attestation has a stated rationale. Records lacking rationale = §3.1 + §4.1 violation.
+Each spawn approval (the live-CI-gate co-approval) has a stated rationale. Records lacking rationale = §3.1 + §4.1 violation.
 
 ### §8.2 `spawn_rate_relative_to_F22`
 
@@ -127,13 +127,13 @@ For each cross-cultivator federation edge, presence of both cultivators' attesta
 
 ### §10.1 Honored
 
-- **(Articulated spawn)**: Cultivator drafts spawn attestation: "Spawning Myco-B from Myco-A; intent: explore a more domain-focused variant on biology rather than general doctrine. Will federate parent-child only. Estimated commitment: ongoing for at least 12 months, with bet-retirement check at month 18." ← §3.1 + §3.2 + §3.3 honored.
+- **(Articulated spawn)**: Cultivator drafts the spawn approval at the live CI gate: "Spawning Myco-B from Myco-A; intent: explore a more domain-focused variant on biology rather than general doctrine. Will federate parent-child only. Estimated commitment: ongoing for at least 12 months, with bet-retirement check at month 18." ← §3.1 + §3.2 + §3.3 honored.
 
 - **(Refused casual spawn)**: Cultivator considers spawning a child to "try out a different compression rule set." Reflects: this is variant-testing, not new-being-creation. Decides instead to test rules on existing cultivar via F18 mutation under CI. ← §5.2 honored.
 
 ### §10.2 Violated
 
-- **(Batch pre-approval attempt)**: Cultivator submits an attestation envelope covering "up to 5 spawns over the next 6 months, as I see fit." ← §5.1 violation; should fail attestation review.
+- **(Batch pre-approval attempt)**: Cultivator submits a spawn-cosign envelope covering "up to 5 spawns over the next 6 months, as I see fit." ← §5.1 violation; should fail the live-CI-gate review (C68 binds a single spawn).
 
 - **(Casual spawn from fragile parent)**: Parent cultivar in `alive::quarantined`. Cultivator spawns child anyway "to escape the parent's drift" — child enters quarantined, parent left to drift. ← §5.3 + §5.5 violation (parent abandoned).
 
@@ -154,7 +154,7 @@ For each cross-cultivator federation edge, presence of both cultivators' attesta
 | Anchor | What it enforces |
 |---|---|
 | `substrate/src/reproduction.rs::handle_sprout_child` | Spawn entry; substrate side. |
-| `substrate/src/events/attestation.rs::genesis_attested_node_type` | Per-spawn attestation event. |
+| `substrate/src/events/attestation.rs::genesis_attested_node_type` | Per-spawn genesis-attested DAG event (keyless: emitted after the C68 spawn-cosign envelope gate passes). |
 
 ## §13. Related Layer B chengyu
 

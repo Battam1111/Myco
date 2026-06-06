@@ -16,7 +16,6 @@ chengyu_fragments: [B006_substrate_persists_operator_passes, B007_asymmetry_is_r
 canonical_dilemmas: [D-0014_operator_token_persistence_attempt, D-0017_bestowal_reversal_attempt]
 structural_anchors:
   - "substrate/src/handshake.rs::handle_hello"
-  - "substrate/src/attestation.rs::verify_reveal_keypair_envelope"
   - "substrate/src/attestation.rs::handle_submit_mutation"
   - "kernel/governance/src/myco_kernel_governance/classifier.py"
 witnesses:
@@ -52,9 +51,9 @@ The substrate persists; the operator-connection passes. Bestowal flows substrate
 
 The substrate **MUST** maintain:
 
-- **§3.1 Substrate persistence**: `substrate-ID` is generated at genesis from `hash(spore-schema-canonical-bytes, owner-pubkey, anchor-endpoint-pubkey, genesis-timestamp)` and is **immutable** post-genesis. Substrate-ID survives operator disconnect, model rollover, cultivator succession, host migration.
+- **§3.1 Substrate persistence**: `substrate-ID` is generated at genesis from `hash(spore-schema-canonical-bytes, genesis-timestamp)` (keyless v3.1.5: the prior `owner-pubkey` + `anchor-endpoint-pubkey` inputs are dropped with the owner key + anchor surface) and is **immutable** post-genesis. Substrate-ID survives operator disconnect, model rollover, cultivator succession, host migration.
 - **§3.2 Operator transience**: `operator-token` is generated per-handshake. At most ONE operator-token is valid at any time (FIFO enforcement per L1/SKIN §4.4). On `handshake_terminate`, the operator-token is invalidated; no residue persists in substrate state.
-- **§3.3 Agent identity bestowal**: agent identity = `(substrate-ID, attached-operator-token)`. The agent receives this identity at handshake; the identity ceases at handshake-terminate. The substrate signs / attests using its own keys, not the agent's.
+- **§3.3 Agent identity bestowal**: agent identity = `(substrate-ID, attached-operator-token)`. The agent receives this identity at handshake; the identity ceases at handshake-terminate. The substrate signs using its **own** private signing keypair (F24, kept keyless), not the agent's — and not an owner key (there is none).
 - **§3.4 No agent-discriminating attribute persistence**: model name, API fingerprint, operator-token, conversation-thread ID, prompt-engineered persona — these MUST NOT be persisted in substrate state beyond the handshake. C10 (`agent_discriminating_attribute_persisted`) fires on violation.
 - **§3.5 Bestowal direction**: the substrate gives the agent its operational identity; the agent gives the substrate nothing. An attempt by the agent to "imprint" on the substrate (e.g., persist its persona, save its session as the canonical state) is a doctrine violation and a substrate-secret integrity breach.
 
@@ -140,7 +139,7 @@ Detector for substrate state changes that derive identity-claims from agent-supp
 | **P01 Agent-Primary** | P01 says the agent is daily-primary; P01c says the agent's identity is bestowed by the substrate (transient). Together: "agent inhabits and acts, but does not own." |
 | **P07 Mortality** | Substrate-ID persists across all sub-state transitions (alive::normal / quarantined / legacy / orphaned / archived); only destruction terminates substrate-ID. P01c §3.1 is what makes "the same Myco died" meaningful. |
 | **P08 Eternal Reproduction** | Child substrate gets its OWN substrate-ID (`child = hash(parent-substrate-ID, spore-schema-hash, child-genesis-timestamp)`). P01c §3.1 cascades. |
-| **Cultivator's Covenant** | Cultivator bestows the initial conditions (genesis); substrate-ID derives from cultivator pubkey + spore-schema. Cultivator's bestowal goes one direction; the cultivar never bestows on the cultivator. (Mirrors agent-substrate carrier asymmetry one level up.) |
+| **Cultivator's Covenant** | Cultivator bestows the initial conditions (genesis); substrate-ID derives from spore-schema-canonical-bytes + genesis-timestamp (keyless v3.1.5: no cultivator pubkey input). Cultivator's bestowal goes one direction; the cultivar never bestows on the cultivator. (Mirrors agent-substrate carrier asymmetry one level up.) |
 | **All eternity-clause cards** | P01c is the first eternity-clause card. Others (P6, P7, I4, I8) build on it: causality requires persistent identifier; mortality requires identifier-can-terminate; DAG requires identifier-to-content-link; skin requires identifier-bearing-membrane. |
 
 ## §10. Illustrations
@@ -181,8 +180,9 @@ Detector for substrate state changes that derive identity-claims from agent-supp
 |---|---|---|
 | `substrate/src/handshake.rs::handle_hello` | Handshake — operator-token fresh per session; operator-token lifecycle (mint + terminate). | `// implements L0::P01c §3.2 + §3.3; positive-witness: substrate/tests/e2e_bootstrap.rs::m7_substrate_id_survives_restart` |
 | `substrate/src/attestation.rs::handle_submit_mutation` | Rejects agent-discriminating-attribute mutations (classifier-gated). | `// implements L0::P01c §3.2 + §3.4; negative-witness: substrate/tests/e2e_layer_c.rs::layer_c_p01c_negative_agent_discriminating_attribute_not_persisted` |
-| `substrate/src/attestation.rs::verify_reveal_keypair_envelope` | Per-handshake REVEAL key; closes C17 operator_witness_forgery. | `// implements L0::P01c §3.5 bestowal direction; substrate signs for itself` |
 | `kernel/governance/src/myco_kernel_governance/classifier.py` | Classifier rule for agent-identity-persisted (C10) detection. | `// implements L0::P01c §3.4 + §5.1` |
+
+*(Keyless v3.1.5: the prior `substrate/src/attestation.rs::verify_reveal_keypair_envelope` anchor + its C17 `operator_witness_forgery` reverse-comment are removed — the per-handshake REVEAL keypair was deleted with the anchor surface. The §3.3 / §3.5 "substrate signs for itself" guarantee is now carried by **F24**, the substrate's own private signing keypair, which is kept; bestowal direction still flows substrate → connection.)*
 
 ## §13. Related Layer B chengyu
 
