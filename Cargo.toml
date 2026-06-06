@@ -3,7 +3,7 @@
 # This workspace contains the Rust-implemented modules of the v0.9 substrate-kernel
 # (per L3/PACKAGE_MAP §2-§6). Python modules (governance, tropism, trajectory,
 # hard_rules) live under kernel/<name>/ but use their own Python build tooling
-# (pyproject.toml). TypeScript modules (anchor/client, operators) live
+# (pyproject.toml). TypeScript modules (operators) live
 # in their own directories with their own package.json files.
 #
 # Per L3/OUTLINE §5 owner-chosen multi-language split:
@@ -50,5 +50,5 @@ hex = "0.4"
 
 # Per L3/PACKAGE_MAP §2.3 critical: canonical-bytes serializer must round-trip
 # identically across substrate-kernel (Rust), operator-bindings (per host),
-# and anchor/client (TypeScript). Cross-language test vector suite lives in
+# and operators/claude (TypeScript). Cross-language test vector suite lives in
 # tests/canonical_bytes_vectors/ (see kernel/shared/tests/).

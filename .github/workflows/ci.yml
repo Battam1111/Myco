@@ -1,7 +1,7 @@
 # Myco CI — runs the real test suites the doctrine claims are CI-enforced.
 #
 # Three jobs, by truth-condition:
-#   rust        — Layer-C witnesses + substrate/anchor unit + e2e (isolated)
+#   rust        — Layer-C witnesses + substrate unit + e2e (isolated; keyless)
 #   python      — kernel governance/tropism/trajectory/hard_rules/bridge
 #   typescript  — the FULL stack: the operators e2e spawns the real Rust
 #                 substrate which spawns the Python bridge, so this job is
@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   rust:
-    name: Rust substrate + anchor
+    name: Rust substrate + kernel
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,7 +61,7 @@ jobs:
         run: python -m pytest kernel/governance kernel/tropism kernel/trajectory kernel/hard_rules kernel/bridge/python
 
   typescript:
-    name: TypeScript operator + anchor (full-stack integration)
+    name: TypeScript operator (full-stack integration; keyless)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,20 +73,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Build the substrate + anchor binaries (debug; e2e spawns them)
-        run: cargo build -p myco-substrate -p anchor-surface-host
+      - name: Build the substrate binary (debug; e2e spawns it — keyless, no anchor)
+        run: cargo build -p myco-substrate
       - name: Install the Python kernel (the substrate spawns the bridge)
         run: |
           python -m pip install --upgrade pip
           pip install -e kernel/governance -e kernel/tropism -e kernel/trajectory -e kernel/hard_rules -e kernel/bridge/python
-      - name: anchor/client — install deps (operators typechecks against its source)
-        working-directory: anchor/client
-        run: npm ci
       - name: operators/claude — typecheck + tests + ceremony verify_hashes
         working-directory: operators/claude
         run: |
           npm ci
           npm run test:all
-      - name: anchor/client — tests
-        working-directory: anchor/client
-        run: npm test
