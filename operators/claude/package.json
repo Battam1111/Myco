@@ -39,7 +39,8 @@
     "ceremony:v3_1_5:dry-run": "node --experimental-strip-types --no-warnings ceremonies/v3_1_5_keyless_anchor_retirement/run_ceremony.ts --mode dry-run",
     "ceremony:v3_1_5:production": "node --experimental-strip-types --no-warnings ceremonies/v3_1_5_keyless_anchor_retirement/run_ceremony.ts --mode production",
     "test:all": "npm run typecheck && npm test",
-    "start": "node --experimental-strip-types src/cli.ts"
+    "start": "node --experimental-strip-types src/cli.ts",
+    "demo": "node --experimental-strip-types --no-warnings demo.ts"
   },
   "devDependencies": {
     "@types/node": "^22.19.19",

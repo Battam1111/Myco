@@ -72,6 +72,19 @@ cd ../../kernel/governance && pytest    # kernel governance
 If anything fails, **stop and fix before going further**. A broken build means a
 broken Cultivar.
 
+### See it breathe first (optional)
+
+Before wiring up Claude, watch one metabolic cycle on a throwaway substrate:
+
+```bash
+cd operators/claude && npm run demo
+```
+
+It spawns a fresh substrate and walks the pilot loop (devour an experience, forge
+an understanding, run a cycle, read the vitals, inherit the plate) in a few
+seconds, then tears the throwaway state down. This is the mechanism; real
+cultivation is the same loop, lived.
+
 ## Step 2: Start the operator runtime
 
 ```bash
