@@ -328,10 +328,9 @@ impl ObservatorySnapshot {
 use crate::events::{
     NODE_TYPE_CYCLE_ADVANCED, NODE_TYPE_GENESIS_PREFIX, NODE_TYPE_NONCE_CONSUMED_PREFIX,
     NODE_TYPE_NONCE_EXPIRED_PREFIX, NODE_TYPE_NONCE_ISSUED_PREFIX,
-    NODE_TYPE_OPERATOR_PINNED_PREFIX, NODE_TYPE_SCHEMA_MIGRATION_COMMITTED_PREFIX,
-    NODE_TYPE_SCHEMA_MIGRATION_ROLLED_BACK_PREFIX, NODE_TYPE_SCHEMA_MIGRATION_STARTED_PREFIX,
+    NODE_TYPE_SCHEMA_MIGRATION_COMMITTED_PREFIX, NODE_TYPE_SCHEMA_MIGRATION_ROLLED_BACK_PREFIX,
+    NODE_TYPE_SCHEMA_MIGRATION_STARTED_PREFIX,
 };
-use crate::persistence::PinnedOperatorIdentity;
 
 /// One persisted attestation nonce as derivable from DAG events. Mirrors the
 /// in-memory `AttestationNonce` in `server.rs`; M21.2+ may consolidate.
@@ -394,8 +393,6 @@ pub struct DerivedSuccessorEntry {
     /// Anchor wall-clock until which this successor is valid; `None` =
     /// open-ended (chain head).
     pub valid_until_unix_ns: Option<i64>,
-    /// 64-byte chain-head / cultivator attestation signature.
-    pub attestation_signature: [u8; 64],
 }
 
 /// **COV06 §3.2.C** — the cultivation cadence + windows + terminal choice, as
@@ -414,19 +411,6 @@ pub struct DerivedSuccessionConfig {
     pub orphaned_terminal_window_days: u64,
     /// `self_euthanasia` | `bet_retirement` | `indefinite_orphan`.
     pub terminal_choice: String,
-}
-
-/// **COV06** — the latest recorded cultivator heartbeat, as derived from the
-/// most recent `cultivator_heartbeat_recorded` / `cultivator_heartbeat_resumed`
-/// DAG event. The autonomous-tick staleness watchdog measures
-/// `now_anchor - anchor_timestamp_unix_ns` against the cadence. Re-derived at
-/// boot from the DAG; not persisted in snapshot.cb.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DerivedLatestHeartbeat {
-    /// 32-byte cultivator pubkey of the most recent heartbeat.
-    pub cultivator_pubkey: [u8; 32],
-    /// Anchor wall-clock of the most recent heartbeat pulse.
-    pub anchor_timestamp_unix_ns: i64,
 }
 
 /// Error during DAG event replay.
@@ -485,8 +469,6 @@ pub struct DerivedState {
     pub cycle_counter: u64,
     /// Highest cycle whose raw_material has been absorbed (M18).
     pub last_absorbed_cycle: Option<u64>,
-    /// Pinned operator IDENTITY pubkey (M9 TOFU). `None` until first operator_pinned event.
-    pub pinned_operator_identity: Option<PinnedOperatorIdentity>,
     /// Live nonce log: derived from nonce_issued events, with nonce_consumed /
     /// nonce_expired events updating per-entry `consumed` flag or removing.
     pub nonce_log: HashMap<[u8; 32], DerivedNonce>,
@@ -516,10 +498,6 @@ pub struct DerivedState {
     /// terminal choice), from the latest `cultivation_succession_config_declared`
     /// event. `None` → built-in defaults. NOT persisted in snapshot.cb.
     pub succession_config: Option<DerivedSuccessionConfig>,
-    /// **COV06** — the latest recorded cultivator heartbeat (the staleness
-    /// watchdog's reference point). `None` → no heartbeat ever recorded. NOT
-    /// persisted in snapshot.cb (re-derived from the DAG at boot).
-    pub latest_heartbeat: Option<DerivedLatestHeartbeat>,
 }
 
 impl DerivedState {
@@ -531,13 +509,11 @@ impl DerivedState {
             generation_depth: 0,
             cycle_counter: 0,
             last_absorbed_cycle: None,
-            pinned_operator_identity: None,
             nonce_log: HashMap::new(),
             observatory_history: VecDeque::new(),
             migration_candidate: None,
             successor_chain: Vec::new(),
             succession_config: None,
-            latest_heartbeat: None,
         }
     }
 
@@ -608,15 +584,10 @@ impl DerivedState {
         if let Some(c) = self.last_absorbed_cycle {
             root.insert("last_absorbed_cycle".to_string(), Value::Uint(c));
         }
-        if let Some(pinned) = &self.pinned_operator_identity {
-            let mut pm = BTreeMap::new();
-            pm.insert("pubkey".to_string(), Value::Bytes(pinned.pubkey.to_vec()));
-            pm.insert(
-                "first_pinned_unix_ns".to_string(),
-                Value::Timestamp(pinned.first_pinned_unix_ns),
-            );
-            root.insert("pinned_operator_identity".to_string(), Value::Map(pm));
-        }
+        // (v0.9 owner-key removal: `pinned_operator_identity` is no longer
+        // serialized into snapshot.cb — the field was removed from DerivedState.
+        // The optional key is simply omitted; the decoder ignores it if a
+        // pre-removal snapshot still carries it.)
         let nonces: Vec<Value> = self
             .nonce_log
             .values()
@@ -767,34 +738,9 @@ impl DerivedState {
             Some(Value::Uint(u)) => Some(*u),
             _ => None,
         };
-        let pinned_operator_identity = match map.get("pinned_operator_identity") {
-            Some(Value::Map(pm)) => {
-                let pk =
-                    map_get_bytes(pm, "pubkey").map_err(|e| DerivedStateError::EventField {
-                        node_type: "snapshot.cb".to_string(),
-                        field: "pinned_operator_identity.pubkey".to_string(),
-                        reason: e.to_string(),
-                    })?;
-                if pk.len() != 32 {
-                    return Err(DerivedStateError::EventField {
-                        node_type: "snapshot.cb".to_string(),
-                        field: "pubkey".to_string(),
-                        reason: format!("expected 32 bytes; got {}", pk.len()),
-                    });
-                }
-                let mut pubkey = [0u8; 32];
-                pubkey.copy_from_slice(pk);
-                let first_pinned_unix_ns = match pm.get("first_pinned_unix_ns") {
-                    Some(Value::Timestamp(t)) => *t,
-                    _ => 0,
-                };
-                Some(crate::persistence::PinnedOperatorIdentity {
-                    pubkey,
-                    first_pinned_unix_ns,
-                })
-            }
-            _ => None,
-        };
+        // (v0.9 owner-key removal: `pinned_operator_identity` is no longer a
+        // DerivedState field. A pre-removal snapshot carrying the key is simply
+        // ignored here.)
         let nonce_log_array =
             map_get_array(&map, "nonce_log").map_err(|e| DerivedStateError::EventField {
                 node_type: "snapshot.cb".to_string(),
@@ -944,18 +890,16 @@ impl DerivedState {
                 generation_depth,
                 cycle_counter,
                 last_absorbed_cycle,
-                pinned_operator_identity,
                 nonce_log,
                 observatory_history,
                 migration_candidate,
-                // **COV06**: these three are NOT persisted in snapshot.cb (no
+                // **COV06**: these two are NOT persisted in snapshot.cb (no
                 // format bump). The boot path re-derives them from the full DAG
                 // after snapshot load (see `rederive_cultivation_from_dag`), so
                 // a snapshot-accelerated boot recovers the cultivation state
                 // even for events that predate the snapshot tip.
                 successor_chain: Vec::new(),
                 succession_config: None,
-                latest_heartbeat: None,
             },
             snapshot_at_dag_tip,
         )))
@@ -977,14 +921,9 @@ impl DerivedState {
     ) -> Result<(), DerivedStateError> {
         self.successor_chain.clear();
         self.succession_config = None;
-        self.latest_heartbeat = None;
         for node in dag.iter_in_insertion_order() {
             let nt = &node.node_type;
-            if nt == crate::events::NODE_TYPE_CULTIVATOR_HEARTBEAT_RECORDED
-                || nt == crate::events::NODE_TYPE_CULTIVATOR_HEARTBEAT_RESUMED
-            {
-                self.apply_cultivator_heartbeat(node)?;
-            } else if nt.starts_with(crate::events::NODE_TYPE_SUCCESSOR_CHAIN_UPDATED_PREFIX) {
+            if nt.starts_with(crate::events::NODE_TYPE_SUCCESSOR_CHAIN_UPDATED_PREFIX) {
                 self.apply_successor_chain_updated(node)?;
             } else if nt == crate::events::NODE_TYPE_CULTIVATION_SUCCESSION_CONFIG_DECLARED {
                 self.apply_succession_config_declared(node)?;
@@ -1034,10 +973,6 @@ impl DerivedState {
             self.apply_genesis(node)
         } else if nt == NODE_TYPE_CYCLE_ADVANCED {
             self.apply_cycle_advanced(node)
-        } else if nt.starts_with(NODE_TYPE_OPERATOR_PINNED_PREFIX) {
-            self.apply_operator_pinned(node)
-        } else if nt == crate::events::NODE_TYPE_OWNER_KEY_ADDED {
-            self.apply_owner_key_added(node)
         } else if nt.starts_with(NODE_TYPE_NONCE_ISSUED_PREFIX) {
             self.apply_nonce_issued(node)
         } else if nt.starts_with(NODE_TYPE_NONCE_CONSUMED_PREFIX) {
@@ -1056,12 +991,6 @@ impl DerivedState {
             // (promoted vs dropped) is the Python side's concern.
             self.migration_candidate = None;
             Ok(())
-        } else if nt == crate::events::NODE_TYPE_CULTIVATOR_HEARTBEAT_RECORDED
-            || nt == crate::events::NODE_TYPE_CULTIVATOR_HEARTBEAT_RESUMED
-        {
-            // **COV06** — track the latest cultivator heartbeat (the staleness
-            // watchdog's reference). Both recorded + resumed pulses refresh it.
-            self.apply_cultivator_heartbeat(node)
         } else if nt.starts_with(crate::events::NODE_TYPE_SUCCESSOR_CHAIN_UPDATED_PREFIX) {
             // **COV06 §3.2.A (F21)** — append a SuccessorEntry to the chain.
             self.apply_successor_chain_updated(node)
@@ -1132,24 +1061,11 @@ impl DerivedState {
         Ok(())
     }
 
-    /// **COV06** — a `cultivator_heartbeat_recorded` / `_resumed` event refreshes
-    /// the latest-heartbeat reference (the staleness watchdog's clock). Both
-    /// carry `cultivator_pubkey` + `anchor_timestamp_unix_ns`.
-    fn apply_cultivator_heartbeat(&mut self, node: &DagNode) -> Result<(), DerivedStateError> {
-        let map = decode_event_map(node)?;
-        let cultivator_pubkey = bytes_32_field(node, &map, "cultivator_pubkey")?;
-        let anchor_timestamp_unix_ns = timestamp_field(node, &map, "anchor_timestamp_unix_ns")?;
-        self.latest_heartbeat = Some(DerivedLatestHeartbeat {
-            cultivator_pubkey,
-            anchor_timestamp_unix_ns,
-        });
-        Ok(())
-    }
-
     /// **COV06 §3.2.A (F21)** — a `successor_chain_updated:{pk}` event appends a
-    /// SuccessorEntry. Non-overlap + monotone-`valid_from` validation happens at
-    /// the skin (`handle_update_successor_chain`); derivation is append-only so a
-    /// well-formed DAG reconstructs the chain in insertion order.
+    /// SuccessorEntry (KEYLESS v0.9). Non-overlap + monotone-`valid_from`
+    /// validation happens at the skin (`handle_update_successor_chain`);
+    /// derivation is append-only so a well-formed DAG reconstructs the chain in
+    /// insertion order. The owner attestation signature field was removed.
     fn apply_successor_chain_updated(&mut self, node: &DagNode) -> Result<(), DerivedStateError> {
         let map = decode_event_map(node)?;
         let successor_pubkey = bytes_32_field(node, &map, "successor_pubkey")?;
@@ -1158,12 +1074,10 @@ impl DerivedState {
             Some(Value::Timestamp(t)) => Some(*t),
             _ => None, // Null or absent → open-ended
         };
-        let attestation_signature = bytes_64_field(node, &map, "attestation_signature")?;
         self.successor_chain.push(DerivedSuccessorEntry {
             successor_pubkey,
             valid_from_unix_ns,
             valid_until_unix_ns,
-            attestation_signature,
         });
         Ok(())
     }
@@ -1259,75 +1173,6 @@ impl DerivedState {
                 reason: e.to_string(),
             })?;
         self.cycle_counter = new_cycle;
-        Ok(())
-    }
-
-    fn apply_operator_pinned(&mut self, node: &DagNode) -> Result<(), DerivedStateError> {
-        let map = decode_event_map(node)?;
-        let pk_slice =
-            map_get_bytes(&map, "pubkey").map_err(|e| DerivedStateError::EventField {
-                node_type: node.node_type.clone(),
-                field: "pubkey".to_string(),
-                reason: e.to_string(),
-            })?;
-        if pk_slice.len() != 32 {
-            return Err(DerivedStateError::EventField {
-                node_type: node.node_type.clone(),
-                field: "pubkey".to_string(),
-                reason: format!("expected 32 bytes; got {}", pk_slice.len()),
-            });
-        }
-        let mut pubkey = [0u8; 32];
-        pubkey.copy_from_slice(pk_slice);
-        let first_pinned_unix_ns = timestamp_field(node, &map, "first_pinned_unix_ns")?;
-        // TOFU semantics: first operator_pinned event sets identity; subsequent
-        // are protocol violations BUT we accept (overwrite) defensively since
-        // the wire protocol rejects duplicates upstream. M21.2+ may emit C-row
-        // detector here on conflict.
-        self.pinned_operator_identity = Some(PinnedOperatorIdentity {
-            pubkey,
-            first_pinned_unix_ns,
-        });
-        Ok(())
-    }
-
-    /// **C70** — an `owner_key_added` event (rotation activation) shifts the
-    /// effective owner key. The substrate's IDENTITY persists (we keep
-    /// `first_pinned_unix_ns`); only the active pubkey rotates. Folding this into
-    /// `pinned_operator_identity` is what makes a rotation survive a restart: at
-    /// the next boot the substrate hands Python the NEW key as the genesis owner
-    /// pubkey, so the next CI mutation verifies against the rotated key. The
-    /// activation handler enforced the cooldown + dual-cosign before emitting
-    /// this event, so replay can trust it.
-    fn apply_owner_key_added(&mut self, node: &DagNode) -> Result<(), DerivedStateError> {
-        let map = decode_event_map(node)?;
-        let pk_slice =
-            map_get_bytes(&map, "new_pubkey").map_err(|e| DerivedStateError::EventField {
-                node_type: node.node_type.clone(),
-                field: "new_pubkey".to_string(),
-                reason: e.to_string(),
-            })?;
-        if pk_slice.len() != 32 {
-            return Err(DerivedStateError::EventField {
-                node_type: node.node_type.clone(),
-                field: "new_pubkey".to_string(),
-                reason: format!("expected 32 bytes; got {}", pk_slice.len()),
-            });
-        }
-        let mut pubkey = [0u8; 32];
-        pubkey.copy_from_slice(pk_slice);
-        // Preserve the original pin instant (identity continuity); a rotation
-        // before any operator_pinned event is not a valid sequence, but if it
-        // somehow occurs, fall back to 0 rather than dropping the rotation.
-        let first_pinned_unix_ns = self
-            .pinned_operator_identity
-            .as_ref()
-            .map(|p| p.first_pinned_unix_ns)
-            .unwrap_or(0);
-        self.pinned_operator_identity = Some(PinnedOperatorIdentity {
-            pubkey,
-            first_pinned_unix_ns,
-        });
         Ok(())
     }
 
@@ -1512,29 +1357,6 @@ fn bytes_32_field(
     Ok(arr)
 }
 
-/// **COV06** — extract a 64-byte signature field (Ed25519 sig) from an event map.
-fn bytes_64_field(
-    node: &DagNode,
-    map: &std::collections::BTreeMap<String, Value>,
-    field: &str,
-) -> Result<[u8; 64], DerivedStateError> {
-    let slice = map_get_bytes(map, field).map_err(|e| DerivedStateError::EventField {
-        node_type: node.node_type.clone(),
-        field: field.to_string(),
-        reason: e.to_string(),
-    })?;
-    if slice.len() != 64 {
-        return Err(DerivedStateError::EventField {
-            node_type: node.node_type.clone(),
-            field: field.to_string(),
-            reason: format!("expected 64 bytes; got {}", slice.len()),
-        });
-    }
-    let mut arr = [0u8; 64];
-    arr.copy_from_slice(slice);
-    Ok(arr)
-}
-
 fn hex_first_8(bytes: &[u8; 32]) -> String {
     bytes[..8].iter().map(|b| format!("{b:02x}")).collect()
 }
@@ -1545,8 +1367,8 @@ mod tests {
     use crate::events::{
         axis_perturbed_node_type, encode_axis_perturbed, encode_cycle_advanced,
         encode_genesis_event, encode_nonce_consumed, encode_nonce_expired, encode_nonce_issued,
-        encode_operator_pinned, genesis_event_node_type, nonce_consumed_node_type,
-        nonce_expired_node_type, nonce_issued_node_type, operator_pinned_node_type,
+        genesis_event_node_type, nonce_consumed_node_type, nonce_expired_node_type,
+        nonce_issued_node_type,
     };
     use myco_kernel_shared::canonical_bytes::CanonicalBytes;
     use myco_kernel_shared::canonical_bytes::{encode, Value};
@@ -1629,21 +1451,6 @@ mod tests {
         let node2 = make_node("cycle_advanced".to_string(), 2, encode_cycle_advanced(1, 7));
         s.apply_event(&node2).unwrap();
         assert_eq!(s.cycle_counter, 7);
-    }
-
-    #[test]
-    fn operator_pinned_event_records_identity() {
-        let mut s = DerivedState::empty();
-        let pubkey = [0xab; 32];
-        let node = make_node(
-            operator_pinned_node_type(&pubkey),
-            0,
-            encode_operator_pinned(&pubkey, 999_999),
-        );
-        s.apply_event(&node).unwrap();
-        let p = s.pinned_operator_identity.unwrap();
-        assert_eq!(p.pubkey, pubkey);
-        assert_eq!(p.first_pinned_unix_ns, 999_999);
     }
 
     #[test]
@@ -1806,23 +1613,11 @@ mod tests {
             encode_cycle_advanced(1, 2),
         )
         .unwrap();
-        // Operator pin
-        let pubkey = [0xcd; 32];
-        let tip = dag.tip().unwrap();
-        dag.insert_node(
-            vec![tip],
-            operator_pinned_node_type(&pubkey),
-            2,
-            encode_operator_pinned(&pubkey, 200),
-        )
-        .unwrap();
 
         let derived = DerivedState::from_dag(&dag).unwrap();
         assert_eq!(derived.substrate_id, Some(id));
         assert_eq!(derived.genesis_time_unix_ns, Some(100));
         assert_eq!(derived.cycle_counter, 2);
-        assert!(derived.pinned_operator_identity.is_some());
-        assert_eq!(derived.pinned_operator_identity.unwrap().pubkey, pubkey);
     }
 
     #[test]

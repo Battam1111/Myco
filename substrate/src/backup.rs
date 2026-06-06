@@ -57,8 +57,8 @@ use myco_kernel_bridge::protocol::{msg_type, Message};
 use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
 
 use crate::persistence::{
-    DAG_FILENAME, GRADIENT_FILENAME, MANIFEST_FILENAME, NONCE_LOG_FILENAME,
-    OPERATOR_IDENTITY_PUBKEY_FILENAME, SNAPSHOT_FILENAME, SUBSTRATE_SIGNING_KEY_FILENAME,
+    DAG_FILENAME, GRADIENT_FILENAME, MANIFEST_FILENAME, NONCE_LOG_FILENAME, SNAPSHOT_FILENAME,
+    SUBSTRATE_SIGNING_KEY_FILENAME,
 };
 use crate::server::{emit_substrate_event, save_dag_state, ServerState};
 use crate::SubstrateError;
@@ -75,7 +75,6 @@ pub const BACKUP_FILE_NAMES: &[&str] = &[
     DAG_FILENAME,
     GRADIENT_FILENAME,
     OWNER_KEYS_FILENAME,
-    OPERATOR_IDENTITY_PUBKEY_FILENAME,
     NONCE_LOG_FILENAME,
     SNAPSHOT_FILENAME,
     SUBSTRATE_SIGNING_KEY_FILENAME,

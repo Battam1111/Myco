@@ -1173,18 +1173,15 @@ fn m22_5_quarantined_child_blocks_register_axis() {
 
 #[test]
 fn m22_5_lift_quarantine_unblocks_operations() {
-    // Phase β SECURITY FIX (2026-05-15): lift_birth_period_quarantine now
-    // requires owner Ed25519 signature. Pre-fix this test exercised the
-    // INSECURE no-auth path. Post-fix it verifies the GUARD: unauthenticated
-    // lift attempts are rejected, quarantine remains in force. The
-    // happy-path (lift WITH valid signature) is M24+ work requiring TS-side
-    // M9 TOFU pinning helper.
+    // **v0.9 owner-key removal**: `lift_birth_period_quarantine` is now KEYLESS
+    // (the owner Ed25519 signature gate was removed with the anchor surface). A
+    // child in inherited birth-period quarantine has register_axis blocked; a
+    // plain (unsigned) lift call now SUCCEEDS and unblocks operations.
     let parent_dir = fresh_state_dir();
     let client1 = spawn_substrate_with_state_dir(&parent_dir);
     client1.shutdown().expect("shutdown 1");
     std::fs::write(parent_dir.join("dag.cb"), b"corrupt").expect("corrupt");
 
-    // P08 §5.1: seed-pin the respawn so the sprout can be cultivator co-signed.
     let mut client2 = spawn_substrate_with_seed_and_env(&parent_dir, REPRO_SEED, vec![]);
     client2
         .register_axis("seeded", "appetite", 5.0, 0.0, 1.0, false, "noop")
@@ -1193,7 +1190,6 @@ fn m22_5_lift_quarantine_unblocks_operations() {
     let _ = sprout_attested(&mut client2, &child_dir, &REPRO_SEED).expect("sprout");
     client2.shutdown().expect("shutdown 2");
 
-    // Child inherited the pinned identity → seed boot.
     let mut client_b = spawn_substrate_with_seed_and_env(&child_dir, REPRO_SEED, vec![]);
 
     // Confirm quarantine blocks register_axis (M22.5 behavior unchanged).
@@ -1201,47 +1197,35 @@ fn m22_5_lift_quarantine_unblocks_operations() {
         .register_axis("blocked1", "appetite", 5.0, 0.0, 1.0, false, "noop")
         .is_err());
 
-    // Phase β SECURITY: unauthenticated lift attempt MUST fail. Pre-fix this
-    // succeeded with empty payload — that was the working bug.
-    let lift_attempt = client_b
-        .call(proto::LIFT_BIRTH_PERIOD_QUARANTINE, build_payload(vec![]));
+    // Keyless lift SUCCEEDS + reports it was in quarantine.
+    let lift = client_b
+        .call(proto::LIFT_BIRTH_PERIOD_QUARANTINE, build_payload(vec![]))
+        .expect("keyless lift must succeed");
     assert!(
-        lift_attempt.is_err(),
-        "Phase β: unauthenticated lift must be rejected; got {lift_attempt:?}"
+        matches!(lift.payload.get("was_in_quarantine"), Some(CbValue::Bool(true))),
+        "keyless lift must report was_in_quarantine=true; got {:?}",
+        lift.payload.get("was_in_quarantine")
     );
 
-    // Quarantine remains in force after the rejected lift.
-    assert!(client_b
-        .register_axis("still_blocked", "appetite", 5.0, 0.0, 1.0, false, "noop")
-        .is_err());
+    // After the lift, register_axis is unblocked.
+    client_b
+        .register_axis("now_allowed", "appetite", 5.0, 0.0, 1.0, false, "noop")
+        .expect("register_axis must succeed after quarantine lift");
 
     client_b.shutdown().expect("shutdown B");
 }
 
 #[test]
-fn m22_5_lift_quarantine_rejects_unauthenticated_call() {
-    // Phase β SECURITY FIX: even when not in quarantine, lift requires owner
-    // signature. Pre-fix this returned was_in_quarantine=false (insecure).
+fn m22_5_lift_quarantine_keyless_noop_when_not_quarantined() {
+    // **v0.9 keyless**: a lift call on a non-quarantined substrate succeeds and
+    // reports `was_in_quarantine=false` (no signature required).
     let (mut client, _dir) = spawn_substrate();
-    let result = client
-        .call(proto::LIFT_BIRTH_PERIOD_QUARANTINE, build_payload(vec![]));
+    let resp = client
+        .call(proto::LIFT_BIRTH_PERIOD_QUARANTINE, build_payload(vec![]))
+        .expect("keyless lift must succeed even when not quarantined");
     assert!(
-        result.is_err(),
-        "Phase β: unauthenticated lift must always be rejected; got {result:?}"
-    );
-    client.shutdown().expect("shutdown");
-}
-
-#[test]
-fn m22_5_lift_quarantine_rejects_wrong_signature_size() {
-    let (mut client, _dir) = spawn_substrate();
-    let result = client.call(
-        proto::LIFT_BIRTH_PERIOD_QUARANTINE,
-        build_payload(vec![("owner_signature", CbValue::Bytes(vec![0u8; 32]))]),
-    );
-    assert!(
-        result.is_err(),
-        "Phase β: signature with wrong size must be rejected"
+        matches!(resp.payload.get("was_in_quarantine"), Some(CbValue::Bool(false))),
+        "lift when not quarantined must report was_in_quarantine=false"
     );
     client.shutdown().expect("shutdown");
 }
@@ -1578,33 +1562,9 @@ fn sprint_6i_strict_mode_accepts_signed_hello() {
     client.unwrap().shutdown().expect("shutdown");
 }
 
-#[test]
-fn sprint_6i_strict_mode_rejects_unsigned_hello() {
-    // Spawn with strict-mode env var + NO signing seed → handshake fails
-    // because no operator_pubkey in hello.
-    let dir = fresh_state_dir();
-    let substrate_binary = env!("CARGO_BIN_EXE_myco-substrate");
-    let result = BridgeClient::spawn_and_handshake(BridgeClientConfig {
-        python_executable: substrate_binary.to_string(),
-        session_secret: None,
-        extra_env: vec![
-            (
-                "MYCO_STATE_DIR".to_string(),
-                dir.to_string_lossy().into_owned(),
-            ),
-            (
-                "MYCO_REQUIRE_ED25519_OPERATOR_HANDSHAKE".to_string(),
-                "1".to_string(),
-            ),
-        ],
-        operator_signing_seed: None,
-    });
-    assert!(
-        result.is_err(),
-        "Sprint 6.I T2.11: unsigned hello + strict-mode must be rejected; \
-         got Ok (substrate accepted legacy hello despite strict flag)"
-    );
-}
+// (v0.9 owner-key removal: `sprint_6i_strict_mode_rejects_unsigned_hello` was
+// deleted — the strict-Ed25519 operator-handshake gate was removed; an unsigned
+// hello is always accepted now regardless of MYCO_REQUIRE_ED25519_OPERATOR_HANDSHAKE.)
 
 #[test]
 fn sprint_6i_legacy_mode_default_still_accepts_unsigned() {

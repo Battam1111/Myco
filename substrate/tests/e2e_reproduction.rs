@@ -371,44 +371,10 @@ fn client_unattested_sprout(
     )
 }
 
-#[test]
-fn c68_invalid_signature_refused() {
-    // A well-formed envelope but a signature that does NOT verify against the
-    // pinned owner pubkey → C68 (gate 5). We build a valid envelope, then flip
-    // the signature bytes.
-    let (mut parent, _dir, parent_id) = spawn_attested_parent(vec![]);
-    parent
-        .register_axis("clone_me", "appetite", 5.0, 0.0, 1.0, false, "noop")
-        .expect("register axis");
-
-    let spore = valid_spore_schema_bytes();
-    let (envelope, mut sig) = build_signed_spawn_cosign(
-        &REPRO_SEED,
-        &parent_id,
-        &spore,
-        REPRO_ANCHOR_TS_BASE_NS - 1,
-        REPRO_ANCHOR_TS_BASE_NS,
-        false,
-    );
-    sig[0] ^= 0xFF; // corrupt the signature
-
-    let child_dir = fresh_state_dir();
-    let result = send_sprout(&mut parent, &child_dir, &envelope, &sig, &spore);
-    assert!(
-        result.is_err(),
-        "C68: a spawn with an invalid signature must be REFUSED"
-    );
-    assert_eq!(
-        count_immune(&mut parent, "C68_reproduction_unattested_spawn"),
-        1,
-        "C68: invalid-signature spawn must emit one C68 immune node"
-    );
-    assert!(
-        !child_dir.join("dag.cb").exists(),
-        "C68: invalid-signature spawn must NOT create the child's dag.cb"
-    );
-    parent.shutdown().expect("shutdown parent");
-}
+// (v0.9 owner-key removal: `c68_invalid_signature_refused` was deleted — gate 5
+// (the cultivator Ed25519 signature verification over the spawn-cosign envelope)
+// was removed; a corrupt signature is now ignored. The envelope structural gates
+// 2/3/4 + the §16.B rate throttle (gate 6) still fruit C68 on failure.)
 
 #[test]
 fn c68_wrong_parent_id_refused() {
@@ -450,41 +416,10 @@ fn c68_wrong_parent_id_refused() {
     parent.shutdown().expect("shutdown parent");
 }
 
-#[test]
-fn c68_unseeded_parent_cannot_attest() {
-    // A substrate with NO pinned operator identity (legacy unseeded spawn)
-    // cannot verify ANY co-attestation (gate 1) → every sprout is C68. This
-    // is the regression guard that the co-attestation is mandatory: the old
-    // unsigned path no longer silently spawns.
-    let (mut parent, _dir) = spawn_substrate(); // unseeded — no pinned identity
-    parent
-        .register_axis("clone_me", "appetite", 5.0, 0.0, 1.0, false, "noop")
-        .expect("register axis");
-    // Even a "valid-looking" envelope can't verify with no pinned pubkey.
-    let spore = valid_spore_schema_bytes();
-    let parent_id = read_substrate_id(&mut parent);
-    let child_dir = fresh_state_dir();
-    let result = try_sprout_attested(
-        &mut parent,
-        &child_dir,
-        &REPRO_SEED,
-        &parent_id,
-        &spore,
-        REPRO_ANCHOR_TS_BASE_NS - 1,
-        REPRO_ANCHOR_TS_BASE_NS,
-        false,
-    );
-    assert!(
-        result.is_err(),
-        "C68: an unseeded parent (no pinned identity) cannot attest a spawn"
-    );
-    assert_eq!(
-        count_immune(&mut parent, "C68_reproduction_unattested_spawn"),
-        1,
-        "C68: unseeded parent must emit one C68 immune node on a spawn attempt"
-    );
-    parent.shutdown().expect("shutdown parent");
-}
+// (v0.9 owner-key removal: `c68_unseeded_parent_cannot_attest` was deleted —
+// gate 1 (the pinned-operator-identity requirement) was removed; a substrate with
+// no pinned identity can now attest a spawn. The envelope structural gates remain
+// the spawn discipline.)
 
 #[test]
 fn i7a_static_schema_mismatch_rejected() {

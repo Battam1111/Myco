@@ -595,45 +595,9 @@ fn sprint_5c_c57_passes_on_fresh_substrate_with_one_genesis() {
     client.shutdown().expect("shutdown");
 }
 
-#[test]
-fn sprint_5c_c58_passes_when_no_owner_key_initialized_event() {
-    // **Skip semantics**: on substrates that haven't yet completed the M9
-    // TOFU + owner_key_initialized emission (e.g., legacy / freshly booted
-    // with no pinned identity), C58 SKIPS rather than fails. Skipped checks
-    // pass — they don't fire C58 immune.
-    let (mut client, _dir) = spawn_substrate();
-    let resp = client
-        .call(proto::RUN_IMMUNE_CHECK, build_payload(vec![]))
-        .expect("run_immune_check");
-    let checks = match resp.payload.get("checks") {
-        Some(CbValue::Array(a)) => a.clone(),
-        _ => panic!("checks missing"),
-    };
-    let c58 = checks
-        .iter()
-        .find_map(|c| {
-            let m = match c {
-                CbValue::Map(m) => m,
-                _ => return None,
-            };
-            match m.get("check_id") {
-                Some(CbValue::String(s)) if s == "owner_pubkey_dag_pin_consistency" => Some(m),
-                _ => None,
-            }
-        })
-        .expect("owner_pubkey_dag_pin_consistency check missing");
-    let passed = match c58.get("passed") {
-        Some(CbValue::Bool(b)) => *b,
-        _ => panic!("passed missing"),
-    };
-    assert!(
-        passed,
-        "Sprint 5.C C58: pre-TOFU substrate should pass C58 (skip semantics); \
-         evidence: {:?}",
-        c58.get("evidence")
-    );
-    client.shutdown().expect("shutdown");
-}
+// (v0.9 owner-key removal: `sprint_5c_c58_passes_when_no_owner_key_initialized_event`
+// was deleted — the C58 owner_pubkey_dag_pin_consistency integrity check was
+// removed with the pinned operator identity.)
 
 #[test]
 fn sprint_5c_c59_passes_after_normal_cycle_advance() {
@@ -696,9 +660,10 @@ fn sprint_5c_new_check_ids_appear_in_run_immune_check_response() {
             }
         }
     }
+    // (v0.9: owner_pubkey_dag_pin_consistency / pinned_pubkey_well_formed were
+    // removed with the owner-key layer; the remaining cross-file checks stay.)
     for required in &[
         "genesis_event_uniqueness",
-        "owner_pubkey_dag_pin_consistency",
         "manifest_cycle_vs_dag_advance_count",
     ] {
         assert!(

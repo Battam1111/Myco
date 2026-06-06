@@ -48,23 +48,6 @@ use super::core::hex_prefix;
 // node_type constants + prefixes.
 // ---------------------------------------------------------------------------
 
-/// `cultivator_heartbeat_recorded` — an anchor-signed liveness pulse the
-/// operator threaded in (AS §3.7 `cultivator_liveness_heartbeat`). The handler
-/// verifies the anchor signature against the active owner pubkey before
-/// emitting. Carries the anchor wall-clock the autonomous tick uses for
-/// staleness. P07-protected (un-prunable) so liveness history is never erased.
-pub const NODE_TYPE_CULTIVATOR_HEARTBEAT_RECORDED: &str = "cultivator_heartbeat_recorded";
-
-/// `cultivator_heartbeat_resumed` — **T2** legacy→normal recovery: a fresh
-/// heartbeat from the SAME prior-cultivator pubkey after the substrate had
-/// entered alive::legacy (vacation / hardware-failure recovery; no succession).
-pub const NODE_TYPE_CULTIVATOR_HEARTBEAT_RESUMED: &str = "cultivator_heartbeat_resumed";
-
-/// **T1** prefix for `cultivator_heartbeat_stale:{pk}` — normal→legacy: the
-/// autonomous tick detected staleness beyond 3× cadence (default 90 anchor-days).
-/// `{pk}` = hex prefix of the cultivator pubkey whose heartbeat went stale.
-pub const NODE_TYPE_CULTIVATOR_HEARTBEAT_STALE_PREFIX: &str = "cultivator_heartbeat_stale:";
-
 /// **F21** prefix for `successor_chain_updated:{pk}` — a SuccessorEntry was
 /// appended to the cultivation_successor_chain (§3.2.A). `{pk}` = hex prefix of
 /// the appended successor pubkey. CI-attested; non-overlapping monotone intervals.
@@ -119,15 +102,6 @@ pub const NODE_TYPE_CULTIVATION_SUCCESSION_CONFIG_DECLARED: &str =
 // node_type builders.
 // ---------------------------------------------------------------------------
 
-/// node_type: `cultivator_heartbeat_stale:{pk_prefix}` (T1).
-pub fn cultivator_heartbeat_stale_node_type(cultivator_pubkey: &[u8; 32]) -> String {
-    format!(
-        "{}{}",
-        NODE_TYPE_CULTIVATOR_HEARTBEAT_STALE_PREFIX,
-        hex_prefix(cultivator_pubkey, 8)
-    )
-}
-
 /// node_type: `successor_chain_updated:{pk_prefix}` (F21).
 pub fn successor_chain_updated_node_type(successor_pubkey: &[u8; 32]) -> String {
     format!(
@@ -173,138 +147,14 @@ pub fn bet_retired_node_type(reason: &str) -> String {
 // Event encoders.
 // ---------------------------------------------------------------------------
 
-/// Content of a `cultivator_heartbeat_recorded` event.
-///
-/// The anchor-signed liveness envelope (AS §3.7) the operator threaded in. The
-/// `anchor_timestamp_unix_ns` is the wall-clock the staleness watchdog measures
-/// against (the substrate never reads its own clock for liveness, AS §5.2).
-///
-/// ```text
-/// Map({
-///   "cultivator_pubkey": Bytes(32),
-///   "anchor_timestamp_unix_ns": Timestamp,   // anchor wall-clock of this pulse
-///   "valid_until_unix_ns": Timestamp,        // heartbeat freshness deadline
-///   "heartbeat_nonce": Bytes(32),            // anti-replay nonce
-///   "anchor_signature": Bytes(64),           // anchor signature over the envelope
-///   "recorded_at_cycle": Uint,               // substrate cycle when recorded
-/// })
-/// ```
-pub fn encode_cultivator_heartbeat_recorded(
-    cultivator_pubkey: &[u8; 32],
-    anchor_timestamp_unix_ns: i64,
-    valid_until_unix_ns: i64,
-    heartbeat_nonce: &[u8; 32],
-    anchor_signature: &[u8; 64],
-    recorded_at_cycle: u64,
-) -> CanonicalBytes {
-    let mut m = BTreeMap::new();
-    m.insert(
-        "cultivator_pubkey".to_string(),
-        Value::Bytes(cultivator_pubkey.to_vec()),
-    );
-    m.insert(
-        "anchor_timestamp_unix_ns".to_string(),
-        Value::Timestamp(anchor_timestamp_unix_ns),
-    );
-    m.insert(
-        "valid_until_unix_ns".to_string(),
-        Value::Timestamp(valid_until_unix_ns),
-    );
-    m.insert(
-        "heartbeat_nonce".to_string(),
-        Value::Bytes(heartbeat_nonce.to_vec()),
-    );
-    m.insert(
-        "anchor_signature".to_string(),
-        Value::Bytes(anchor_signature.to_vec()),
-    );
-    m.insert(
-        "recorded_at_cycle".to_string(),
-        Value::Uint(recorded_at_cycle),
-    );
-    cb_encode(&Value::Map(m)).expect("cultivator_heartbeat_recorded encode infallible")
-}
-
-/// Content of a `cultivator_heartbeat_resumed` event (T2 legacy→normal).
-///
-/// ```text
-/// Map({
-///   "cultivator_pubkey": Bytes(32),          // SAME prior-cultivator pubkey
-///   "anchor_timestamp_unix_ns": Timestamp,   // anchor wall-clock of resume pulse
-///   "resumed_at_cycle": Uint,
-/// })
-/// ```
-pub fn encode_cultivator_heartbeat_resumed(
-    cultivator_pubkey: &[u8; 32],
-    anchor_timestamp_unix_ns: i64,
-    resumed_at_cycle: u64,
-) -> CanonicalBytes {
-    let mut m = BTreeMap::new();
-    m.insert(
-        "cultivator_pubkey".to_string(),
-        Value::Bytes(cultivator_pubkey.to_vec()),
-    );
-    m.insert(
-        "anchor_timestamp_unix_ns".to_string(),
-        Value::Timestamp(anchor_timestamp_unix_ns),
-    );
-    m.insert(
-        "resumed_at_cycle".to_string(),
-        Value::Uint(resumed_at_cycle),
-    );
-    cb_encode(&Value::Map(m)).expect("cultivator_heartbeat_resumed encode infallible")
-}
-
-/// Content of a `cultivator_heartbeat_stale:{pk}` event (T1 normal→legacy).
-///
-/// ```text
-/// Map({
-///   "cultivator_pubkey": Bytes(32),
-///   "last_heartbeat_unix_ns": Timestamp,     // anchor wall-clock of last pulse
-///   "now_anchor_unix_ns": Timestamp,         // anchor wall-clock at detection
-///   "staleness_days": Uint,                  // days since last heartbeat
-///   "cadence_days": Uint,                    // configured cadence
-///   "emitted_at_cycle": Uint,
-/// })
-/// ```
-pub fn encode_cultivator_heartbeat_stale(
-    cultivator_pubkey: &[u8; 32],
-    last_heartbeat_unix_ns: i64,
-    now_anchor_unix_ns: i64,
-    staleness_days: u64,
-    cadence_days: u64,
-    emitted_at_cycle: u64,
-) -> CanonicalBytes {
-    let mut m = BTreeMap::new();
-    m.insert(
-        "cultivator_pubkey".to_string(),
-        Value::Bytes(cultivator_pubkey.to_vec()),
-    );
-    m.insert(
-        "last_heartbeat_unix_ns".to_string(),
-        Value::Timestamp(last_heartbeat_unix_ns),
-    );
-    m.insert(
-        "now_anchor_unix_ns".to_string(),
-        Value::Timestamp(now_anchor_unix_ns),
-    );
-    m.insert("staleness_days".to_string(), Value::Uint(staleness_days));
-    m.insert("cadence_days".to_string(), Value::Uint(cadence_days));
-    m.insert(
-        "emitted_at_cycle".to_string(),
-        Value::Uint(emitted_at_cycle),
-    );
-    cb_encode(&Value::Map(m)).expect("cultivator_heartbeat_stale encode infallible")
-}
-
-/// Content of a `successor_chain_updated:{pk}` event (F21 SuccessorEntry append).
+/// Content of a `successor_chain_updated:{pk}` event (F21 SuccessorEntry append;
+/// KEYLESS v0.9 — the owner attestation signature field was removed).
 ///
 /// ```text
 /// Map({
 ///   "successor_pubkey": Bytes(32),
 ///   "valid_from_unix_ns": Timestamp,
 ///   "valid_until_unix_ns": Timestamp | Null,  // open-ended when Null
-///   "attestation_signature": Bytes(64),       // chain-head / cultivator attest
 ///   "chain_position": Uint,                    // 0-based index in the chain
 ///   "updated_at_cycle": Uint,
 /// })
@@ -313,7 +163,6 @@ pub fn encode_successor_chain_updated(
     successor_pubkey: &[u8; 32],
     valid_from_unix_ns: i64,
     valid_until_unix_ns: Option<i64>,
-    attestation_signature: &[u8; 64],
     chain_position: u64,
     updated_at_cycle: u64,
 ) -> CanonicalBytes {
@@ -334,10 +183,6 @@ pub fn encode_successor_chain_updated(
             m.insert("valid_until_unix_ns".to_string(), Value::Null);
         }
     }
-    m.insert(
-        "attestation_signature".to_string(),
-        Value::Bytes(attestation_signature.to_vec()),
-    );
     m.insert("chain_position".to_string(), Value::Uint(chain_position));
     m.insert(
         "updated_at_cycle".to_string(),
@@ -346,14 +191,14 @@ pub fn encode_successor_chain_updated(
     cb_encode(&Value::Map(m)).expect("successor_chain_updated encode infallible")
 }
 
-/// Content of a `succession_completed:{pk}` event (T3 legacy→normal).
+/// Content of a `succession_completed:{pk}` event (T3; KEYLESS v0.9 — the
+/// successor acceptance signature field was removed).
 ///
 /// ```text
 /// Map({
 ///   "successor_pubkey": Bytes(32),
 ///   "prior_cultivator_pubkey": Bytes(32),
 ///   "anchor_timestamp_unix_ns": Timestamp,
-///   "successor_signature": Bytes(64),         // successor's succession_acceptance sig
 ///   "catechumenate_session_count": Uint,      // ≥50 required (C46 gate)
 ///   "completed_at_cycle": Uint,
 /// })
@@ -362,7 +207,6 @@ pub fn encode_succession_completed(
     successor_pubkey: &[u8; 32],
     prior_cultivator_pubkey: &[u8; 32],
     anchor_timestamp_unix_ns: i64,
-    successor_signature: &[u8; 64],
     catechumenate_session_count: u64,
     completed_at_cycle: u64,
 ) -> CanonicalBytes {
@@ -378,10 +222,6 @@ pub fn encode_succession_completed(
     m.insert(
         "anchor_timestamp_unix_ns".to_string(),
         Value::Timestamp(anchor_timestamp_unix_ns),
-    );
-    m.insert(
-        "successor_signature".to_string(),
-        Value::Bytes(successor_signature.to_vec()),
     );
     m.insert(
         "catechumenate_session_count".to_string(),
@@ -490,14 +330,13 @@ pub fn encode_bet_retired_proposal(
     cb_encode(&Value::Map(m)).expect("bet_retired_proposal encode infallible")
 }
 
-/// Content of a `bet_retired:{reason}` event (T7 orphaned→archived / LB §4 seal).
+/// Content of a `bet_retired:{reason}` event (T7 orphaned→archived / LB §4 seal;
+/// KEYLESS v0.9 — the cultivator co-attestation signature + pubkey were removed).
 ///
 /// ```text
 /// Map({
 ///   "reason": String,
 ///   "proposal_hash": Bytes(32),              // the bet_retired_proposal this seals
-///   "cultivator_signature": Bytes(64),       // co-attestation over proposal_hash
-///   "cultivator_pubkey": Bytes(32),
 ///   "sealed_at_cycle": Uint,
 ///   "anchor_timestamp_unix_ns": Timestamp,
 /// })
@@ -505,8 +344,6 @@ pub fn encode_bet_retired_proposal(
 pub fn encode_bet_retired(
     reason: &str,
     proposal_hash: &[u8; 32],
-    cultivator_signature: &[u8; 64],
-    cultivator_pubkey: &[u8; 32],
     sealed_at_cycle: u64,
     anchor_timestamp_unix_ns: i64,
 ) -> CanonicalBytes {
@@ -515,14 +352,6 @@ pub fn encode_bet_retired(
     m.insert(
         "proposal_hash".to_string(),
         Value::Bytes(proposal_hash.to_vec()),
-    );
-    m.insert(
-        "cultivator_signature".to_string(),
-        Value::Bytes(cultivator_signature.to_vec()),
-    );
-    m.insert(
-        "cultivator_pubkey".to_string(),
-        Value::Bytes(cultivator_pubkey.to_vec()),
     );
     m.insert("sealed_at_cycle".to_string(), Value::Uint(sealed_at_cycle));
     m.insert(
@@ -593,10 +422,6 @@ mod tests {
     fn node_type_builders_carry_pk_prefix() {
         let pk = [0xABu8; 32];
         assert_eq!(
-            cultivator_heartbeat_stale_node_type(&pk),
-            "cultivator_heartbeat_stale:abababababababab"
-        );
-        assert_eq!(
             successor_chain_updated_node_type(&pk),
             "successor_chain_updated:abababababababab"
         );
@@ -619,59 +444,15 @@ mod tests {
     }
 
     #[test]
-    fn heartbeat_recorded_round_trips_all_fields() {
-        let pk = [0x11u8; 32];
-        let nonce = [0x22u8; 32];
-        let sig = [0x33u8; 64];
-        let cb = encode_cultivator_heartbeat_recorded(
-            &pk,
-            1_700_000_000_000_000_000,
-            1_700_500_000_000_000_000,
-            &nonce,
-            &sig,
-            42,
-        );
-        let m = decode_map(&cb);
-        assert_eq!(map_get_bytes(&m, "cultivator_pubkey").unwrap(), &pk[..]);
-        assert_eq!(map_get_bytes(&m, "heartbeat_nonce").unwrap(), &nonce[..]);
-        assert_eq!(map_get_bytes(&m, "anchor_signature").unwrap(), &sig[..]);
-        assert_eq!(map_get_uint(&m, "recorded_at_cycle").unwrap(), 42);
-        match m.get("anchor_timestamp_unix_ns") {
-            Some(Value::Timestamp(t)) => assert_eq!(*t, 1_700_000_000_000_000_000),
-            _ => panic!("anchor_timestamp_unix_ns missing"),
-        }
-    }
-
-    #[test]
-    fn heartbeat_resumed_round_trips() {
-        let pk = [0x44u8; 32];
-        let cb = encode_cultivator_heartbeat_resumed(&pk, 999, 7);
-        let m = decode_map(&cb);
-        assert_eq!(map_get_bytes(&m, "cultivator_pubkey").unwrap(), &pk[..]);
-        assert_eq!(map_get_uint(&m, "resumed_at_cycle").unwrap(), 7);
-    }
-
-    #[test]
-    fn heartbeat_stale_round_trips() {
-        let pk = [0x55u8; 32];
-        let cb = encode_cultivator_heartbeat_stale(&pk, 100, 100 + 90 * 86_400_000_000_000, 90, 30, 3);
-        let m = decode_map(&cb);
-        assert_eq!(map_get_uint(&m, "staleness_days").unwrap(), 90);
-        assert_eq!(map_get_uint(&m, "cadence_days").unwrap(), 30);
-        assert_eq!(map_get_uint(&m, "emitted_at_cycle").unwrap(), 3);
-    }
-
-    #[test]
     fn successor_chain_updated_round_trips_open_and_closed_intervals() {
         let pk = [0x66u8; 32];
-        let sig = [0x77u8; 64];
         // open-ended (valid_until = None → Null)
-        let cb_open = encode_successor_chain_updated(&pk, 1000, None, &sig, 0, 5);
+        let cb_open = encode_successor_chain_updated(&pk, 1000, None, 0, 5);
         let m_open = decode_map(&cb_open);
         assert!(matches!(m_open.get("valid_until_unix_ns"), Some(Value::Null)));
         assert_eq!(map_get_uint(&m_open, "chain_position").unwrap(), 0);
         // closed interval
-        let cb_closed = encode_successor_chain_updated(&pk, 1000, Some(2000), &sig, 1, 6);
+        let cb_closed = encode_successor_chain_updated(&pk, 1000, Some(2000), 1, 6);
         let m_closed = decode_map(&cb_closed);
         match m_closed.get("valid_until_unix_ns") {
             Some(Value::Timestamp(t)) => assert_eq!(*t, 2000),
@@ -683,8 +464,7 @@ mod tests {
     fn succession_completed_round_trips() {
         let succ = [0x88u8; 32];
         let prior = [0x99u8; 32];
-        let sig = [0xAAu8; 64];
-        let cb = encode_succession_completed(&succ, &prior, 1234, &sig, 50, 9);
+        let cb = encode_succession_completed(&succ, &prior, 1234, 50, 9);
         let m = decode_map(&cb);
         assert_eq!(map_get_bytes(&m, "successor_pubkey").unwrap(), &succ[..]);
         assert_eq!(map_get_bytes(&m, "prior_cultivator_pubkey").unwrap(), &prior[..]);
@@ -723,12 +503,9 @@ mod tests {
             "cultivation_orphaned_terminal"
         );
         let hash = [0xDDu8; 32];
-        let sig = [0xEEu8; 64];
-        let pk = [0xFFu8; 32];
-        let seal = encode_bet_retired("cultivation_orphaned_terminal", &hash, &sig, &pk, 110, 9999);
+        let seal = encode_bet_retired("cultivation_orphaned_terminal", &hash, 110, 9999);
         let m_seal = decode_map(&seal);
         assert_eq!(map_get_bytes(&m_seal, "proposal_hash").unwrap(), &hash[..]);
-        assert_eq!(map_get_bytes(&m_seal, "cultivator_signature").unwrap(), &sig[..]);
         assert_eq!(map_get_uint(&m_seal, "sealed_at_cycle").unwrap(), 110);
     }
 
@@ -749,11 +526,10 @@ mod tests {
 
     #[test]
     fn determinism_same_inputs_identical_bytes() {
-        let pk = [0x01u8; 32];
-        let nonce = [0x02u8; 32];
-        let sig = [0x03u8; 64];
-        let a = encode_cultivator_heartbeat_recorded(&pk, 1, 2, &nonce, &sig, 3);
-        let b = encode_cultivator_heartbeat_recorded(&pk, 1, 2, &nonce, &sig, 3);
+        let succ = [0x01u8; 32];
+        let prior = [0x02u8; 32];
+        let a = encode_succession_completed(&succ, &prior, 1, 50, 3);
+        let b = encode_succession_completed(&succ, &prior, 1, 50, 3);
         assert_eq!(a.as_ref(), b.as_ref());
     }
 }

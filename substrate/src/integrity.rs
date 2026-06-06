@@ -91,11 +91,6 @@ pub(crate) fn handle_run_immune_check(
                     "C57_genesis_event_non_unique",
                     "genesis_event_non_unique".to_string(),
                 )
-            } else if result.check_id == "owner_pubkey_dag_pin_consistency" {
-                (
-                    "C58_owner_pubkey_dag_pin_inconsistent",
-                    "owner_pubkey_dag_pin_inconsistent".to_string(),
-                )
             } else if result.check_id == "manifest_cycle_vs_dag_advance_count" {
                 (
                     "C59_manifest_cycle_vs_dag_advance_mismatch",
@@ -236,32 +231,8 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         tier: "tier_1",
     });
 
-    // 3. Pinned pubkey well-formed (if exists).
-    // **M-anchor-4**: witness inputs = {pinned_pubkey: Bytes(32)}.
-    if let Some(pinned) = &state.pinned_operator_identity {
-        let zero = pinned.pubkey.iter().all(|b| *b == 0);
-        let witness_inputs_pinned_pk = {
-            let mut m = BTreeMap::new();
-            m.insert(
-                "pinned_operator_pubkey".to_string(),
-                Value::Bytes(pinned.pubkey.to_vec()),
-            );
-            cb_encode(&Value::Map(m))
-                .map(|cb| cb.0)
-                .unwrap_or_default()
-        };
-        results.push(IntegrityCheckResult {
-            check_id: "pinned_pubkey_well_formed".to_string(),
-            passed: !zero,
-            evidence: if zero {
-                "pinned operator_identity_pubkey is all zeros".to_string()
-            } else {
-                "ok (32 non-zero bytes)".to_string()
-            },
-            witness_inputs_canonical_bytes: witness_inputs_pinned_pk,
-            tier: "tier_1",
-        });
-    }
+    // 3. (REMOVED v0.9) pinned_pubkey_well_formed — there is no pinned operator
+    //    identity in the keyless build, so there is no pinned pubkey to check.
 
     // 4. DAG.verify_all() — every node's hash recomputes correctly.
     // **M-anchor-4 §9.3.5**: witness inputs include {node_count, dag_tip_hash}.
@@ -512,22 +483,9 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         tier: "tier_1",
     });
 
-    // 10. **v3.1.1 Sprint 5.C / C58 owner_pubkey_dag_pin_inconsistent** —
-    //     if state.pinned_operator_identity is Some AND the DAG contains an
-    //     `owner_key_initialized` event, the pubkey recorded in that event MUST
-    //     equal the pinned identity's pubkey. Divergence means one of two
-    //     sources of truth got desynchronized — almost always corruption of
-    //     either operator_identity_pubkey.cb or dag.cb, or a TOFU race during
-    //     a malformed boot.
-    let (pubkey_consistency_passed, pubkey_consistency_evidence, pubkey_consistency_witness) =
-        check_owner_pubkey_dag_pin_consistency(state);
-    results.push(IntegrityCheckResult {
-        check_id: "owner_pubkey_dag_pin_consistency".to_string(),
-        passed: pubkey_consistency_passed,
-        evidence: pubkey_consistency_evidence,
-        witness_inputs_canonical_bytes: pubkey_consistency_witness,
-        tier: "tier_1",
-    });
+    // 10. (REMOVED v0.9) C58 owner_pubkey_dag_pin_inconsistent — there is no
+    //     pinned operator identity and no owner_key_initialized event in the
+    //     keyless build, so there is nothing to cross-check.
 
     // 11. **v3.1.1 Sprint 5.C / C59 manifest_cycle_vs_dag_advance_mismatch** —
     //     manifest.cycle_counter SHOULD equal the count of `cycle_advanced`
@@ -588,101 +546,6 @@ fn check_genesis_event_uniqueness(state: &ServerState) -> (bool, String, Vec<u8>
             format!(
                 "DAG contains {count} genesis_event:* nodes; expected ≤ 1 (P06 §3.5 \
                  root-of-causal-chain uniqueness violated)"
-            ),
-            witness,
-        )
-    }
-}
-
-/// **C58 owner_pubkey_dag_pin_consistency** — if pinned identity exists AND
-/// owner_key_initialized event exists, their pubkeys MUST match.
-fn check_owner_pubkey_dag_pin_consistency(state: &ServerState) -> (bool, String, Vec<u8>) {
-    use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value as CbV};
-
-    // Skip the check if either source is absent (no inconsistency to detect).
-    let pinned = match &state.pinned_operator_identity {
-        Some(p) => p,
-        None => {
-            let witness = {
-                let mut m = BTreeMap::new();
-                m.insert("pinned_present".to_string(), Value::Bool(false));
-                cb_encode(&Value::Map(m))
-                    .map(|cb| cb.0)
-                    .unwrap_or_default()
-            };
-            return (true, "skipped: no pinned operator identity".to_string(), witness);
-        }
-    };
-
-    let mut owner_key_init_pubkey: Option<[u8; 32]> = None;
-    for node in state.dag.iter_in_insertion_order() {
-        if node.node_type != crate::events::NODE_TYPE_OWNER_KEY_INITIALIZED {
-            continue;
-        }
-        let content = node.content_canonical_bytes.as_ref();
-        if let Ok(CbV::Map(m)) = cb_decode(content) {
-            if let Some(CbV::Bytes(pk)) = m.get("pubkey") {
-                if pk.len() == 32 {
-                    let mut arr = [0u8; 32];
-                    arr.copy_from_slice(pk);
-                    owner_key_init_pubkey = Some(arr);
-                    break; // genesis owner is the first one
-                }
-            }
-        }
-    }
-
-    let dag_pubkey = match owner_key_init_pubkey {
-        Some(pk) => pk,
-        None => {
-            let witness = {
-                let mut m = BTreeMap::new();
-                m.insert("pinned_present".to_string(), Value::Bool(true));
-                m.insert(
-                    "dag_owner_key_initialized_present".to_string(),
-                    Value::Bool(false),
-                );
-                cb_encode(&Value::Map(m))
-                    .map(|cb| cb.0)
-                    .unwrap_or_default()
-            };
-            return (
-                true,
-                "skipped: no owner_key_initialized event in DAG".to_string(),
-                witness,
-            );
-        }
-    };
-
-    let consistent = dag_pubkey == pinned.pubkey;
-    let witness = {
-        let mut m = BTreeMap::new();
-        m.insert(
-            "pinned_pubkey".to_string(),
-            Value::Bytes(pinned.pubkey.to_vec()),
-        );
-        m.insert(
-            "dag_owner_key_initialized_pubkey".to_string(),
-            Value::Bytes(dag_pubkey.to_vec()),
-        );
-        cb_encode(&Value::Map(m))
-            .map(|cb| cb.0)
-            .unwrap_or_default()
-    };
-    if consistent {
-        (
-            true,
-            "ok (pinned pubkey matches DAG owner_key_initialized)".to_string(),
-            witness,
-        )
-    } else {
-        (
-            false,
-            format!(
-                "PINNED pubkey {} ≠ DAG owner_key_initialized pubkey {} \
-                 (cross-file desync; either operator_identity_pubkey.cb or dag.cb tampered)",
-                hex_encode(&pinned.pubkey),
-                hex_encode(&dag_pubkey)
             ),
             witness,
         )
@@ -982,7 +845,6 @@ pub(crate) fn emit_invariant_witnesses(
 /// - genesis_time_unix_ns: live state.genesis_time_unix_ns() == derived.genesis_time_unix_ns
 /// - cycle_counter: live state.cycle_counter() == derived.cycle_counter
 /// - last_absorbed_cycle: live state.last_absorbed_cycle() == derived.last_absorbed_cycle
-/// - pinned_operator_identity: live state.pinned_operator_identity == derived.pinned_operator_identity
 /// - nonce_log: live state.nonce_log size + per-entry consumed flags == derived.nonce_log
 fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
     use crate::derived_state::DerivedState;
@@ -1057,27 +919,8 @@ fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
         }
     }
 
-    // pinned_operator_identity: derived from operator_pinned event.
-    if let Some(derived_id) = &derived.pinned_operator_identity {
-        match &state.pinned_operator_identity {
-            Some(live_id) => {
-                if live_id.pubkey != derived_id.pubkey
-                    || live_id.first_pinned_unix_ns != derived_id.first_pinned_unix_ns
-                {
-                    divergences.push(format!(
-                        "pinned_operator_identity mismatch: live.pubkey={}, derived.pubkey={}",
-                        hex_encode(&live_id.pubkey),
-                        hex_encode(&derived_id.pubkey)
-                    ));
-                }
-            }
-            None => {
-                divergences.push(
-                    "pinned_operator_identity present in DAG but absent in live state".to_string(),
-                );
-            }
-        }
-    }
+    // (v0.9 owner-key removal: the pinned_operator_identity live↔derived
+    // reconciliation was removed — neither side carries a pinned identity.)
 
     // nonce_log: derived from nonce_issued/consumed/expired events.
     // Compare entry-by-entry. Migration tolerance: if derived.nonce_log is
@@ -1195,7 +1038,6 @@ mod tests {
             g.last_absorbed_cycle,
             g.generation_depth,
             dag,
-            None,
             [0u8; 32],
         )
     }

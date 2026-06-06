@@ -319,13 +319,8 @@ pub(crate) fn compute_observatory_counts(
             // **Signal #4a**: each spore_emission is one fork (child sprout).
             cumulative_fork_count = cumulative_fork_count.saturating_add(1);
         }
-        // M25.1 doctrine-burst: owner_key_* events are also CI-class.
-        if nt == crate::events::NODE_TYPE_OWNER_KEY_INITIALIZED
-            || nt == crate::events::NODE_TYPE_OWNER_KEY_ADDED
-            || nt == crate::events::NODE_TYPE_OWNER_KEY_ARCHIVED
-        {
-            is_ci = true;
-        }
+        // (v0.9 owner-key removal: the owner_key_* CI-class classification was
+        // removed — those events are no longer emitted.)
         if is_ci && n.created_at_cycle >= burst_cutoff_cycle {
             ci_events_in_burst_window = ci_events_in_burst_window.saturating_add(1);
         }
@@ -2666,7 +2661,6 @@ mod tests {
             g.last_absorbed_cycle,
             g.generation_depth,
             dag,
-            None,
             [0u8; 32],
         )
     }

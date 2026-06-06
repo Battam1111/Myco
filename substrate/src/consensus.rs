@@ -634,6 +634,12 @@ pub(crate) fn handle_federation_query_consensus(
 /// **Stage-1 wiring**: only [`PopulationClaimClass::PeerRevocation`] is wired at
 /// its action site (the C13 `revoke_federation_peer` path). Classes 2/3 get the
 /// enum here; their action sites are Stage 2.
+// **v0.9 owner-key removal**: the sole caller (the `revoke_federation_peer`
+// owner-attested mutation block in `attestation::handle_submit_mutation`) was
+// removed. The C49 consensus-floor action gate is retained dormant — the C13
+// egress / consensus machinery in federation/ + consensus/ is kept per the
+// removal scope; a future keyless peer-revocation path can re-wire this.
+#[allow(dead_code)]
 pub(crate) fn check_c49_population_action_allowed(
     state: &ServerState,
     class: PopulationClaimClass,
@@ -779,7 +785,6 @@ mod tests {
             g.last_absorbed_cycle,
             g.generation_depth,
             Dag::new(),
-            None,
             [0u8; 32],
         )
     }

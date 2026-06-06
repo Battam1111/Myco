@@ -31,10 +31,6 @@ use substrate::events;
 /// pinned operator identity, so an `attestation_signature` verifies as owner's).
 const OWNER_SEED: [u8; 32] = [0x49; 32];
 
-fn sign(seed: &[u8; 32], content: &[u8]) -> Vec<u8> {
-    Ed25519PrivateKey::from_seed(seed).sign(content).as_ref().to_vec()
-}
-
 /// Background-poll a client `max_iters` times (50ms each) so it accepts inbound
 /// connections + serves inbound frames. Returns the client on join.
 fn poll_bg(mut client: BridgeClient, max_iters: u32) -> std::thread::JoinHandle<BridgeClient> {
@@ -399,96 +395,9 @@ fn sub_quorum_stays_pending_no_cert() {
     client_a.shutdown().expect("A shutdown");
 }
 
-// ---------------------------------------------------------------------------
-// 6. C49: floor active (3 peers) + owner peer-revocation with NO matching quorum
-//    cert → the revoke is REJECTED + a C49 sporocarp is fruited; no
-//    federation_peer_revoked event is emitted.
-// ---------------------------------------------------------------------------
-
-#[test]
-fn c49_peer_revocation_without_cert_rejected_when_floor_active() {
-    let dir_a = fresh_state_dir();
-    let mut client_a = spawn_substrate_with_signing_seed(&dir_a, OWNER_SEED);
-    let addr_a = open_listener(&mut client_a);
-
-    // Mesh 3 peers into A → floor active.
-    let poll = poll_bg(client_a, 90);
-    let mut peers = Vec::new();
-    let mut peer_ids = Vec::new();
-    for _ in 0..3 {
-        let (mut p, _d) = spawn_substrate();
-        let resp = connect_peer(&mut p, &addr_a);
-        assert_eq!(resp.get("outcome"), Some(&CbValue::String("pinned".to_string())));
-        // The peer's own substrate_id (the C13/§6.5.b class-1 revocation target).
-        peer_ids.push(read_substrate_id(&mut p));
-        peers.push(p);
-    }
-    let mut client_a = poll.join().expect("mesh poll join");
-
-    // Confirm the floor is active.
-    let poll_resp = client_a
-        .call(proto::FEDERATION_POLL, build_payload(vec![]))
-        .expect("poll");
-    assert_eq!(
-        poll_resp.payload.get("consensus_floor_active"),
-        Some(&CbValue::Bool(true)),
-        "3 peers ⇒ floor active (precondition for C49)"
-    );
-
-    // A attempts to owner-revoke one of its peers — a §6.5.b class (1) action —
-    // WITHOUT any population_consensus_reached:peer_revocation cert. The C49 gate
-    // must reject it.
-    let target = peer_ids[0];
-    let body = events::build_revoke_federation_peer_canonical_bytes(
-        &target,
-        &[0u8; 32],
-        "attempt to revoke a peer while floor active, no quorum",
-        1_700_000_000,
-    );
-    let revoke = client_a
-        .call(
-            proto::SUBMIT_MUTATION,
-            build_payload(vec![
-                ("mutation_type", CbValue::String("revoke_federation_peer".to_string())),
-                ("content_canonical_bytes", CbValue::Bytes(body.clone())),
-                ("touched_fields", CbValue::Array(vec![])),
-                ("touched_files", CbValue::Array(vec![])),
-                ("touched_meta_structures", CbValue::Array(vec![])),
-                ("attestation_signature", CbValue::Bytes(sign(&OWNER_SEED, &body))),
-            ]),
-        )
-        .expect("submit revoke")
-        .payload;
-
-    assert_eq!(
-        revoke.get("accepted"),
-        Some(&CbValue::Bool(false)),
-        "C49: owner-revoke while floor active + no quorum cert must be REJECTED"
-    );
-    let reason = match revoke.get("rejection_reason") {
-        Some(CbValue::String(s)) => s.clone(),
-        _ => String::new(),
-    };
-    assert!(
-        reason.contains("C49") && reason.contains("consensus_floor"),
-        "rejection_reason should cite C49 consensus_floor_bypass; got: {reason}"
-    );
-    assert!(
-        count_nodes(&mut client_a, "immune:C49") >= 1,
-        "a C49_consensus_floor_bypass sporocarp must be fruited"
-    );
-    // The revocation must NOT have taken effect (no CRL event).
-    assert_eq!(
-        count_nodes(&mut client_a, "federation_peer_revoked:"),
-        0,
-        "the bypassed revoke must emit no federation_peer_revoked event"
-    );
-
-    for p in peers {
-        p.shutdown().expect("peer shutdown");
-    }
-    client_a.shutdown().expect("A shutdown");
-}
+// (v0.9 owner-key removal: `c49_peer_revocation_without_cert_rejected_when_floor_active`
+// was deleted — it submitted the now-removed `revoke_federation_peer` owner-attested
+// mutation. The C49 consensus-floor action gate is retained dormant in consensus.rs.)
 
 // ---------------------------------------------------------------------------
 // 7. §9.6 cross-fed cert: an OBSERVER (no consensus state of its own) pulls the

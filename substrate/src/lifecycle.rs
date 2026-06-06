@@ -14,8 +14,7 @@
 use std::collections::BTreeMap;
 
 use myco_kernel_bridge::protocol::{msg_type, Message};
-use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
-use myco_kernel_shared::crypto::verify_signature;
+use myco_kernel_shared::canonical_bytes::Value;
 
 use crate::server::{
     emit_immune_sporocarp, emit_substrate_event, hex_first_8_bytes, ServerState,
@@ -201,8 +200,13 @@ pub(crate) fn quarantine_block(
     Err(SubstrateError::Protocol(evidence))
 }
 
-/// M22.5: handle `lift_birth_period_quarantine`. Emits a
+/// M22.5: handle `lift_birth_period_quarantine` (KEYLESS v0.9). Emits a
 /// `birth_period_quarantine_lifted` event so the substrate exits quarantine.
+///
+/// The owner Ed25519 signature gate was removed with the anchor surface; the
+/// quarantine-lift is now a plain operator-driven action (the birth-period
+/// quarantine itself remains structurally enforced via `dispatch`'s
+/// register_axis/perturb gating until lifted or expired).
 ///
 /// Idempotent — calling when not in quarantine returns `was_in_quarantine=false`.
 pub(crate) fn handle_lift_birth_period_quarantine(
@@ -210,57 +214,6 @@ pub(crate) fn handle_lift_birth_period_quarantine(
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
     use std::time::{SystemTime, UNIX_EPOCH};
-
-    // Phase β SECURITY FIX (2026-05-15): require owner Ed25519 signature.
-    // Prior to this fix, ANY bridge connection could lift the quarantine
-    // (defeating M22.5 P8 birth-period protection). Now we require an owner
-    // signature over canonical_bytes(Map({
-    //   "context": "myco-lift-birth-period-quarantine-v1",
-    //   "substrate_id": Bytes(32),
-    //   "current_cycle": Uint,
-    // })) verified against the pinned operator identity pubkey (M9 TOFU).
-    let pinned = state
-        .pinned_operator_identity
-        .as_ref()
-        .ok_or_else(|| {
-            SubstrateError::Protocol(
-                "lift_birth_period_quarantine: no pinned operator identity (M9 TOFU not completed)"
-                    .to_string(),
-            )
-        })?
-        .clone();
-    let owner_sig_bytes = match request.payload.get("owner_signature") {
-        Some(Value::Bytes(b)) if b.len() == 64 => b.clone(),
-        _ => {
-            return Err(SubstrateError::Protocol(
-                "lift_birth_period_quarantine: owner_signature must be 64 Bytes".to_string(),
-            ));
-        }
-    };
-    let mut owner_sig = [0u8; 64];
-    owner_sig.copy_from_slice(&owner_sig_bytes);
-
-    let current_cycle = state.cycle_counter();
-    let mut signing_map = BTreeMap::new();
-    signing_map.insert(
-        "context".to_string(),
-        Value::String("myco-lift-birth-period-quarantine-v1".to_string()),
-    );
-    signing_map.insert(
-        "substrate_id".to_string(),
-        Value::Bytes(state.substrate_id().to_vec()),
-    );
-    signing_map.insert(
-        "current_cycle".to_string(),
-        Value::Uint(current_cycle),
-    );
-    let signing_input = cb_encode(&Value::Map(signing_map))
-        .map_err(|e| SubstrateError::Protocol(format!("signing input encode: {e}")))?;
-    verify_signature(&pinned.pubkey, &owner_sig, signing_input.as_ref()).map_err(|e| {
-        SubstrateError::Protocol(format!(
-            "lift_birth_period_quarantine: owner signature invalid: {e}"
-        ))
-    })?;
 
     let q = current_quarantine_state(state);
     let mut payload = BTreeMap::new();

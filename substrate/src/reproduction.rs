@@ -126,23 +126,24 @@ struct VerifiedSpawnAttestation {
     /// deterministic, non-reissuable child identity (replaces the random
     /// `Manifest::genesis()` id).
     minted_child_id: [u8; 32],
-    /// The child's genesis timestamp (from the signed envelope), stamped into
-    /// the child's `genesis_event` + returned to the operator.
+    /// The child's genesis timestamp (from the envelope), stamped into the
+    /// child's `genesis_event` + returned to the operator.
     child_genesis_timestamp_unix_ns: i64,
-    /// The exact bytes the cultivator signed (re-emitted for offline re-verify).
-    /// The anchor wall-clock the §16.B rate-throttle reads on the NEXT spawn is
-    /// carried INSIDE these bytes (decoded back via `decode_spawn_cosign`), so
-    /// no separate field is needed.
+    /// The spawn-cosign envelope bytes (re-emitted into the genesis_attested
+    /// record for offline inspection). The anchor wall-clock the §16.B
+    /// rate-throttle reads on the NEXT spawn is carried INSIDE these bytes
+    /// (decoded back via `decode_spawn_cosign`), so no separate field is needed.
+    ///
+    /// **v0.9 keyless**: the cultivator Ed25519 signature + owner-pubkey fields
+    /// were removed with the anchor surface; the envelope structure (parent
+    /// replay-guard, spore-schema binding, anchor timestamp, depth_override) is
+    /// still verified, but no signature is checked over it.
     envelope_bytes: Vec<u8>,
-    /// The cultivator's Ed25519 signature over `envelope_bytes`.
-    attestation_signature: [u8; 64],
-    /// The owner pubkey the signature verified against (== pinned identity).
-    owner_pubkey: [u8; 32],
     /// The co-signed spore-schema hash (== blake3 of the operator-supplied
     /// spore_schema_canonical_bytes; I7(a)).
     spore_schema_hash: [u8; 32],
-    /// The cultivator's signed depth-override decision for THIS spawn (§16.A
-    /// depth_override / F22). Only honored when the signature verified.
+    /// The depth-override decision carried in the envelope for THIS spawn (§16.A
+    /// depth_override / F22).
     depth_override: bool,
 }
 
@@ -186,30 +187,15 @@ fn verify_spawn_co_attestation(
         Err(SubstrateError::Protocol(evidence))
     }
 
-    // --- Parse the three new required payload fields. ---
+    // --- Parse the required payload fields. ---
     let envelope_bytes = match request.payload.get("spawn_cosign_envelope") {
         Some(Value::Bytes(b)) if !b.is_empty() => b.clone(),
         _ => {
             return reject_c68(
                 state,
                 "sprout_child refused (C68): missing/empty spawn_cosign_envelope — \
-                 a child spawn requires a cultivator-signed myco-spawn-cosign-v1 \
-                 envelope (P08 §5.1: daily-mode spawn = doctrine collapse)"
-                    .to_string(),
-            );
-        }
-    };
-    let attestation_signature: [u8; 64] = match request.payload.get("attestation_signature") {
-        Some(Value::Bytes(b)) if b.len() == 64 => {
-            let mut arr = [0u8; 64];
-            arr.copy_from_slice(b);
-            arr
-        }
-        _ => {
-            return reject_c68(
-                state,
-                "sprout_child refused (C68): missing/malformed attestation_signature \
-                 (must be 64 bytes Ed25519)"
+                 a child spawn requires a myco-spawn-cosign-v1 envelope (P08 §5.1: \
+                 daily-mode spawn = doctrine collapse)"
                     .to_string(),
             );
         }
@@ -221,20 +207,6 @@ fn verify_spawn_co_attestation(
                 state,
                 "sprout_child refused (C68): missing/empty spore_schema_canonical_bytes \
                  (required for I7(a) static-schema validation)"
-                    .to_string(),
-            );
-        }
-    };
-
-    // --- Gate 1: pinned identity present. ---
-    let owner_pubkey = match &state.pinned_operator_identity {
-        Some(p) => p.pubkey,
-        None => {
-            return reject_c68(
-                state,
-                "sprout_child refused (C68): no pinned operator/owner identity — \
-                 cannot verify a spawn co-attestation (operator==owner in v0.9; \
-                 TOFU-pin via the signed handshake before sprouting)"
                     .to_string(),
             );
         }
@@ -311,21 +283,11 @@ fn verify_spawn_co_attestation(
         );
     }
 
-    // --- Gate 5: Ed25519 signature verification. ---
-    if let Err(e) = myco_kernel_shared::crypto::verify_signature(
-        &owner_pubkey,
-        &attestation_signature,
-        &envelope_bytes,
-    ) {
-        return reject_c68(
-            state,
-            format!(
-                "sprout_child refused (C68): cultivator signature over the \
-                 spawn-cosign envelope failed to verify against the pinned owner \
-                 pubkey: {e}"
-            ),
-        );
-    }
+    // --- Gate 5 (REMOVED, v0.9 keyless): the cultivator Ed25519 signature
+    // verification over the spawn-cosign envelope was dropped with the anchor
+    // surface. Gates 2/3/4 (envelope decode + parent replay-guard + I7(a)
+    // static-schema) and gate 6 (§16.B rate throttle) remain the structural
+    // spawn-discipline; C68 still fruits on any of those failing. ---
 
     // --- Gate 6: §16.B anchor-wall-clock rate throttle. ---
     // last_spawn_ts = MAX anchor_timestamp over prior genesis_attested:* events.
@@ -395,8 +357,6 @@ fn verify_spawn_co_attestation(
         minted_child_id,
         child_genesis_timestamp_unix_ns: env_child_genesis_ts,
         envelope_bytes,
-        attestation_signature,
-        owner_pubkey,
         spore_schema_hash: env_spore_schema_hash,
         depth_override: env_depth_override,
     })
@@ -663,18 +623,9 @@ pub(crate) fn handle_sprout_child(
             })?;
     }
 
-    // 2. operator_pinned (inherited from parent for operator continuity)
-    if let Some(parent_pinned) = &state.pinned_operator_identity {
-        let nt = crate::events::operator_pinned_node_type(&parent_pinned.pubkey);
-        let content = crate::events::encode_operator_pinned(
-            &parent_pinned.pubkey,
-            parent_pinned.first_pinned_unix_ns,
-        );
-        let parents = vec![child_dag.tip().unwrap()];
-        child_dag
-            .insert_node(parents, nt, child_cycle, content)
-            .map_err(|e| SubstrateError::Protocol(format!("child operator_pinned insert: {e}")))?;
-    }
+    // 2. operator_pinned child-inheritance REMOVED (v0.9 keyless): the parent no
+    // longer carries a pinned operator identity, so there is nothing to seed into
+    // the child's DAG for operator continuity. (The owner-key TOFU layer is gone.)
 
     // 2b. M22.4 P5 万物互联: if the parent has an open federation listener,
     // record its address in the child's DAG so the child can dial back. The
@@ -824,8 +775,6 @@ pub(crate) fn handle_sprout_child(
     let genesis_attested_nt = crate::events::genesis_attested_node_type(&minted_child_id);
     let genesis_attested_content = crate::events::encode_genesis_attested_event(
         &attestation.envelope_bytes,
-        &attestation.attestation_signature,
-        &attestation.owner_pubkey,
         &state.substrate_id(),
         &minted_child_id,
         &attestation.spore_schema_hash,

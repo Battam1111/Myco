@@ -1348,7 +1348,6 @@ mod tests {
             g.last_absorbed_cycle,
             g.generation_depth,
             dag,
-            None,
             [0u8; 32],
         )
     }
@@ -1574,7 +1573,6 @@ mod tests {
             g.last_absorbed_cycle,
             g.generation_depth,
             Dag::new(),
-            None,
             [0u8; 32],
         );
 

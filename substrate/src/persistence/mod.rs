@@ -41,8 +41,10 @@
 //! - [`dag_io`] — `dag.cb` (causal DAG)
 //! - [`snapshot`] — `snapshot.cb` (signed derived-state cache)
 //! - [`nonce_log`] — `nonces.cb` (attestation nonce log)
-//! - [`operator_identity`] — `operator_identity_pubkey.cb` (M9 TOFU pin)
 //! - [`signing_key`] — `substrate_signing_key.cb` (substrate-private Ed25519 seed custody)
+//!
+//! (The `operator_identity` module — `operator_identity_pubkey.cb` M9 TOFU pin —
+//! was removed with the v0.9 owner-key/anchor layer.)
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -53,14 +55,12 @@ use crate::SubstrateError;
 mod dag_io;
 mod manifest;
 mod nonce_log;
-mod operator_identity;
 mod signing_key;
 mod snapshot;
 
 pub use dag_io::*;
 pub use manifest::*;
 pub use nonce_log::*;
-pub use operator_identity::*;
 pub use signing_key::*;
 pub use snapshot::*;
 
@@ -264,65 +264,8 @@ mod tests {
         std::env::remove_var("MYCO_STATE_DIR");
     }
 
-    // -----------------------------------------------------------------------
-    // M9 pinned operator identity tests.
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn pinned_operator_identity_roundtrips_canonical_bytes() {
-        let id = PinnedOperatorIdentity::pin_now([0xab; 32]);
-        let bytes = id.to_canonical_bytes();
-        let decoded = PinnedOperatorIdentity::from_canonical_bytes(&bytes)
-            .unwrap()
-            .unwrap();
-        assert_eq!(decoded.pubkey, [0xab; 32]);
-        assert_eq!(decoded.first_pinned_unix_ns, id.first_pinned_unix_ns);
-    }
-
-    #[test]
-    fn pinned_operator_identity_save_load_via_disk() {
-        let dir = temp_state_dir();
-        let id = PinnedOperatorIdentity::pin_now([0x42; 32]);
-        save_pinned_operator_identity(&id, &dir).unwrap();
-        let loaded = load_pinned_operator_identity(&dir).unwrap().unwrap();
-        assert_eq!(loaded.pubkey, [0x42; 32]);
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn pinned_operator_identity_missing_returns_none() {
-        let dir = temp_state_dir();
-        let loaded = load_pinned_operator_identity(&dir).unwrap();
-        assert!(loaded.is_none());
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn pinned_operator_identity_version_mismatch_returns_none() {
-        use myco_kernel_shared::canonical_bytes::{encode, Value};
-        let dir = temp_state_dir();
-        let mut bad_map = BTreeMap::new();
-        bad_map.insert("format_version".to_string(), Value::Uint(999));
-        bad_map.insert("pubkey".to_string(), Value::Bytes(vec![0u8; 32]));
-        bad_map.insert("first_pinned_unix_ns".to_string(), Value::Timestamp(0));
-        let bad_bytes = encode(&Value::Map(bad_map)).unwrap().0;
-        fs::write(dir.join(OPERATOR_IDENTITY_PUBKEY_FILENAME), bad_bytes).unwrap();
-        let loaded = load_pinned_operator_identity(&dir).unwrap();
-        assert!(loaded.is_none());
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn pinned_operator_identity_atomic_save_no_tmp_leftover() {
-        let dir = temp_state_dir();
-        let id = PinnedOperatorIdentity::pin_now([0x33; 32]);
-        save_pinned_operator_identity(&id, &dir).unwrap();
-        let tmp = dir.join(format!("{OPERATOR_IDENTITY_PUBKEY_FILENAME}.tmp"));
-        assert!(!tmp.exists());
-        let final_path = dir.join(OPERATOR_IDENTITY_PUBKEY_FILENAME);
-        assert!(final_path.exists());
-        let _ = fs::remove_dir_all(&dir);
-    }
+    // (v0.9 owner-key removal: the M9 pinned-operator-identity persistence tests
+    // were removed along with the `operator_identity` module.)
 
     // -----------------------------------------------------------------------
     // M14 nonce log persistence tests.

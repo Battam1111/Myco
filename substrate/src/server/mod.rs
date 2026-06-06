@@ -35,8 +35,7 @@ use myco_kernel_shared::canonical_bytes::{
 };
 
 use crate::persistence::{
-    default_state_dir, ensure_state_dir, load_dag, load_nonce_log, load_pinned_operator_identity,
-    Manifest, PinnedOperatorIdentity,
+    default_state_dir, ensure_state_dir, load_dag, load_nonce_log, Manifest,
 };
 use crate::SubstrateError;
 
@@ -47,132 +46,6 @@ mod autonomous;
 mod dispatch;
 use autonomous::do_autonomous_tick;
 use dispatch::dispatch;
-
-/// **M-anchor-2 §9.2.1**: read the birth attestation env vars set by the
-/// operator process at substrate spawn time. Returns
-/// `(attested_canonical_bytes, signature, owner_pubkey)` if all three env
-/// vars are present + valid hex; `None` otherwise (partial or malformed
-/// triggers fallback — C20 fires on subsequent boots).
-///
-/// Env var contract:
-/// - `MYCO_BIRTH_ATTESTATION_BYTES_HEX`: hex of the canonical-bytes Map the
-///   owner signed (returned by anchor_surface_host's BirthAttest RPC).
-/// - `MYCO_BIRTH_ATTESTATION_SIGNATURE_HEX`: 128 hex chars = 64 bytes.
-/// - `MYCO_BIRTH_ATTESTATION_OWNER_PUBKEY_HEX`: 64 hex chars = 32 bytes.
-fn read_birth_attestation_env_vars() -> Option<(Vec<u8>, [u8; 64], [u8; 32])> {
-    let bytes_hex = std::env::var("MYCO_BIRTH_ATTESTATION_BYTES_HEX").ok()?;
-    let sig_hex = std::env::var("MYCO_BIRTH_ATTESTATION_SIGNATURE_HEX").ok()?;
-    let pk_hex = std::env::var("MYCO_BIRTH_ATTESTATION_OWNER_PUBKEY_HEX").ok()?;
-    let attested_bytes = hex_decode_vec(&bytes_hex)?;
-    let sig_vec = hex_decode_vec(&sig_hex)?;
-    if sig_vec.len() != 64 {
-        return None;
-    }
-    let mut signature = [0u8; 64];
-    signature.copy_from_slice(&sig_vec);
-    let pk_vec = hex_decode_vec(&pk_hex)?;
-    if pk_vec.len() != 32 {
-        return None;
-    }
-    let mut owner_pubkey = [0u8; 32];
-    owner_pubkey.copy_from_slice(&pk_vec);
-    Some((attested_bytes, signature, owner_pubkey))
-}
-
-/// **F23 / C50** — read the duress-keypair registration env vars set by the
-/// operator process at genesis (mirrors [`read_birth_attestation_env_vars`]).
-/// Each registration is an owner-pre-attested duress pubkey: the owner signed a
-/// `duress_keypair_registration` body off-line (anchor-surface) and the operator
-/// passes the (body, signature, pubkey, label) tuple through env vars so the
-/// substrate emits the `duress_keypair_registered:{prefix}` event at genesis —
-/// EXACTLY as if the owner had submitted it as a CI mutation, including the
-/// owner-signature capture for offline re-verification.
-///
-/// Env var contract (N = `MYCO_DURESS_REGISTRATION_COUNT`, capped to avoid a
-/// malformed-env DoS; absent / 0 → no duress registrations):
-/// - `MYCO_DURESS_REGISTRATION_COUNT`: decimal count of registrations.
-/// - For i in `0..N`:
-///   - `MYCO_DURESS_REGISTRATION_{i}_BYTES_HEX`: hex of the owner-signed
-///     `duress_keypair_registration` body (see
-///     [`crate::events::build_duress_keypair_registration_canonical_bytes`]).
-///   - `MYCO_DURESS_REGISTRATION_{i}_SIGNATURE_HEX`: 128 hex chars = 64 bytes.
-///   - `MYCO_DURESS_REGISTRATION_{i}_OWNER_PUBKEY_HEX`: 64 hex chars = 32 bytes.
-///
-/// A malformed / partial entry is SKIPPED (the others still register) — a
-/// genesis with a bad duress env var still boots; the missing registration just
-/// isn't present (the owner can register it later via a CI mutation). Returns
-/// `(owner_signed_body, signature, owner_pubkey)` tuples; the body is decoded
-/// downstream so the substrate can extract the duress pubkey + label.
-fn read_duress_registrations_env_vars() -> Vec<(Vec<u8>, [u8; 64], [u8; 32])> {
-    /// Cap on parsed registrations so a hostile/garbled env can't drive an
-    /// unbounded genesis loop. A real cultivator registers a small handful.
-    const MAX_DURESS_REGISTRATIONS: u32 = 16;
-
-    let count: u32 = match std::env::var("MYCO_DURESS_REGISTRATION_COUNT") {
-        Ok(s) => s.trim().parse().unwrap_or(0),
-        Err(_) => 0,
-    };
-    let count = count.min(MAX_DURESS_REGISTRATIONS);
-    let mut out = Vec::new();
-    for i in 0..count {
-        let bytes_hex = match std::env::var(format!("MYCO_DURESS_REGISTRATION_{i}_BYTES_HEX")) {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
-        let sig_hex = match std::env::var(format!("MYCO_DURESS_REGISTRATION_{i}_SIGNATURE_HEX")) {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
-        let pk_hex = match std::env::var(format!("MYCO_DURESS_REGISTRATION_{i}_OWNER_PUBKEY_HEX")) {
-            Ok(s) => s,
-            Err(_) => continue,
-        };
-        let Some(body) = hex_decode_vec(&bytes_hex) else {
-            continue;
-        };
-        let Some(sig_vec) = hex_decode_vec(&sig_hex) else {
-            continue;
-        };
-        if sig_vec.len() != 64 {
-            continue;
-        }
-        let mut signature = [0u8; 64];
-        signature.copy_from_slice(&sig_vec);
-        let Some(pk_vec) = hex_decode_vec(&pk_hex) else {
-            continue;
-        };
-        if pk_vec.len() != 32 {
-            continue;
-        }
-        let mut owner_pubkey = [0u8; 32];
-        owner_pubkey.copy_from_slice(&pk_vec);
-        out.push((body, signature, owner_pubkey));
-    }
-    out
-}
-
-fn hex_decode_vec(s: &str) -> Option<Vec<u8>> {
-    if s.len() % 2 != 0 {
-        return None;
-    }
-    let mut out = Vec::with_capacity(s.len() / 2);
-    let bytes = s.as_bytes();
-    for i in (0..bytes.len()).step_by(2) {
-        let hi = hex_nibble(bytes[i])?;
-        let lo = hex_nibble(bytes[i + 1])?;
-        out.push((hi << 4) | lo);
-    }
-    Some(out)
-}
-
-fn hex_nibble(b: u8) -> Option<u8> {
-    match b {
-        b'0'..=b'9' => Some(b - b'0'),
-        b'a'..=b'f' => Some(10 + (b - b'a')),
-        b'A'..=b'F' => Some(10 + (b - b'A')),
-        _ => None,
-    }
-}
 
 /// **M26.3 C42 fix**: thread-local side channel for surfacing
 /// `manifest.cb` load-failure evidence from the boot-time legacy-path branch
@@ -286,8 +159,6 @@ pub(crate) struct ServerState {
     pub(crate) state_dir: PathBuf,
     /// Persistent causal DAG of substrate events (sporocarps etc.) (M8).
     pub(crate) dag: Dag,
-    /// Pinned operator identity public key (M9). `None` until TOFU on first hello.
-    pub(crate) pinned_operator_identity: Option<PinnedOperatorIdentity>,
     /// M13: Attestation nonce log (in-process; not persisted at M13 minimum).
     /// Keyed by nonce bytes for O(1) lookup on submit.
     pub(crate) nonce_log: std::collections::HashMap<[u8; 32], crate::attestation::AttestationNonce>,
@@ -306,40 +177,6 @@ pub(crate) struct ServerState {
     /// egress site (block + emit C13) and the ingest site (drop revoked-peer
     /// events). Purely additive (a CRL only grows; no un-revoke event exists).
     pub(crate) revoked_federation_peers: std::collections::HashSet<[u8; 32]>,
-    /// **F23 / C50 — duress keypair coercion defense** (L2/TRUST_MODEL §10.A.2 +
-    /// L1/GOVERNANCE F23 + AS §5.6). The set of pre-registered duress Ed25519
-    /// pubkeys. An `attestation_signature` that verifies under ANY member (and
-    /// thus NOT under the owner key — the keys are disjoint, see
-    /// [`crate::events::derive_duress_pubkeys_from_dag`]) is a duress signal:
-    /// the substrate cosmetically accepts the mutation but suppresses its
-    /// substantive effect, emits C50 + `duress_signature_observed` silently, and
-    /// freezes. DAG-derived at boot (each `duress_keypair_registered:{prefix}`
-    /// event) + kept current by the registration accept path; never persisted
-    /// separately. Empty on a substrate that never registered a duress key, so
-    /// every duress code path is inert there (byte-compat).
-    pub(crate) duress_pubkeys: std::collections::HashSet<[u8; 32]>,
-    /// **F23 / C50** — whether destructive (CI-class) mutations are currently
-    /// frozen because a duress signature was observed and not yet cleared. While
-    /// true, an early gate in `attestation::handle_submit_mutation` cosmetically
-    /// suppresses destructive CI mutations + re-emits C50 (the unfreeze
-    /// mutations `out_of_band_safety_reattestation` /
-    /// `anchor_heartbeat_with_safety_confirmation` are exempt). DAG-derived at
-    /// boot via [`crate::events::derive_duress_freeze_active_from_dag`]
-    /// (last-writer FSM over `coerced_owner_suspected` / `duress_cleared`), so a
-    /// substrate restarted while frozen resumes frozen. Kept current by the
-    /// duress recognition + unfreeze emit paths thereafter.
-    pub(crate) duress_freeze_active: bool,
-    /// **C70 — owner key-rotation FSM** (L1/GOVERNANCE §3.1). The single
-    /// in-flight pending rotation (PENDING_COOLDOWN), or `None` when no rotation
-    /// is open. A `rotate_owner_key` request stages this; a veto or activation
-    /// clears it. DAG-derived at boot via
-    /// [`crate::events::derive_pending_owner_key_rotation_from_dag`] (latest
-    /// `owner_key_rotation_requested` not followed by `owner_key_added` /
-    /// `owner_key_rotation_vetoed`), so a substrate restarted mid-cooldown
-    /// resumes with the pending rotation intact. The handler reads it to enforce
-    /// the single-in-flight guard, the veto/activate "requires a pending
-    /// rotation" precondition, and the C70 cooldown check on activation.
-    pub(crate) pending_owner_key_rotation: Option<crate::events::PendingOwnerKeyRotation>,
     /// M25.0 + M25.4: the substrate's private Ed25519 signing seed.
     ///
     /// This NEVER goes on the wire. Used to (1) sign `snapshot.cb` so a
@@ -520,35 +357,14 @@ pub(crate) struct ServerState {
     /// built-in defaults (cadence 30d, legacy 365d, terminal 730d, choice
     /// `indefinite_orphan`) overlaid with `MYCO_TEST_*` env overrides.
     pub(crate) succession_config: Option<crate::derived_state::DerivedSuccessionConfig>,
-    /// **COV06** — latest recorded cultivator heartbeat, mirrored from
-    /// `DerivedState::latest_heartbeat`. The autonomous-tick staleness watchdog
-    /// measures `now_anchor - anchor_timestamp_unix_ns` against the cadence.
-    pub(crate) latest_heartbeat: Option<crate::derived_state::DerivedLatestHeartbeat>,
     /// **COV06 (efficiency)** — memoized cultivation-succession FSM state. The
     /// derivation (`crate::cultivation::current_cultivation_state`) is an
     /// unbounded full-DAG walk; reads happen on every ADVANCE (the `is_archived`
-    /// metabolism guard) and every autonomous tick, while the underlying state
-    /// only changes when a cultivation-FAMILY event is emitted (heartbeats are
-    /// unprunable, so the walk grows monotonically). This cache mirrors the
-    /// `latest_heartbeat`/`successor_chain` pattern: it is recomputed (one walk)
-    /// at the centralized emit point [`emit_substrate_event`] whenever a
-    /// cultivation-family node is appended, and hydrated once at boot. Hot reads
-    /// go through [`ServerState::cultivation_state`] (O(1)).
+    /// metabolism guard). It is recomputed (one walk) at the centralized emit
+    /// point [`emit_substrate_event`] whenever a cultivation-family node is
+    /// appended, and hydrated once at boot. Hot reads go through
+    /// [`ServerState::cultivation_state`] (O(1)).
     pub(crate) cultivation_state: crate::cultivation::CultivationState,
-    /// **COV06 T1** — cooldown tracking for the `cultivator_heartbeat_stale`
-    /// emission. Stores `cycle_counter` at the most recent T1 emission; the
-    /// autonomous tick suppresses re-emission within `COV06_STALE_COOLDOWN_CYCLES`
-    /// (100, same discipline as C54/C66). `None` = never emitted.
-    pub(crate) last_cultivator_heartbeat_stale_emitted_at_cycle: Option<u64>,
-    /// **COV06 T4** — cooldown tracking for the `cultivation_orphaned` emission.
-    /// `None` = never emitted. (cultivation_orphaned is itself un-suppressible —
-    /// the cooldown only prevents per-cycle DAG spam of the SAME orphan episode,
-    /// not the orphan transition itself.)
-    pub(crate) last_cultivation_orphaned_emitted_at_cycle: Option<u64>,
-    /// **COV06 T6/T7** — cooldown tracking for the terminal-window emission
-    /// (`self_euthanasia_proposal:cultivation_orphaned_terminal` OR the
-    /// `bet_retired_proposal` archive seal). `None` = never emitted.
-    pub(crate) last_cultivation_terminal_emitted_at_cycle: Option<u64>,
 }
 
 impl ServerState {
@@ -571,7 +387,6 @@ impl ServerState {
         last_absorbed_cycle: Option<u64>,
         generation_depth: u64,
         dag: Dag,
-        pinned_operator_identity: Option<PinnedOperatorIdentity>,
         substrate_signing_seed: [u8; 32],
     ) -> Self {
         // M7: `cycle_counter` is the authoritative persisted counter; the
@@ -602,7 +417,6 @@ impl ServerState {
             generation_depth,
             state_dir,
             dag,
-            pinned_operator_identity,
             nonce_log: std::collections::HashMap::new(),
             // M26.1 C5 SECURITY FIX: read `MYCO_ACCEPT_LEGACY_PEERS` env var at
             // construction. Default policy (env unset) rejects legacy FED_HELLOs;
@@ -613,17 +427,6 @@ impl ServerState {
             // full DAG AFTER `new()` (mirrors backup_encryption_status +
             // cultivation mirrors). NOT persisted separately — DAG is canonical.
             revoked_federation_peers: std::collections::HashSet::new(),
-            // F23/C50: empty + unfrozen at construction; the boot path
-            // re-derives both from the full DAG AFTER `new()` (mirrors
-            // revoked_federation_peers). NOT persisted separately — DAG is
-            // canonical. A genesis substrate with no duress registration leaves
-            // these inert, so non-duress mutations are byte-unaffected.
-            duress_pubkeys: std::collections::HashSet::new(),
-            duress_freeze_active: false,
-            // C70: no rotation in flight at construction; the boot path
-            // re-derives it from the full DAG AFTER `new()` (mirrors
-            // duress_freeze_active). NOT persisted separately — DAG is canonical.
-            pending_owner_key_rotation: None,
             substrate_signing_seed,
             observatory_history: std::collections::VecDeque::new(),
             last_operator_context_window_bytes: None,
@@ -709,13 +512,9 @@ impl ServerState {
             // snapshot.cb (byte-compat additive — no format bump).
             successor_chain: Vec::new(),
             succession_config: None,
-            latest_heartbeat: None,
             // Genesis default; boot hydrates this from the full-DAG re-derivation
             // and `emit_substrate_event` keeps it current thereafter.
             cultivation_state: crate::cultivation::CultivationState::Normal,
-            last_cultivator_heartbeat_stale_emitted_at_cycle: None,
-            last_cultivation_orphaned_emitted_at_cycle: None,
-            last_cultivation_terminal_emitted_at_cycle: None,
         }
     }
 
@@ -1004,7 +803,6 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         boot_cycle_counter,
         boot_last_absorbed_cycle,
         boot_generation_depth,
-        pinned_operator_identity,
         nonce_log_entries,
         is_fresh_genesis,
     ): (
@@ -1013,14 +811,12 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         u64,
         Option<u64>,
         u64,
-        Option<crate::persistence::PinnedOperatorIdentity>,
         Vec<crate::persistence::PersistedNonceEntry>,
         bool,
     ) = if boot_from_dag {
         // M21.2 derived-first path: state comes from DAG events. Copy the
         // identity / metabolic fields straight off `derived` (already `Option`
         // for substrate_id / genesis_time — no `to_legacy_manifest` needed).
-        let pinned = derived.pinned_operator_identity.clone();
         // Convert DerivedNonce → PersistedNonceEntry for ServerState population.
         let nonces: Vec<crate::persistence::PersistedNonceEntry> = derived
             .nonce_log
@@ -1044,7 +840,6 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
             derived.cycle_counter,
             derived.last_absorbed_cycle,
             derived.generation_depth,
-            pinned,
             nonces,
             false,
         )
@@ -1090,7 +885,6 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         // To avoid threading complexity through the existing match arms,
         // we use a thread-local Cell to carry the evidence forward.
         crate::server::manifest_failure_evidence::set(manifest_load_failure_evidence);
-        let pinned = load_pinned_operator_identity(&state_dir)?;
         let now_for_prune = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .ok()
@@ -1128,7 +922,6 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
             m.cycle_counter,
             m.last_absorbed_cycle,
             m.generation_depth,
-            pinned,
             entries,
             fresh,
         )
@@ -1142,7 +935,6 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         boot_last_absorbed_cycle,
         boot_generation_depth,
         dag,
-        pinned_operator_identity,
         substrate_signing_seed,
     );
     // M25.2: restore observatory history from snapshot.cb if the boot path
@@ -1185,7 +977,6 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     }
     state.successor_chain = derived.successor_chain.clone();
     state.succession_config = derived.succession_config.clone();
-    state.latest_heartbeat = derived.latest_heartbeat.clone();
     // Hydrate the memoized FSM cache once (one full-DAG walk at boot); thereafter
     // `emit_substrate_event` keeps it current on each cultivation-family emission.
     state.cultivation_state = crate::cultivation::current_cultivation_state(&state);
@@ -1246,25 +1037,9 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     state.revoked_federation_peers =
         crate::events::derive_revoked_federation_peers_from_dag(&state.dag);
 
-    // **F23 / C50** — re-derive the registered-duress-pubkey set + the freeze
-    // flag from the DAG. Each owner-attested `duress_keypair_registration` CI
-    // mutation emitted a `duress_keypair_registered:{prefix}` event; the freeze
-    // FSM is the last-writer over `coerced_owner_suspected` / `duress_cleared`.
-    // Both are pure projections of the DAG (canonical), so a substrate
-    // restarted after registering a duress key — or while frozen — resumes
-    // exactly. Mirrors `revoked_federation_peers` above (DAG-derived, no new
-    // on-disk format).
-    state.duress_pubkeys = crate::events::derive_duress_pubkeys_from_dag(&state.dag);
-    state.duress_freeze_active =
-        crate::events::derive_duress_freeze_active_from_dag(&state.dag);
-
-    // **C70** — re-derive the single in-flight owner key-rotation from the DAG
-    // (the latest `owner_key_rotation_requested` not followed by an activation
-    // or veto). A substrate restarted mid-cooldown resumes with the pending
-    // rotation, so the veto window survives a reboot. Mirrors
-    // `duress_freeze_active` above (DAG-derived, no new on-disk format).
-    state.pending_owner_key_rotation =
-        crate::events::derive_pending_owner_key_rotation_from_dag(&state.dag);
+    // (v0.9 owner-key removal: the duress-keypair set + freeze flag and the
+    // owner-key-rotation pending-FSM boot re-derivations were removed along with
+    // those features.)
 
     // M26.1 C6 SECURITY FIX (Phase γ.2): substrate_signing_key.cb existed on
     // disk with loose Unix permissions (group/world bits set) — emit a
@@ -1427,110 +1202,14 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         let _ = emit_substrate_event(&mut state, event_node_type, event_content);
         let _ = save_dag_state(&state);
 
-        // **M-anchor-2 §9.2.1 birth attestation emission**.
-        //
-        // If the operator process supplied a birth attestation via env vars,
-        // emit it as a `birth_attestation:{substrate_id_prefix}` DAG node
-        // RIGHT AFTER `genesis_event`. The three env vars must all be
-        // present + valid hex; partial / malformed env vars are TOLERATED
-        // (substrate boots without birth attestation, C20 will fire on
-        // subsequent boots flagging the chain as broken).
-        if let Some((attested_bytes, signature, owner_pubkey)) = read_birth_attestation_env_vars()
-        {
-            let now_unix_ns = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .ok()
-                .and_then(|d| i64::try_from(d.as_nanos()).ok())
-                .unwrap_or(0);
-            let ba_node_type =
-                crate::events::birth_attestation_node_type(&state.substrate_id());
-            let ba_content = crate::events::encode_birth_attestation(
-                &attested_bytes,
-                &signature,
-                &owner_pubkey,
-                now_unix_ns,
-            );
-            let _ = emit_substrate_event(&mut state, ba_node_type, ba_content);
-            let _ = save_dag_state(&state);
-        }
-
-        // **F23 / C50 — genesis duress-keypair registration emission.**
-        //
-        // If the operator process supplied owner-pre-attested duress
-        // registrations via env vars, emit each as a
-        // `duress_keypair_registered:{prefix}` DAG node right after the birth
-        // attestation. Each body was signed off-line by the owner; we decode
-        // it (extract pubkey + label), capture the owner signature + pubkey,
-        // and emit the on-chain registration record — byte-identical to what
-        // the CI-mutation accept path emits. A malformed/undecodable body is
-        // skipped (the env parser already filters partial entries; a body that
-        // does not decode under the registration domain is dropped here).
-        //
-        // We do NOT register a duress pubkey equal to the OWNER key: that would
-        // make owner signatures verify under a "duress" key and silently
-        // suppress legit mutations (the catastrophic mis-recognition). The same
-        // guard is enforced on the CI-mutation registration path.
-        //
-        // At a TRULY-fresh genesis the operator identity is not yet TOFU-pinned
-        // (`pinned_operator_identity` is None until the first hello), so we
-        // compare against the env-supplied `owner_pubkey` — the key that signed
-        // THIS registration — AND, when available (restart re-emit can't reach
-        // here, but be defensive), the pinned identity.
-        let pinned_owner_pubkey = state.pinned_operator_identity.as_ref().map(|p| p.pubkey);
-        for (body, signature, owner_pubkey) in read_duress_registrations_env_vars() {
-            let Some((duress_pubkey, label, anchor_ts)) =
-                crate::events::decode_duress_keypair_registration(&body)
-            else {
-                continue;
-            };
-            if duress_pubkey == owner_pubkey || pinned_owner_pubkey == Some(duress_pubkey) {
-                // Circular: a duress pubkey identical to the owner key is
-                // refused (would silently suppress real owner mutations). This
-                // is a genesis MISCONFIGURATION, not coercion — emit C5
-                // attestation_invalid (matching the CI-mutation registration
-                // guard in attestation.rs), NOT C50 (which would falsely signal
-                // coercion at birth).
-                let _ = emit_immune_sporocarp(
-                    &mut state,
-                    "C5_attestation_invalid",
-                    "attestation_invalid",
-                    "genesis duress registration refused: duress_pubkey equals the owner key (circular self-duress)",
-                );
-                continue;
-            }
-            // Verify the owner actually signed THIS registration body (the
-            // CI-mutation path delegates this to Python; here we verify directly
-            // since there is no Python round-trip at genesis). A typo'd / forged
-            // env-var signature is refused rather than registering a bogus duress
-            // key. The owner_pubkey is the operator's own genesis configuration
-            // (same trust level as the birth attestation).
-            if myco_kernel_shared::crypto::verify_signature(&owner_pubkey, &signature, &body)
-                .is_err()
-            {
-                let _ = emit_immune_sporocarp(
-                    &mut state,
-                    "C5_attestation_invalid",
-                    "attestation_invalid",
-                    "genesis duress registration refused: owner signature over registration body failed to verify",
-                );
-                continue;
-            }
-            let nt = crate::events::duress_keypair_registered_node_type(&duress_pubkey);
-            let content = crate::events::encode_duress_keypair_registered(
-                &duress_pubkey,
-                &label,
-                anchor_ts,
-                &signature,
-                &owner_pubkey,
-            );
-            let _ = emit_substrate_event(&mut state, nt, content);
-            let _ = save_dag_state(&state);
-            state.duress_pubkeys.insert(duress_pubkey);
-        }
+        // (v0.9 owner-key removal: the genesis birth-attestation emission + the
+        // genesis duress-keypair registration emission were removed with the
+        // anchor surface. A fresh substrate's first DAG node is its
+        // genesis_event; no owner-signed birth/duress records are written.)
     }
 
     // **v3.1.1 Sprint 2.C** — emit `backup_encryption_undeclared` Daily
-    // signal NOW (post genesis_event + post birth_attestation) so the
+    // signal NOW (post genesis_event) so the
     // fresh-genesis node-count guard above is not perturbed.
     //
     // Per L1/SKIN §9 detection table this is a **Daily-grade** signal —
@@ -1594,70 +1273,9 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         }
     }
 
-    // **M-anchor-2 §9.2.1 C20 boot-time verification**.
-    //
-    // On EVERY boot (not just fresh genesis), scan the DAG for the
-    // birth_attestation event matching this substrate_id; verify its
-    // signature against the embedded owner pubkey. Failure → C20
-    // `genesis_attestation_chain_broken` immune sporocarp.
-    //
-    // Absence is observed too: if the substrate has run for ≥1 cycle and
-    // no birth_attestation event is present, fire C20 with evidence
-    // "birth_attestation missing" — this catches the case where the
-    // genesis env vars were absent at first boot.
-    {
-        let expected_node_type =
-            crate::events::birth_attestation_node_type(&state.substrate_id());
-        let ba_node = state
-            .dag
-            .iter_in_insertion_order()
-            .find(|n| n.node_type == expected_node_type)
-            .cloned();
-        let c20_evidence: Option<String> = match ba_node {
-            None => {
-                // Tolerate absence on truly-fresh substrates (cycle 0); only
-                // fire if the substrate has lived past genesis without an
-                // attestation having been emitted at any point.
-                if state.cycle_counter() > 0 {
-                    Some(format!(
-                        "birth_attestation event missing for substrate_id={} (M-anchor-2 §9.2.1)",
-                        hex_first_8_bytes(&state.substrate_id())
-                    ))
-                } else {
-                    None
-                }
-            }
-            Some(node) => {
-                match crate::events::decode_birth_attestation(node.content_canonical_bytes.as_ref())
-                {
-                    None => Some(format!(
-                        "birth_attestation decode failed for substrate_id={}",
-                        hex_first_8_bytes(&state.substrate_id())
-                    )),
-                    Some((attested_bytes, signature, owner_pubkey)) => {
-                        use myco_kernel_shared::crypto::verify_signature;
-                        match verify_signature(&owner_pubkey, &signature, &attested_bytes) {
-                            Ok(()) => None,
-                            Err(e) => Some(format!(
-                                "birth_attestation signature failed verify for \
-                                 substrate_id={}: {e}",
-                                hex_first_8_bytes(&state.substrate_id())
-                            )),
-                        }
-                    }
-                }
-            }
-        };
-        if let Some(evidence) = c20_evidence {
-            let _ = emit_immune_sporocarp(
-                &mut state,
-                "C20_genesis_attestation_chain_broken",
-                "genesis_attestation_chain_broken",
-                &evidence,
-            );
-            let _ = save_dag_state(&state);
-        }
-    }
+    // (v0.9 owner-key removal: the M-anchor-2 §9.2.1 C20 boot-time
+    // birth-attestation signature verification was removed with the anchor
+    // surface — there is no longer an owner-signed birth attestation to verify.)
 
     // M12: C9 cold_resume_invariant_failure — run comprehensive integrity
     // checks at boot. For each failing check, emit a C9 immune sporocarp.
@@ -1970,7 +1588,7 @@ pub(crate) fn hex_encode(bytes: &[u8]) -> String {
 // ---------------------------------------------------------------------------
 pub(crate) use crate::persistence_runtime::{
     backfill_dag_from_python_state, replay_events_after_tip, replay_python_events_from_dag,
-    save_dag_state, save_nonce_state, save_python_state, save_snapshot_for_state,
+    save_dag_state, save_python_state, save_snapshot_for_state,
 };
 
 pub(crate) fn hex_first_8_bytes(bytes: &[u8; 32]) -> String {

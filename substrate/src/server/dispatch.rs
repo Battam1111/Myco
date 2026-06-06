@@ -160,10 +160,6 @@ pub(super) fn dispatch(
         msg_type::QUERY_IMMUNE_EVENTS => crate::dag_query::handle_query_immune_events(state, request),
         // M12: ad-hoc immune check (operator can verify integrity any time).
         msg_type::RUN_IMMUNE_CHECK => crate::integrity::handle_run_immune_check(state, request),
-        // M13: anchor-surface attestation nonce (operator pre-submit step).
-        msg_type::REQUEST_ATTESTATION_NONCE => {
-            crate::attestation::handle_request_attestation_nonce(state, request)
-        }
         // M15: DAG enumeration closure for owner-side Merkle chain reconstruction.
         msg_type::ENUMERATE_DAG_SINCE => crate::dag_query::handle_enumerate_dag_since(state, request),
         // M16: P2 永恒吞噬 — universal raw_material ingestion + causal perturbation.
@@ -269,14 +265,9 @@ pub(super) fn dispatch(
             Ok(response)
         }
         // **COV06 不弃不孤** — cultivator-mortality + succession FSM. The
-        // operator threads the anchor-signed heartbeat / successor-chain /
-        // succession-acceptance in (the substrate has no anchor socket; AS §5.2).
-        // Each handler verifies its signature + emits the FSM transition events.
-        msg_type::RECORD_CULTIVATOR_HEARTBEAT => {
-            let response = crate::cultivation::handle_record_cultivator_heartbeat(state, request)?;
-            save_dag_state(state)?;
-            Ok(response)
-        }
+        // operator threads the successor-chain / succession-acceptance in.
+        // (Keyless v0.9: the owner-key signature gates were removed; the C46
+        // catechumenate gate + the FSM transition emits remain.)
         msg_type::UPDATE_SUCCESSOR_CHAIN => {
             let response = crate::cultivation::handle_update_successor_chain(state, request)?;
             save_dag_state(state)?;

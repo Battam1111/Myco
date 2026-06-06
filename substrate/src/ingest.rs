@@ -987,11 +987,8 @@ pub(crate) fn handle_advance(
         .collect();
 
     // HandshakeProcessor precompute: report pinned-identity count.
-    let pinned_count = if state.pinned_operator_identity.is_some() {
-        1
-    } else {
-        0
-    };
+    // (v0.9 owner-key removal: there is no pinned operator identity → always 0.)
+    let pinned_count = 0usize;
 
     let client = state
         .python_client
@@ -1781,7 +1778,6 @@ mod hunger_tests {
             g.last_absorbed_cycle,
             g.generation_depth,
             Dag::new(),
-            None,
             [0u8; 32],
         )
     }
@@ -1993,7 +1989,6 @@ mod forge_tests {
             g.last_absorbed_cycle,
             g.generation_depth,
             Dag::new(),
-            None,
             [0u8; 32],
         )
     }

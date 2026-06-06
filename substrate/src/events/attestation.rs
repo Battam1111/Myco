@@ -24,175 +24,15 @@ use super::hex_prefix;
 use myco_kernel_shared::canonical_bytes::{encode as cb_encode, CanonicalBytes, Value};
 use std::collections::BTreeMap;
 
-/// Domain string for DAG-tip co-sign signatures (M-anchor-5 §9.2.2).
-pub const DAG_TIP_COSIGN_DOMAIN: &str = "myco-dag-tip-cosign-v1";
+// ---------------------------------------------------------------------------
+// **v0.9 owner-key removal**: the DAG-tip co-sign envelope + the L0-revision
+// attestation envelope (M-anchor-5 §9.2.2 / §9.2.4) and their `tip_cosigned:*` /
+// `l0_revision_attested:*` DAG-event codecs were removed with the anchor surface.
+// The witness layer (invariant_witness, below) + the reproduction spawn-cosign
+// envelope + the birth_closure markers are KEPT (keyless / not owner-signature).
+// ---------------------------------------------------------------------------
 
-/// Domain string for L0 revision attestation signatures (M-anchor-5 §9.2.4).
-pub const L0_REVISION_DOMAIN: &str = "myco-l0-revision-v1";
-
-/// Prefix for `tip_cosigned:{tip_prefix}` DAG events (M-anchor-5 §9.2.2).
-pub const NODE_TYPE_TIP_COSIGNED_PREFIX: &str = "tip_cosigned:";
-
-/// Prefix for `l0_revision_attested:{prior_l0_hash_prefix}` DAG events
-/// (M-anchor-5 §9.2.4).
-pub const NODE_TYPE_L0_REVISION_ATTESTED_PREFIX: &str = "l0_revision_attested:";
-
-/// Build the canonical-bytes Map the owner signs for a DAG-tip co-sign
-/// (M-anchor-5 §9.2.2). `proposed_mutation_hash` may be all-zero for a
-/// standalone tip co-sign (no proposed CI mutation; just attesting the
-/// tip + enumerated nodes).
-pub fn build_dag_tip_cosign_canonical_bytes(
-    tip_hash: &[u8; 32],
-    enumerated_node_hashes: &[[u8; 32]],
-    proposed_mutation_hash: &[u8; 32],
-    anchor_timestamp_unix_ns: i64,
-    anchor_nonce: &[u8; 32],
-) -> Vec<u8> {
-    let mut m = BTreeMap::new();
-    m.insert(
-        "domain".to_string(),
-        Value::String(DAG_TIP_COSIGN_DOMAIN.to_string()),
-    );
-    m.insert("tip_hash".to_string(), Value::Bytes(tip_hash.to_vec()));
-    let hashes_array: Vec<Value> = enumerated_node_hashes
-        .iter()
-        .map(|h| Value::Bytes(h.to_vec()))
-        .collect();
-    m.insert(
-        "enumerated_node_hashes".to_string(),
-        Value::Array(hashes_array),
-    );
-    m.insert(
-        "proposed_mutation_hash".to_string(),
-        Value::Bytes(proposed_mutation_hash.to_vec()),
-    );
-    m.insert(
-        "anchor_timestamp_unix_ns".to_string(),
-        Value::Timestamp(anchor_timestamp_unix_ns),
-    );
-    m.insert(
-        "anchor_nonce".to_string(),
-        Value::Bytes(anchor_nonce.to_vec()),
-    );
-    cb_encode(&Value::Map(m))
-        .expect("dag_tip_cosign canonical-bytes encode infallible")
-        .0
-}
-
-/// Decode a DAG-tip co-sign envelope. Returns the parsed fields or `None`
-/// if the shape is wrong.
-pub fn decode_dag_tip_cosign(
-    bytes: &[u8],
-) -> Option<([u8; 32], Vec<[u8; 32]>, [u8; 32], i64, [u8; 32])> {
-    use myco_kernel_shared::canonical_bytes::decode;
-    let v = decode(bytes).ok()?;
-    let m = match v {
-        Value::Map(m) => m,
-        _ => return None,
-    };
-    // domain check.
-    match m.get("domain")? {
-        Value::String(s) if s == DAG_TIP_COSIGN_DOMAIN => {}
-        _ => return None,
-    }
-    let tip_hash = bytes_to_arr32_local(m.get("tip_hash")?)?;
-    let enumerated_arr = match m.get("enumerated_node_hashes")? {
-        Value::Array(a) => a.clone(),
-        _ => return None,
-    };
-    let mut enumerated: Vec<[u8; 32]> = Vec::with_capacity(enumerated_arr.len());
-    for v in enumerated_arr {
-        let h = bytes_to_arr32_local(&v)?;
-        enumerated.push(h);
-    }
-    let proposed_mutation_hash = bytes_to_arr32_local(m.get("proposed_mutation_hash")?)?;
-    let anchor_timestamp_unix_ns = match m.get("anchor_timestamp_unix_ns")? {
-        Value::Timestamp(t) => *t,
-        _ => return None,
-    };
-    let anchor_nonce = bytes_to_arr32_local(m.get("anchor_nonce")?)?;
-    Some((
-        tip_hash,
-        enumerated,
-        proposed_mutation_hash,
-        anchor_timestamp_unix_ns,
-        anchor_nonce,
-    ))
-}
-
-/// Build the canonical-bytes Map the owner signs for an L0 revision
-/// attestation (M-anchor-5 §9.2.4).
-pub fn build_l0_revision_canonical_bytes(
-    prior_l0_hash: &[u8; 32],
-    new_l0_hash: &[u8; 32],
-    diff_summary: &str,
-    anchor_timestamp_unix_ns: i64,
-    anchor_nonce: &[u8; 32],
-) -> Vec<u8> {
-    let mut m = BTreeMap::new();
-    m.insert(
-        "domain".to_string(),
-        Value::String(L0_REVISION_DOMAIN.to_string()),
-    );
-    m.insert(
-        "prior_l0_hash".to_string(),
-        Value::Bytes(prior_l0_hash.to_vec()),
-    );
-    m.insert(
-        "new_l0_hash".to_string(),
-        Value::Bytes(new_l0_hash.to_vec()),
-    );
-    m.insert(
-        "diff_summary".to_string(),
-        Value::String(diff_summary.to_string()),
-    );
-    m.insert(
-        "anchor_timestamp_unix_ns".to_string(),
-        Value::Timestamp(anchor_timestamp_unix_ns),
-    );
-    m.insert(
-        "anchor_nonce".to_string(),
-        Value::Bytes(anchor_nonce.to_vec()),
-    );
-    cb_encode(&Value::Map(m))
-        .expect("l0_revision canonical-bytes encode infallible")
-        .0
-}
-
-/// Decode an L0 revision attestation envelope.
-pub fn decode_l0_revision(
-    bytes: &[u8],
-) -> Option<([u8; 32], [u8; 32], String, i64, [u8; 32])> {
-    use myco_kernel_shared::canonical_bytes::decode;
-    let v = decode(bytes).ok()?;
-    let m = match v {
-        Value::Map(m) => m,
-        _ => return None,
-    };
-    match m.get("domain")? {
-        Value::String(s) if s == L0_REVISION_DOMAIN => {}
-        _ => return None,
-    }
-    let prior_l0_hash = bytes_to_arr32_local(m.get("prior_l0_hash")?)?;
-    let new_l0_hash = bytes_to_arr32_local(m.get("new_l0_hash")?)?;
-    let diff_summary = match m.get("diff_summary")? {
-        Value::String(s) => s.clone(),
-        _ => return None,
-    };
-    let anchor_timestamp_unix_ns = match m.get("anchor_timestamp_unix_ns")? {
-        Value::Timestamp(t) => *t,
-        _ => return None,
-    };
-    let anchor_nonce = bytes_to_arr32_local(m.get("anchor_nonce")?)?;
-    Some((
-        prior_l0_hash,
-        new_l0_hash,
-        diff_summary,
-        anchor_timestamp_unix_ns,
-        anchor_nonce,
-    ))
-}
-
+/// Local 32-byte extractor shared by the kept decoders below.
 fn bytes_to_arr32_local(v: &Value) -> Option<[u8; 32]> {
     match v {
         Value::Bytes(b) => {
@@ -205,81 +45,6 @@ fn bytes_to_arr32_local(v: &Value) -> Option<[u8; 32]> {
         }
         _ => None,
     }
-}
-
-/// Convenience: full `tip_cosigned:{prefix}` node_type string.
-pub fn tip_cosigned_node_type(tip_hash: &[u8; 32]) -> String {
-    format!(
-        "{}{}",
-        NODE_TYPE_TIP_COSIGNED_PREFIX,
-        hex_prefix(tip_hash, 8)
-    )
-}
-
-/// Convenience: full `l0_revision_attested:{prefix}` node_type string,
-/// keyed on the prior_l0_hash so consecutive revisions are distinguishable.
-pub fn l0_revision_attested_node_type(prior_l0_hash: &[u8; 32]) -> String {
-    format!(
-        "{}{}",
-        NODE_TYPE_L0_REVISION_ATTESTED_PREFIX,
-        hex_prefix(prior_l0_hash, 8)
-    )
-}
-
-/// Encode the body of a `tip_cosigned:{prefix}` DAG event.
-/// Mirrors the cosign envelope shape PLUS owner signature + pubkey for
-/// offline re-verification.
-pub fn encode_tip_cosigned_event(
-    cosign_envelope_bytes: &[u8],
-    owner_signature: &[u8; 64],
-    owner_pubkey: &[u8; 32],
-    emitted_at_cycle: u64,
-) -> CanonicalBytes {
-    let mut m = BTreeMap::new();
-    m.insert(
-        "cosign_envelope".to_string(),
-        Value::Bytes(cosign_envelope_bytes.to_vec()),
-    );
-    m.insert(
-        "owner_signature".to_string(),
-        Value::Bytes(owner_signature.to_vec()),
-    );
-    m.insert(
-        "owner_pubkey".to_string(),
-        Value::Bytes(owner_pubkey.to_vec()),
-    );
-    m.insert(
-        "emitted_at_cycle".to_string(),
-        Value::Uint(emitted_at_cycle),
-    );
-    cb_encode(&Value::Map(m)).expect("tip_cosigned event encode infallible")
-}
-
-/// Encode the body of an `l0_revision_attested:{prefix}` DAG event.
-pub fn encode_l0_revision_attested_event(
-    l0_revision_envelope_bytes: &[u8],
-    owner_signature: &[u8; 64],
-    owner_pubkey: &[u8; 32],
-    emitted_at_cycle: u64,
-) -> CanonicalBytes {
-    let mut m = BTreeMap::new();
-    m.insert(
-        "l0_revision_envelope".to_string(),
-        Value::Bytes(l0_revision_envelope_bytes.to_vec()),
-    );
-    m.insert(
-        "owner_signature".to_string(),
-        Value::Bytes(owner_signature.to_vec()),
-    );
-    m.insert(
-        "owner_pubkey".to_string(),
-        Value::Bytes(owner_pubkey.to_vec()),
-    );
-    m.insert(
-        "emitted_at_cycle".to_string(),
-        Value::Uint(emitted_at_cycle),
-    );
-    cb_encode(&Value::Map(m)).expect("l0_revision_attested event encode infallible")
 }
 
 // ---------------------------------------------------------------------------
@@ -479,94 +244,8 @@ pub fn anchor_nonce_derived_sample_indices(
 // `genesis_attestation_chain_broken` immune sporocarp + auto-quarantine.
 // ---------------------------------------------------------------------------
 
-/// Prefix for `birth_attestation:{substrate_id_prefix}` events (M-anchor-2).
-pub const NODE_TYPE_BIRTH_ATTESTATION_PREFIX: &str = "birth_attestation:";
-
-/// Full event node_type for a birth attestation, suffixed by the first 8
-/// bytes of substrate_id in hex (mirrors `genesis_event_node_type`).
-pub fn birth_attestation_node_type(substrate_id: &[u8; 32]) -> String {
-    format!(
-        "{}{}",
-        NODE_TYPE_BIRTH_ATTESTATION_PREFIX,
-        hex_prefix(substrate_id, 8)
-    )
-}
-
-/// Encode the body of a `birth_attestation` DAG event.
-/// ```text
-/// Map({
-///   "attested_canonical_bytes": Bytes,  // the bytes the owner signed
-///   "signature":                Bytes(64),
-///   "owner_pubkey":             Bytes(32),
-///   "emitted_at_unix_ns":       Timestamp,
-/// })
-/// ```
-pub fn encode_birth_attestation(
-    attested_canonical_bytes: &[u8],
-    signature: &[u8; 64],
-    owner_pubkey: &[u8; 32],
-    emitted_at_unix_ns: i64,
-) -> CanonicalBytes {
-    let mut m = BTreeMap::new();
-    m.insert(
-        "attested_canonical_bytes".to_string(),
-        Value::Bytes(attested_canonical_bytes.to_vec()),
-    );
-    m.insert(
-        "signature".to_string(),
-        Value::Bytes(signature.to_vec()),
-    );
-    m.insert(
-        "owner_pubkey".to_string(),
-        Value::Bytes(owner_pubkey.to_vec()),
-    );
-    m.insert(
-        "emitted_at_unix_ns".to_string(),
-        Value::Timestamp(emitted_at_unix_ns),
-    );
-    cb_encode(&Value::Map(m)).expect("birth_attestation encode infallible")
-}
-
-/// Decode a `birth_attestation` DAG event body. Used by the boot-time
-/// C20 verifier. Returns `(attested_canonical_bytes, signature, owner_pubkey)`
-/// or `None` if the shape is wrong.
-pub fn decode_birth_attestation(
-    bytes: &[u8],
-) -> Option<(Vec<u8>, [u8; 64], [u8; 32])> {
-    use myco_kernel_shared::canonical_bytes::decode;
-    let v = decode(bytes).ok()?;
-    let m = match v {
-        Value::Map(m) => m,
-        _ => return None,
-    };
-    let attested = match m.get("attested_canonical_bytes")? {
-        Value::Bytes(b) => b.clone(),
-        _ => return None,
-    };
-    let sig = match m.get("signature")? {
-        Value::Bytes(b) => {
-            if b.len() != 64 {
-                return None;
-            }
-            let mut arr = [0u8; 64];
-            arr.copy_from_slice(b);
-            arr
-        }
-        _ => return None,
-    };
-    let pk = match m.get("owner_pubkey")? {
-        Value::Bytes(b) => {
-            if b.len() != 32 {
-                return None;
-            }
-            let mut arr = [0u8; 32];
-            arr.copy_from_slice(b);
-            arr
-        }
-        _ => return None,
-    };
-    Some((attested, sig, pk))
-}
+// (v0.9 owner-key removal: the M-anchor-2 §9.2.1 birth_attestation codec was
+// removed with the anchor surface — there is no owner-signed birth attestation.)
 
 // ---------------------------------------------------------------------------
 // **P08 §3.2 / §3.5 / §5.1 — Reproduction cultivator co-attestation + I7
@@ -736,17 +415,15 @@ pub fn birth_closure_complete_node_type(child_substrate_id: &[u8; 32]) -> String
 }
 
 /// Encode the body of a `genesis_attested:{child_prefix}` DAG event — the
-/// I7-closure record in the PARENT's DAG (P08 §3.5).
+/// I7-closure record in the PARENT's DAG (P08 §3.5; KEYLESS v0.9 — the
+/// cultivator owner_signature + owner_pubkey fields were removed).
 ///
-/// Carries the cultivator-signed envelope bytes + signature + pubkey for
-/// offline re-verification, the parent/child/spore binding, and a boolean
-/// witness that the parent ran the child's static-schema validation
-/// (I7 step a) and it passed.
+/// Carries the spawn-cosign envelope bytes (for offline inspection), the
+/// parent/child/spore binding, and a boolean witness that the parent ran the
+/// child's static-schema validation (I7 step a) and it passed.
 /// ```text
 /// Map({
-///   "spawn_cosign_envelope":     Bytes,      // the bytes the cultivator signed
-///   "owner_signature":           Bytes(64),
-///   "owner_pubkey":              Bytes(32),
+///   "spawn_cosign_envelope":     Bytes,      // the spawn parameters envelope
 ///   "parent_substrate_id":       Bytes(32),
 ///   "child_substrate_id":        Bytes(32),
 ///   "spore_schema_hash":         Bytes(32),
@@ -754,11 +431,8 @@ pub fn birth_closure_complete_node_type(child_substrate_id: &[u8; 32]) -> String
 ///   "emitted_at_cycle":          Uint,
 /// })
 /// ```
-#[allow(clippy::too_many_arguments)]
 pub fn encode_genesis_attested_event(
     spawn_cosign_envelope_bytes: &[u8],
-    owner_signature: &[u8; 64],
-    owner_pubkey: &[u8; 32],
     parent_substrate_id: &[u8; 32],
     child_substrate_id: &[u8; 32],
     spore_schema_hash: &[u8; 32],
@@ -769,14 +443,6 @@ pub fn encode_genesis_attested_event(
     m.insert(
         "spawn_cosign_envelope".to_string(),
         Value::Bytes(spawn_cosign_envelope_bytes.to_vec()),
-    );
-    m.insert(
-        "owner_signature".to_string(),
-        Value::Bytes(owner_signature.to_vec()),
-    );
-    m.insert(
-        "owner_pubkey".to_string(),
-        Value::Bytes(owner_pubkey.to_vec()),
     );
     m.insert(
         "parent_substrate_id".to_string(),
@@ -801,25 +467,16 @@ pub fn encode_genesis_attested_event(
     cb_encode(&Value::Map(m)).expect("genesis_attested event encode infallible")
 }
 
-/// Decode a `genesis_attested` DAG event body. Returns the parsed fields or
-/// `None` on shape mismatch.
+/// Decode a `genesis_attested` DAG event body (KEYLESS v0.9). Returns the parsed
+/// fields or `None` on shape mismatch.
 ///
-/// Tuple order: `(spawn_cosign_envelope, owner_signature, owner_pubkey,
-/// parent_substrate_id, child_substrate_id, spore_schema_hash,
-/// child_static_schema_valid, emitted_at_cycle)`.
+/// Tuple order: `(spawn_cosign_envelope, parent_substrate_id,
+/// child_substrate_id, spore_schema_hash, child_static_schema_valid,
+/// emitted_at_cycle)`.
 #[allow(clippy::type_complexity)]
 pub fn decode_genesis_attested_event(
     bytes: &[u8],
-) -> Option<(
-    Vec<u8>,
-    [u8; 64],
-    [u8; 32],
-    [u8; 32],
-    [u8; 32],
-    [u8; 32],
-    bool,
-    u64,
-)> {
+) -> Option<(Vec<u8>, [u8; 32], [u8; 32], [u8; 32], bool, u64)> {
     use myco_kernel_shared::canonical_bytes::decode;
     let v = decode(bytes).ok()?;
     let m = match v {
@@ -830,15 +487,6 @@ pub fn decode_genesis_attested_event(
         Value::Bytes(b) => b.clone(),
         _ => return None,
     };
-    let sig = match m.get("owner_signature")? {
-        Value::Bytes(b) if b.len() == 64 => {
-            let mut arr = [0u8; 64];
-            arr.copy_from_slice(b);
-            arr
-        }
-        _ => return None,
-    };
-    let pubkey = bytes_to_arr32_local(m.get("owner_pubkey")?)?;
     let parent_substrate_id = bytes_to_arr32_local(m.get("parent_substrate_id")?)?;
     let child_substrate_id = bytes_to_arr32_local(m.get("child_substrate_id")?)?;
     let spore_schema_hash = bytes_to_arr32_local(m.get("spore_schema_hash")?)?;
@@ -852,8 +500,6 @@ pub fn decode_genesis_attested_event(
     };
     Some((
         envelope,
-        sig,
-        pubkey,
         parent_substrate_id,
         child_substrate_id,
         spore_schema_hash,
@@ -1048,20 +694,16 @@ mod spawn_cosign_tests {
     #[test]
     fn genesis_attested_event_roundtrips() {
         let envelope = vec![0x55u8; 80];
-        let sig = [0x66u8; 64];
-        let pubkey = [0x77u8; 32];
         let parent = [0x88u8; 32];
         let child = [0x99u8; 32];
         let spore_hash = [0xaau8; 32];
         let cycle: u64 = 4242;
         let body = encode_genesis_attested_event(
-            &envelope, &sig, &pubkey, &parent, &child, &spore_hash, true, cycle,
+            &envelope, &parent, &child, &spore_hash, true, cycle,
         );
-        let (env_out, sig_out, pk_out, p_out, c_out, sh_out, valid_out, cyc_out) =
+        let (env_out, p_out, c_out, sh_out, valid_out, cyc_out) =
             decode_genesis_attested_event(body.as_ref()).expect("decodes");
         assert_eq!(env_out, envelope);
-        assert_eq!(sig_out, sig);
-        assert_eq!(pk_out, pubkey);
         assert_eq!(p_out, parent);
         assert_eq!(c_out, child);
         assert_eq!(sh_out, spore_hash);

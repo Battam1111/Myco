@@ -81,13 +81,6 @@ pub(crate) fn save_dag_state(state: &ServerState) -> Result<usize, SubstrateErro
     }
 }
 
-/// M21.4 P5 万物互联: nonce log persistence is now NO-OP. The nonce_log is
-/// derived from `nonce_issued` / `nonce_consumed` DAG events at boot.
-#[allow(clippy::unnecessary_wraps)]
-pub(crate) fn save_nonce_state(_state: &ServerState) -> Result<(), SubstrateError> {
-    // M21.4: no-op. Nonce state is event-sourced via DAG.
-    Ok(())
-}
 
 /// M21.5 P5 万物互联: apply DAG events that occur AFTER a snapshot's recorded
 /// tip to a DerivedState already initialized from that snapshot.
@@ -145,7 +138,6 @@ pub(crate) fn save_snapshot_for_state(state: &ServerState) -> Result<usize, Subs
         generation_depth: state.generation_depth(),
         cycle_counter: state.cycle_counter(),
         last_absorbed_cycle: state.last_absorbed_cycle(),
-        pinned_operator_identity: state.pinned_operator_identity.clone(),
         nonce_log: state
             .nonce_log
             .iter()
@@ -186,7 +178,6 @@ pub(crate) fn save_snapshot_for_state(state: &ServerState) -> Result<usize, Subs
         // path re-derives them from the full DAG (`rederive_cultivation_from_dag`).
         successor_chain: Vec::new(),
         succession_config: None,
-        latest_heartbeat: None,
     };
     // Record the DAG tip at snapshot time so boot knows where to resume replay.
     let snapshot_at_tip: Option<[u8; 32]> = state.dag.tip().map(|t| {
@@ -237,20 +228,8 @@ pub(crate) fn backfill_dag_from_python_state(
         let _ = save_dag_state(state);
     }
 
-    // Emit operator_pinned if missing.
-    let has_op_pinned = state.dag.iter_in_insertion_order().any(|n| {
-        n.node_type
-            .starts_with(crate::events::NODE_TYPE_OPERATOR_PINNED_PREFIX)
-    });
-    if !has_op_pinned {
-        if let Some(pinned) = state.pinned_operator_identity.clone() {
-            let event_nt = crate::events::operator_pinned_node_type(&pinned.pubkey);
-            let event_content =
-                crate::events::encode_operator_pinned(&pinned.pubkey, pinned.first_pinned_unix_ns);
-            let _ = emit_substrate_event(state, event_nt, event_content);
-            let _ = save_dag_state(state);
-        }
-    }
+    // (v0.9 owner-key removal: the operator_pinned backfill emit was removed —
+    // there is no pinned operator identity to record.)
 
     // Query Python for its loaded axis schemas + current values.
     let schemas = python_client

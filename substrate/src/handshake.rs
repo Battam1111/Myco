@@ -1,57 +1,39 @@
 //! Operator handshake primitives — extracted from `server.rs` (Phase B Step 3).
 //!
 //! Owns the `hello` request handler that completes the operator/substrate
-//! M5-protocol handshake (session-secret intake, Python worker spawning,
-//! optional M9 TOFU pin/verify of the operator's Ed25519 public key, and
-//! event back-fill / replay across the M21 boundary) plus its M9 signature
-//! verifier helper.
+//! M5-protocol handshake (session-secret intake, Python worker spawning, and
+//! event back-fill / replay across the M21 boundary) plus `hello_ack`.
+//!
+//! **v0.9 owner-key removal**: the M9 TOFU pin/verify of the operator's Ed25519
+//! public key (and the strict-Ed25519 handshake gate, the operator_pinned
+//! emission, and the owner_key_initialized genesis backfill) were removed along
+//! with the rest of the anchor surface. The handshake is now keyless: any
+//! operator presenting a valid session_secret completes it.
 //!
 //! Doctrine traceability:
 //! - L1/SKIN §4.1 — operator handshake + envelope discipline.
-//! - L1/HARD_RULES §1 — C2 handshake_pubkey_mismatch (TOFU/match).
-//! - L1/HARD_RULES §1 — C2 downgrade protection (pinned-but-absent).
 
 use std::collections::BTreeMap;
 
 use myco_kernel_bridge::client::{BridgeClient, BridgeClientConfig};
 use myco_kernel_bridge::protocol::{msg_type, Message};
-use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
-use myco_kernel_shared::crypto::verify_signature;
+use myco_kernel_shared::canonical_bytes::Value;
 
-use crate::persistence::PinnedOperatorIdentity;
 use crate::server::{
-    backfill_dag_from_python_state, emit_substrate_event, hex_encode, replay_python_events_from_dag,
-    save_dag_state, ServerState,
+    backfill_dag_from_python_state, replay_python_events_from_dag, ServerState,
 };
 use crate::SubstrateError;
 
-/// **v3.1.1 Sprint 6.I (T2.11)** — strict-Ed25519 operator handshake gate.
+/// M5 handshake entry point: consume the operator's `hello`, spawn the Python
+/// kernel/tropism worker, hydrate substrate-side state (M21+ DAG replay vs.
+/// legacy gradient-disk path), and return `hello_ack`.
 ///
-/// When `MYCO_REQUIRE_ED25519_OPERATOR_HANDSHAKE` is set to a truthy
-/// value, the substrate REJECTS operator hellos that lack
-/// `operator_pubkey` + `hello_signature`. This forces operators onto the
-/// M7+ Ed25519 path symmetric with how federation peers default to
-/// strict (`MYCO_ACCEPT_LEGACY_PEERS` defaults OFF).
-///
-/// Default OFF for backward compatibility with M5-M8-only operators.
-/// Cultivator sets to ON when operators are migrated; without this flag
-/// flipping eventually, substrate stays in legacy mode forever and the
-/// eventual M7+ migration becomes a coordinated flag day.
-fn require_ed25519_operator_handshake() -> bool {
-    std::env::var("MYCO_REQUIRE_ED25519_OPERATOR_HANDSHAKE")
-        .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
-        .unwrap_or(false)
-}
-
-/// M5 handshake entry point: consume the operator's `hello`, optionally
-/// TOFU-pin or match the operator's Ed25519 identity (M9+), spawn the
-/// Python kernel/tropism worker, hydrate substrate-side state (M21+ DAG
-/// replay vs. legacy gradient-disk path), and return `hello_ack`.
+/// **v0.9 keyless**: no operator-identity verification is performed; the only
+/// requirement is a well-formed 32-byte `session_secret`.
 ///
 /// Errors:
 /// - `SubstrateError::Handshake` if `hello` arrives after handshake is
-///   complete, payload is missing `session_secret`, signature is invalid,
-///   or pubkey downgrade is attempted against a pinned identity.
+///   complete or the payload is missing `session_secret`.
 /// - `SubstrateError::Bridge` if the Python worker fails to spawn or
 ///   complete its own M5 handshake.
 pub(crate) fn handle_hello(
@@ -77,39 +59,9 @@ pub(crate) fn handle_hello(
         }
     };
 
-    // M9: extract + verify operator identity. If the hello payload includes
-    // operator_pubkey + hello_signature, verify the signature; then either
-    // pin (first sight, TOFU) or match (subsequent sessions).
-    //
-    // For M5-M8 backward compatibility: if these fields are absent AND no
-    // pubkey has been pinned, accept (legacy mode). If pinned but absent in
-    // hello, REJECT (someone is trying to downgrade).
-    let pubkey_present = request.payload.contains_key("operator_pubkey");
-    let sig_present = request.payload.contains_key("hello_signature");
-    let pinned_pre = state.pinned_operator_identity.clone();
-
-    if pubkey_present && sig_present {
-        verify_hello_signature_and_pin(state, &secret, request)?;
-    } else if pinned_pre.is_some() {
-        return Err(SubstrateError::Handshake(
-            "hello missing operator_pubkey + hello_signature; substrate has a pinned operator identity (downgrade rejected; M9 L1/HARD_RULES C2)".to_string(),
-        ));
-    } else if require_ed25519_operator_handshake() {
-        // **v3.1.1 Sprint 6.I (T2.11)** — strict mode: reject first-sight
-        // operators that don't supply Ed25519 pubkey + signature. Symmetric
-        // with `MYCO_ACCEPT_LEGACY_PEERS` for federation peers. Default off
-        // for backward compatibility; cultivator enables when operators
-        // are migrated. Without this flag, a substrate that never gets a
-        // signed hello stays in legacy M5-M8 mode forever — the eventual
-        // M7+ migration becomes a flag day.
-        return Err(SubstrateError::Handshake(
-            "MYCO_REQUIRE_ED25519_OPERATOR_HANDSHAKE=1 is set; \
-             hello MUST include operator_pubkey + hello_signature \
-             (legacy M5-M8 mode disabled at operator request)"
-                .to_string(),
-        ));
-    }
-    // else: legacy mode (no pubkey pinned, no signature provided) — accept.
+    // (v0.9 owner-key removal: the M9 operator_pubkey / hello_signature TOFU
+    // pin/verify + the strict-Ed25519 handshake gate were removed. Any
+    // operator_pubkey / hello_signature fields in the payload are ignored.)
 
     state.session_secret = secret;
 
@@ -130,21 +82,20 @@ pub(crate) fn handle_hello(
     let kernel_tropism_version = python_client.hello_ack.kernel_tropism_version.clone();
 
     // M7 cold-resume: ask the Python worker to hydrate from disk.
-    // M10: also pass the just-verified operator pubkey as the genesis owner
-    // pubkey, so Python can initialize owner_keys.cb if no prior owner-key
-    // history exists on disk. (For M10 minimum, operator == owner.)
     //
     // M21.3 P5 万物互联: post-M21 substrates use DAG-derived state. Rust
     // tells Python `skip_disk_load=true`; Python loads empty in-memory state;
     // Rust then replays DAG events to reconstruct Python's gradient view.
+    //
+    // **v0.9 keyless**: no genesis owner pubkey is passed to Python (the
+    // owner-keys subsystem was removed); `load_state_full` receives `None`.
     let state_dir_str = state.state_dir.to_string_lossy().into_owned();
-    let genesis_owner = state.pinned_operator_identity.as_ref().map(|p| p.pubkey);
     let derived = crate::derived_state::DerivedState::from_dag(&state.dag)
         .unwrap_or_else(|_| crate::derived_state::DerivedState::empty());
     let is_post_m21 = derived.is_post_m21_substrate();
     let (_hydrated_axis_count, _hydrated) = python_client.load_state_full(
         &state_dir_str,
-        genesis_owner.as_ref(),
+        None,
         /* skip_disk_load = */ is_post_m21,
     )?;
 
@@ -162,37 +113,9 @@ pub(crate) fn handle_hello(
         replay_python_events_from_dag(&mut python_client, &state.dag)?;
     } else {
         // Legacy back-fill: query Python's loaded axes; emit DAG events for
-        // each that's not yet recorded.
-        backfill_dag_from_python_state(&mut python_client, state, &genesis_owner)?;
-    }
-
-    // M21.3: emit owner_key_initialized event if not already in DAG.
-    // Back-fills for substrates that completed M9 TOFU before M21.3.
-    let owner_key_initialized_present = state
-        .dag
-        .iter_in_insertion_order()
-        .any(|n| n.node_type == crate::events::NODE_TYPE_OWNER_KEY_INITIALIZED);
-    if !owner_key_initialized_present {
-        if let Some(genesis_pk) = genesis_owner {
-            let anchor_ts = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .ok()
-                .map(|d| d.as_secs())
-                .unwrap_or(0);
-            let event_content = crate::events::encode_owner_key_initialized(&genesis_pk, anchor_ts);
-            let parents = match state.dag.tip() {
-                Some(t) => vec![t],
-                None => Vec::new(),
-            };
-            let cycle = state.cycle_counter();
-            let _ = state.dag.insert_node(
-                parents,
-                crate::events::NODE_TYPE_OWNER_KEY_INITIALIZED.to_string(),
-                cycle,
-                event_content,
-            );
-            let _ = save_dag_state(state);
-        }
+        // each that's not yet recorded. (No genesis owner in v0.9 keyless mode.)
+        let no_genesis_owner: Option<[u8; 32]> = None;
+        backfill_dag_from_python_state(&mut python_client, state, &no_genesis_owner)?;
     }
 
     state.python_client = Some(python_client);
@@ -231,92 +154,4 @@ pub(crate) fn handle_hello(
         request.request_id,
         payload,
     )))
-}
-
-/// M9: Verify the hello message's Ed25519 signature and TOFU-pin or match
-/// the operator's public key.
-///
-/// The signing input is the canonical-bytes encoding of a Map containing
-/// {session_secret, operator_pubkey} (the hello_signature field is excluded
-/// to avoid self-reference). Must match TS-side [`helloSigningBody`].
-fn verify_hello_signature_and_pin(
-    state: &mut ServerState,
-    secret: &[u8; 32],
-    request: &Message,
-) -> Result<(), SubstrateError> {
-    // Extract operator_pubkey.
-    let pubkey_bytes = match request.payload.get("operator_pubkey") {
-        Some(Value::Bytes(b)) if b.len() == 32 => {
-            let mut arr = [0u8; 32];
-            arr.copy_from_slice(b);
-            arr
-        }
-        _ => {
-            return Err(SubstrateError::Handshake(
-                "hello operator_pubkey must be 32 bytes".to_string(),
-            ))
-        }
-    };
-
-    // Extract hello_signature.
-    let signature_bytes = match request.payload.get("hello_signature") {
-        Some(Value::Bytes(b)) if b.len() == 64 => {
-            let mut arr = [0u8; 64];
-            arr.copy_from_slice(b);
-            arr
-        }
-        _ => {
-            return Err(SubstrateError::Handshake(
-                "hello_signature must be 64 bytes".to_string(),
-            ))
-        }
-    };
-
-    // Reconstruct the signing body: canonical-bytes of {session_secret, operator_pubkey}.
-    let mut signing_map = BTreeMap::new();
-    signing_map.insert("session_secret".to_string(), Value::Bytes(secret.to_vec()));
-    signing_map.insert(
-        "operator_pubkey".to_string(),
-        Value::Bytes(pubkey_bytes.to_vec()),
-    );
-    let signing_input = cb_encode(&Value::Map(signing_map))
-        .map_err(|e| SubstrateError::Handshake(format!("hello signing-body encode: {e}")))?;
-
-    // Verify the Ed25519 signature.
-    verify_signature(&pubkey_bytes, &signature_bytes, signing_input.as_ref()).map_err(|e| {
-        SubstrateError::Handshake(format!(
-            "hello_signature verification failed (L1/HARD_RULES C2): {e}"
-        ))
-    })?;
-
-    // TOFU or match.
-    match &state.pinned_operator_identity {
-        None => {
-            // First sight — pin.
-            // M21.4: do NOT write `operator_identity_pubkey.cb`. The pinned
-            // identity is derived from the operator_pinned DAG event below.
-            let pinned = PinnedOperatorIdentity::pin_now(pubkey_bytes);
-            // M21.1 P5 万物互联: emit operator_pinned DAG event so the TOFU
-            // pinning is recorded in the causal graph (now the authoritative
-            // record, post-M21.4).
-            let event_node_type = crate::events::operator_pinned_node_type(&pinned.pubkey);
-            let event_content =
-                crate::events::encode_operator_pinned(&pinned.pubkey, pinned.first_pinned_unix_ns);
-            let _ = emit_substrate_event(state, event_node_type, event_content);
-            let _ = save_dag_state(state);
-            state.pinned_operator_identity = Some(pinned);
-            Ok(())
-        }
-        Some(pinned) => {
-            if pinned.pubkey == pubkey_bytes {
-                Ok(())
-            } else {
-                Err(SubstrateError::Handshake(format!(
-                    "operator pubkey mismatch: pinned {} vs presented {} (L1/HARD_RULES C2 handshake_pubkey_mismatch)",
-                    hex_encode(&pinned.pubkey),
-                    hex_encode(&pubkey_bytes)
-                )))
-            }
-        }
-    }
 }

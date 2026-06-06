@@ -209,6 +209,12 @@ pub(crate) fn emit_federation_peer_pinned(
 /// decoded + accepted `revoke_federation_peer` mutation in
 /// `attestation::handle_submit_mutation`. Returns `Ok(Some(hash))` on a
 /// first-time revocation, `Ok(None)` when the peer was already revoked.
+///
+/// **v0.9 owner-key removal**: the sole caller (the owner-attested
+/// `revoke_federation_peer` mutation block) was removed; this CRL-emit is
+/// retained dormant. The downstream C13 egress branches that consult
+/// `revoked_federation_peers` are kept (they simply never fire now).
+#[allow(dead_code)]
 pub(crate) fn emit_federation_peer_revoked(
     state: &mut ServerState,
     revoked_peer_substrate_id: &[u8; 32],
