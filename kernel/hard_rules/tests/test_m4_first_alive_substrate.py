@@ -45,42 +45,23 @@ This test exercises ALL of those — proving 'first alive' is achievable.
 
 from __future__ import annotations
 
-import pytest
-
-from myco_kernel_governance.attestation import (
-    AttestationRequest,
-    ExpiryConstraints,
-    OwnerSignedAttestation,
-    VerificationContext,
-    construct_owner_signed_from_request,
-    verify_owner_signed_attestation,
-)
-from myco_kernel_governance.canonical_bytes import CanonicalBytes
 from myco_kernel_governance.classifier import (
     Classification,
     MutationEnvelope,
     classify,
 )
 from myco_kernel_governance.crypto import (
-    Ed25519PrivateKey,
-    Ed25519Signature,
     NodeHash,
-    merkle_hash,
 )
-from myco_kernel_governance.owner_keys import init_with_genesis_key
 from myco_kernel_hard_rules.detectors import (
-    AttestationVerification,
     BreachId,
     DagNodeAttempt,
     EgressAttempt,
-    HandshakeAttempt,
     MutationClassification,
-    OperatorWitnessVerification,
     build_default_registry,
     detect_c1_appetite_locality_breach,
     detect_c7_dag_retro_edit,
     detect_c14_untyped_mutation,
-    detect_c17_operator_witness_forgery,
 )
 from myco_kernel_trajectory.cluster import cluster_connected_components
 from myco_kernel_trajectory.query import (
@@ -114,14 +95,11 @@ class FirstAliveSubstrate:
 
     def __init__(self) -> None:
         # Identity.
+        #
+        # **v0.9 owner-key removal**: the owner/operator Ed25519 keypairs +
+        # owner_key_history were removed — the substrate is keyless. Identity is
+        # carried by substrate_id alone here.
         self.substrate_id = "myco_first_alive_001"
-        self.owner_priv = Ed25519PrivateKey.from_seed(b"\xa1" * 32)
-        self.owner_key_history = init_with_genesis_key(
-            self.owner_priv.public_key(),
-            genesis_anchor_timestamp_unix_seconds=1_700_000_000,
-        )
-        self.operator_priv = Ed25519PrivateKey.from_seed(b"\xb2" * 32)
-        self.operator_pub = self.operator_priv.public_key()
 
         # Gradient configuration (kernel/tropism).
         self.gradient = GradientConfiguration()
@@ -287,16 +265,8 @@ def test_m4_immune_untyped_mutation_detected() -> None:
     assert event is not None
 
 
-def test_m4_immune_operator_witness_forgery_detected() -> None:
-    """L1/HARD_RULES C17: operator_witness signed by wrong key."""
-    event = detect_c17_operator_witness_forgery(
-        OperatorWitnessVerification(
-            verified=False,
-            operator_pubkey_hex="ff" * 32,
-        ),
-        at_cycle=100,
-    )
-    assert event is not None
+# v0.9 owner-key removal: the C17 operator_witness_forgery immune scenario was
+# removed with the operator-witness signature (no owner-key/anchor subsystem).
 
 
 # ---------------------------------------------------------------------------
@@ -339,75 +309,10 @@ def test_m4_cold_start_intent_at_genesis() -> None:
     assert nbr_result.cold_start
 
 
-# ---------------------------------------------------------------------------
-# M4 milestone full attestation flow: substrate proposes CI mutation;
-# anchor + owner sign; substrate verifies; commits to DAG.
-# ---------------------------------------------------------------------------
-
-
-def test_m4_full_ci_attestation_flow() -> None:
-    """Substrate runs a CI mutation through the full L1/GOVERNANCE §2 flow."""
-    sub = FirstAliveSubstrate()
-
-    # 1. Classifier confirms CI for an owner_key_history mutation.
-    mutation_envelope = MutationEnvelope(
-        touched_fields=frozenset({"owner_key_history"}),
-        mutation_type="field_update",
-    )
-    classification = classify(mutation_envelope)
-    assert classification is Classification.CONTRACT_IDENTITY_LEVEL
-
-    # 2. Substrate builds attestation request.
-    mutation_canonical = CanonicalBytes(b"rotate_owner_key_proposed_canonical")
-    mutation_hash = merkle_hash([], mutation_canonical.bytes_)
-    operator_witness = sub.operator_priv.sign(mutation_canonical.bytes_)
-
-    request = AttestationRequest(
-        substrate_id=sub.substrate_id,
-        dag_tip_hash=NodeHash(b"\xee" * 32),
-        enumerated_dag_nodes_since_last_co_sign=(),
-        proposed_mutation_canonical_bytes=mutation_canonical,
-        proposed_mutation_hash=mutation_hash,
-        operator_witness=operator_witness,
-        operator_signing_key_public=sub.operator_pub,
-        request_timestamp_substrate_cycles=sub.cycle,
-        anchor_surface_nonce=b"\x77" * 32,
-        expiry_constraints=ExpiryConstraints(
-            cycles_max=100, wall_clock_seconds_max=600
-        ),
-    )
-
-    # 3. Anchor + owner side: sign the tuple.
-    anchor_timestamp = 1_700_001_000
-    placeholder = OwnerSignedAttestation(
-        substrate_id=request.substrate_id,
-        dag_tip_hash=request.dag_tip_hash,
-        proposed_mutation_hash=request.proposed_mutation_hash,
-        operator_witness=request.operator_witness,
-        operator_signing_key_public=request.operator_signing_key_public,
-        anchor_surface_nonce=request.anchor_surface_nonce,
-        anchor_surface_timestamp_unix_seconds=anchor_timestamp,
-        owner_signature=Ed25519Signature(b"\x00" * 64),
-    )
-    canonical_to_sign = placeholder.signed_tuple_canonical_bytes()
-    owner_sig = sub.owner_priv.sign(canonical_to_sign.bytes_)
-    attestation = construct_owner_signed_from_request(
-        request, anchor_timestamp, owner_sig
-    )
-
-    # 4. Substrate verifies + would commit (here we just verify the
-    # attestation is structurally valid).
-    owner_key_at_ts = sub.owner_key_history.active_at(anchor_timestamp)
-    ctx = VerificationContext(
-        owner_public_key_active_at_timestamp=owner_key_at_ts,
-        current_substrate_cycle=sub.cycle + 5,
-        current_wall_clock_unix_seconds=anchor_timestamp + 50,
-        consumed_nonces=frozenset(),
-        original_request_substrate_cycle=sub.cycle,
-        original_request_constraints=request.expiry_constraints,
-    )
-    # Should not raise.
-    verify_owner_signed_attestation(attestation, ctx)
+# v0.9 owner-key removal: the full CI attestation flow test
+# (test_m4_full_ci_attestation_flow) was removed — the owner-signed attestation
+# envelope protocol (anchor nonce + owner signature + dual-clock verify) is gone.
+# CI mutations are now accepted keyless; the classifier still grades them CI.
 
 
 # ---------------------------------------------------------------------------
@@ -450,8 +355,9 @@ def test_m4_kernel_stack_interoperation() -> None:
     )
     assert classification is Classification.DAILY
 
-    # Detector registry still wired.
+    # Detector registry still wired (v0.9: C17 operator_witness_forgery removed
+    # with the owner-key subsystem; C14 untyped_mutation is a kept detector).
     assert sub.detector_registry.has(BreachId.C1_APPETITE_LOCALITY_BREACH)
-    assert sub.detector_registry.has(BreachId.C17_OPERATOR_WITNESS_FORGERY)
+    assert sub.detector_registry.has(BreachId.C14_UNTYPED_MUTATION)
 
     # Substrate is alive: it metabolized, fruited, and stayed coherent.

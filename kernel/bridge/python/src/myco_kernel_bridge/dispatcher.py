@@ -10,8 +10,8 @@ The :mod:`myco_kernel_bridge.daemon` module owns the I/O loop and session
 state (session_secret, sequence). This module owns the **routing** — turning
 a decoded :class:`Message` into the one handler that processes it. The
 **stateful kernel work** (the gradient configuration that lives across
-requests, the sporocarp emissions queued for response, the owner-key history)
-lives in the handlers, operating on the :class:`DispatcherState` defined in
+requests, the sporocarp emissions queued for response) lives in the handlers,
+operating on the :class:`DispatcherState` defined in
 :mod:`myco_kernel_bridge.handlers.state`.
 
 Separating these concerns lets the dispatcher and each handler be

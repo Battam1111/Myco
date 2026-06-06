@@ -276,12 +276,20 @@ fn sprint_5b_schema_diff_canonical_bytes_add_axis_roundtrips() {
 }
 
 #[test]
-fn sprint_5b_schema_evolution_rejected_without_owner_attestation() {
-    // **Defense path**: submit_mutation with mutation_type=schema_evolution
-    // requires owner attestation per classifier.py (classified as CI). Without
-    // attestation, Python's CI gate (dispatcher.py) returns accepted=false;
-    // substrate emits no evolution_succeeded:* event.
+fn sprint_5b_schema_evolution_accepted_keyless_and_applies() {
+    // **v0.9 owner-key removal**: schema_evolution is still CI-CLASSIFIED, but
+    // the owner-attestation signature gate is gone — Python's classifier accepts
+    // a CI mutation KEYLESS (no attestation_signature). With a registered target
+    // axis, the apply succeeds → substrate emits evolution_succeeded:{op}.
+    //
+    // (This replaces the former `rejected_without_owner_attestation` defense
+    // test, whose premise — "anyone could mutate schema without cultivator
+    // consent" — described the removed owner-key trust model. Mutation authority
+    // in v0.9 is the operator-session HMAC channel, not an owner signature.)
     let (mut client, _dir) = spawn_substrate();
+    client
+        .register_axis("hunger", "appetite", 10.0, 0.0, 1.0, false, "noop")
+        .expect("register_axis");
     let diff = build_schema_diff_modify_axis_threshold("hunger", "9.0");
     let resp = client
         .call(
@@ -292,7 +300,7 @@ fn sprint_5b_schema_evolution_rejected_without_owner_attestation() {
                 ("touched_fields", CbValue::Array(vec![])),
                 ("touched_files", CbValue::Array(vec![])),
                 ("touched_meta_structures", CbValue::Array(vec![])),
-                // Deliberately omit attestation_signature.
+                // No attestation_signature — accepted keyless in v0.9.
             ]),
         )
         .expect("submit");
@@ -301,14 +309,18 @@ fn sprint_5b_schema_evolution_rejected_without_owner_attestation() {
         _ => panic!("accepted missing"),
     };
     assert!(
-        !accepted,
-        "Sprint 5.B T1.2: schema_evolution mutation WITHOUT owner attestation \
-         must be rejected; got accepted=true (CI gate breach — anyone could \
-         mutate substrate schema without cultivator consent)"
+        accepted,
+        "v0.9 keyless: a CI-classified schema_evolution is accepted without an \
+         owner attestation; reason={:?}",
+        resp.payload.get("rejection_reason")
+    );
+    assert!(
+        matches!(resp.payload.get("schema_apply_succeeded"), Some(CbValue::Bool(true))),
+        "the schema_diff applies to the registered axis"
     );
 
-    // Verify NO evolution_succeeded:* / evolution_failed:* event emitted.
-    for prefix in &["evolution_succeeded:", "evolution_failed:"] {
+    // evolution_succeeded:* IS emitted; evolution_failed:* is not.
+    let count = |client: &mut BridgeClient, prefix: &str| -> usize {
         let q = client
             .call(
                 proto::QUERY_RECENT_NODES,
@@ -318,27 +330,25 @@ fn sprint_5b_schema_evolution_rejected_without_owner_attestation() {
                 ]),
             )
             .expect("query");
-        let nodes = match q.payload.get("nodes") {
-            Some(CbValue::Array(a)) => a.clone(),
-            _ => panic!("nodes missing"),
-        };
-        assert!(
-            nodes.is_empty(),
-            "rejected schema_evolution must NOT emit {prefix}* events; saw {} \
-             (substrate-side staging ran despite Python rejection)",
-            nodes.len()
-        );
-    }
+        match q.payload.get("nodes") {
+            Some(CbValue::Array(a)) => a.len(),
+            _ => 0,
+        }
+    };
+    assert_eq!(count(&mut client, "evolution_succeeded:"), 1);
+    assert_eq!(count(&mut client, "evolution_failed:"), 0);
     client.shutdown().expect("shutdown");
 }
 
 #[test]
-fn sprint_5b_schema_evolution_rejected_with_malformed_diff_bytes() {
+fn sprint_5b_schema_evolution_malformed_diff_accepted_keyless_but_apply_fails() {
     // Garbage content_canonical_bytes that don't decode as a schema_diff Map.
-    // Python parse_schema_diff raises SchemaEvolutionError → schema_apply
-    // path returns failure; classifier path will also reject because
-    // touched_fields is empty so the schema_evolution CI rule's coverage
-    // check fails. Either way: no evolution_succeeded:* event.
+    //
+    // **v0.9 owner-key removal**: the CI mutation is now ACCEPTED keyless
+    // (classification dominates; the owner-signature gate is gone). The malformed
+    // diff is caught at the SCHEMA-APPLY stage, not the acceptance stage:
+    // parse_schema_diff raises → schema_apply_succeeded=false → the substrate
+    // emits evolution_failed:* (NOT evolution_succeeded:*).
     let (mut client, _dir) = spawn_substrate();
     let resp = client
         .call(
@@ -355,14 +365,29 @@ fn sprint_5b_schema_evolution_rejected_with_malformed_diff_bytes() {
             ]),
         )
         .expect("submit");
-    let accepted = match resp.payload.get("accepted") {
-        Some(CbValue::Bool(b)) => *b,
-        _ => panic!("accepted missing"),
-    };
     assert!(
-        !accepted,
-        "Sprint 5.B T1.2: malformed schema_diff bytes must be rejected"
+        matches!(resp.payload.get("accepted"), Some(CbValue::Bool(true))),
+        "v0.9 keyless: the CI mutation is accepted; the malformed diff fails at apply"
     );
+    assert!(
+        matches!(resp.payload.get("schema_apply_succeeded"), Some(CbValue::Bool(false))),
+        "a malformed schema_diff must fail the apply stage"
+    );
+    // No evolution_succeeded:* — the apply failed.
+    let q = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(50)),
+                ("node_type_prefix", CbValue::String("evolution_succeeded:".to_string())),
+            ]),
+        )
+        .expect("query");
+    let n = match q.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.len(),
+        _ => 0,
+    };
+    assert_eq!(n, 0, "a malformed schema_diff must NOT emit evolution_succeeded:*");
     client.shutdown().expect("shutdown");
 }
 

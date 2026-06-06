@@ -450,16 +450,18 @@ fn layer_c_p03_positive_classifier_path_traversed() {
     // the classifier → attestation → migration path. Substrate state is
     // first-class mutable under discipline, not constitutionally frozen.
     //
-    // **Strategy**: submit_mutation with a schema-evolution mutation type
-    // (no attestation). Python classifier MUST return a classification
-    // field (proving the classifier path is wired). Without cultivator
-    // attestation the mutation will not commit, but the existence of
-    // classification proves the path is alive — that's what P03 needs.
+    // **Strategy**: submit_mutation with a schema-evolution mutation type.
+    // Python classifier MUST return a classification field (proving the
+    // classifier path is wired). The existence of the classification — and that
+    // it is CI for schema_evolution — proves the P03 path is alive.
+    //
+    // **v0.9 owner-key removal**: the CI mutation is now accepted KEYLESS (the
+    // owner-attestation gate was removed). The classifier still grades
+    // schema_evolution as contract_identity_level — that CI *classification* is
+    // what P03 §3.1/§4.1 require here. The content below is not a valid
+    // schema_diff Map, so the apply stage fails (schema_apply_succeeded=false)
+    // even though the CI mutation is accepted.
     let (mut client, _dir) = spawn_substrate();
-    // Use `schema_evolution` — the canonical CI-class mutation_type known
-    // to the classifier (per classifier.py:210-214, classified as CI
-    // unconditionally). Without owner attestation, classifier returns
-    // CI + accepted=false. Both fields' presence proves the path is wired.
     let resp = client
         .call(
             proto::SUBMIT_MUTATION,
@@ -488,16 +490,18 @@ fn layer_c_p03_positive_classifier_path_traversed() {
         classification, "contract_identity_level",
         "P03 §3.1: schema_evolution mutation MUST classify as CI; got {classification:?}"
     );
-    // P03 §3.3 — without attestation, the mutation MUST NOT have
-    // self-committed. Accepted=true here would mean P03's CI gate is open.
+    // P03 §3.1 (v0.9 keyless): the CI mutation is accepted without an owner
+    // attestation. The classifier path being wired + grading CI is the P03
+    // observable; the malformed diff then fails the apply stage.
     let accepted = match resp.payload.get("accepted") {
         Some(CbValue::Bool(b)) => *b,
         _ => panic!("accepted missing"),
     };
     assert!(
-        !accepted,
-        "P03 §3.3: schema-evolution mutation submitted without cultivator \
-         attestation MUST NOT be accepted; got accepted=true (CI gate failure)"
+        accepted,
+        "v0.9 keyless: a CI-classified schema_evolution is accepted without an \
+         owner attestation; got accepted=false (reason={:?})",
+        resp.payload.get("rejection_reason")
     );
     client.shutdown().expect("shutdown");
 }

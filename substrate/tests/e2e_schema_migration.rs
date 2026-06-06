@@ -143,7 +143,6 @@ fn snapshot_axes(client: &mut BridgeClient) -> std::collections::BTreeMap<String
 // ---------------------------------------------------------------------------
 
 #[test]
-#[ignore = "v0.9 owner-key removal: schema_evolution is CI-class and Python's owner-key CI gate (kernel, a later removal stage) rejects it now that the Rust substrate no longer provides a genesis owner key. The two-phase migration FSM itself is intact + covered by the lib + derived_state unit tests; re-enable once the kernel owner-key gate is removed."]
 fn migration_happy_path_commits_after_window() {
     let seed: [u8; 32] = [0x11; 32];
     let dir = fresh_state_dir();
@@ -218,7 +217,6 @@ fn migration_happy_path_commits_after_window() {
 // ---------------------------------------------------------------------------
 
 #[test]
-#[ignore = "v0.9 owner-key removal: schema_evolution is CI-class and Python's owner-key CI gate (kernel, a later removal stage) rejects it now that the Rust substrate no longer provides a genesis owner key. The two-phase migration FSM itself is intact + covered by the lib + derived_state unit tests; re-enable once the kernel owner-key gate is removed."]
 fn migration_diverges_and_rolls_back() {
     let seed: [u8; 32] = [0x22; 32];
     let dir = fresh_state_dir();
@@ -266,7 +264,6 @@ fn migration_diverges_and_rolls_back() {
 // ---------------------------------------------------------------------------
 
 #[test]
-#[ignore = "v0.9 owner-key removal: schema_evolution is CI-class and Python's owner-key CI gate (kernel, a later removal stage) rejects it now that the Rust substrate no longer provides a genesis owner key. The two-phase migration FSM itself is intact + covered by the lib + derived_state unit tests; re-enable once the kernel owner-key gate is removed."]
 fn migration_c66_does_not_fire_within_window_plus_grace() {
     let seed: [u8; 32] = [0x33; 32];
     let dir = fresh_state_dir();
@@ -295,7 +292,6 @@ fn migration_c66_does_not_fire_within_window_plus_grace() {
 // ---------------------------------------------------------------------------
 
 #[test]
-#[ignore = "v0.9 owner-key removal: schema_evolution is CI-class and Python's owner-key CI gate (kernel, a later removal stage) rejects it now that the Rust substrate no longer provides a genesis owner key. The two-phase migration FSM itself is intact + covered by the lib + derived_state unit tests; re-enable once the kernel owner-key gate is removed."]
 fn migration_operator_abort_rolls_back() {
     let seed: [u8; 32] = [0x44; 32];
     let dir = fresh_state_dir();
@@ -352,7 +348,6 @@ fn migration_operator_abort_rolls_back() {
 // ---------------------------------------------------------------------------
 
 #[test]
-#[ignore = "v0.9 owner-key removal: schema_evolution is CI-class and Python's owner-key CI gate (kernel, a later removal stage) rejects it now that the Rust substrate no longer provides a genesis owner key. The two-phase migration FSM itself is intact + covered by the lib + derived_state unit tests; re-enable once the kernel owner-key gate is removed."]
 fn migration_resumes_across_restart_via_dag_replay() {
     let seed: [u8; 32] = [0x55; 32];
     let dir = fresh_state_dir();
@@ -392,7 +387,6 @@ fn migration_resumes_across_restart_via_dag_replay() {
 // ---------------------------------------------------------------------------
 
 #[test]
-#[ignore = "v0.9 owner-key removal: schema_evolution is CI-class and Python's owner-key CI gate (kernel, a later removal stage) rejects it now that the Rust substrate no longer provides a genesis owner key. The two-phase migration FSM itself is intact + covered by the lib + derived_state unit tests; re-enable once the kernel owner-key gate is removed."]
 fn back_compat_no_migration_mode_uses_single_cycle_path() {
     let seed: [u8; 32] = [0x66; 32];
     let dir = fresh_state_dir();

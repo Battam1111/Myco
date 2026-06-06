@@ -8,32 +8,20 @@ Public surface (re-exported from the submodules for ergonomic imports):
   (L1/SCHEMA §3.1): the typed :class:`Value` tree, :func:`encode` /
   :func:`decode`, and the ``expect_*`` accessors.
 - ``crypto`` — BLAKE3 Merkle hashing, HMAC-SHA256, and Ed25519
-  (L1/SCHEMA §2.1 + L1/SKIN §2).
+  (L1/SCHEMA §2.1 + L1/SKIN §2). The cross-language signing primitives are
+  retained (they back DAG hashing + the bridge HMAC + operator-side parity);
+  v0.9 removed only the owner-key *usage*, not the primitive library.
 - ``classifier`` — the I2 mutation classifier (L1/GOVERNANCE §1).
-- ``owner_keys`` / ``owner_keys_persistence`` — owner-key history + on-disk
-  persistence (L1/GOVERNANCE §3.1).
-- ``attestation`` — the CI attestation envelope protocol (L1/GOVERNANCE §2).
 - ``schema_evolution`` — P3 schema-diff apply/rollback (L4 M17).
+
+**v0.9 owner-key removal**: the ``owner_keys`` / ``owner_keys_persistence``
+(owner-key history + on-disk persistence) and ``attestation`` (CI attestation
+envelope protocol) submodules were removed with the rest of the
+owner-key/anchor subsystem. CI mutations are accepted keyless.
 """
 
 from __future__ import annotations
 
-from myco_kernel_governance.attestation import (
-    ENVELOPE_TYPE_CI_ATTESTATION_REQUEST,
-    AttestationError,
-    AttestationInvalid,
-    AttestationRequest,
-    DagEnumerationUnclosed,
-    ExpiredAttestation,
-    ExpiryConstraints,
-    NonceMismatch,
-    OperatorWitnessForgery,
-    OwnerSignedAttestation,
-    VerificationContext,
-    construct_owner_signed_from_request,
-    verify_operator_witness,
-    verify_owner_signed_attestation,
-)
 from myco_kernel_governance.canonical_bytes import (
     Array,
     Bool,
@@ -94,28 +82,6 @@ from myco_kernel_governance.crypto import (
     merkle_hash,
     verify_signature,
 )
-from myco_kernel_governance.owner_keys import (
-    COOLDOWN_ANCHOR_SECONDS,
-    DEFAULT_ACTIVE_PREFIX_K,
-    HistoryEmpty,
-    NoActiveKey,
-    OwnerKeyEntry,
-    OwnerKeyHistory,
-    OwnerKeyHistoryError,
-    RotationError,
-    RotationFSM,
-    RotationState,
-    init_with_genesis_key,
-)
-from myco_kernel_governance.owner_keys_persistence import (
-    OWNER_KEYS_FILENAME,
-    OWNER_KEYS_FORMAT_VERSION,
-    OwnerKeysPersistenceError,
-    load_owner_key_history,
-    owner_keys_from_canonical_bytes,
-    owner_keys_to_canonical_bytes,
-    save_owner_key_history,
-)
 from myco_kernel_governance.schema_evolution import (
     ApplyResult,
     SchemaDiff,
@@ -131,21 +97,13 @@ __version__ = "0.9.0a1"
 
 __all__ = [
     "BACKUP_ENCRYPTION_STATUS_VALID_VALUES",
-    "COOLDOWN_ANCHOR_SECONDS",
-    "DEFAULT_ACTIVE_PREFIX_K",
-    "ENVELOPE_TYPE_CI_ATTESTATION_REQUEST",
     "FORBIDDEN_PRESERVE_ALL_MUTATION_TYPES",
-    "OWNER_KEYS_FILENAME",
-    "OWNER_KEYS_FORMAT_VERSION",
     "PUBLIC_KEY_LENGTH",
     "SECRET_KEY_LENGTH",
     "SEED_DIMENSION_TABLE",
     "SIGNATURE_LENGTH",
     "ApplyResult",
     "Array",
-    "AttestationError",
-    "AttestationInvalid",
-    "AttestationRequest",
     "Bool",
     "Bytes",
     "CanonicalBytes",
@@ -154,35 +112,20 @@ __all__ = [
     "ClassifierContext",
     "ClassifierRule",
     "CryptoError",
-    "DagEnumerationUnclosed",
     "Ed25519PrivateKey",
     "Ed25519PublicKey",
     "Ed25519Signature",
-    "ExpiredAttestation",
-    "ExpiryConstraints",
     "Hash",
-    "HistoryEmpty",
     "HmacEmptyKey",
     "HmacInvalid",
     "HmacTag",
     "Int",
     "Map",
     "MutationEnvelope",
-    "NoActiveKey",
     "NodeHash",
-    "NonceMismatch",
     "Null",
-    "OperatorWitnessForgery",
-    "OwnerKeyEntry",
-    "OwnerKeyHistory",
-    "OwnerKeyHistoryError",
-    "OwnerKeysPersistenceError",
-    "OwnerSignedAttestation",
     "PrivateKeyMalformed",
     "PublicKeyMalformed",
-    "RotationError",
-    "RotationFSM",
-    "RotationState",
     "SchemaDiff",
     "SchemaDiffOp",
     "SchemaEvolutionError",
@@ -192,11 +135,9 @@ __all__ = [
     "Timestamp",
     "Uint",
     "Value",
-    "VerificationContext",
     "__version__",
     "apply_schema_diff",
     "classify",
-    "construct_owner_signed_from_request",
     "decode",
     "encode",
     "expect_array",
@@ -207,22 +148,15 @@ __all__ = [
     "expect_uint",
     "hmac_sign",
     "hmac_verify",
-    "init_with_genesis_key",
     "is_cultivator_preserve_all_attempt",
     "is_valid_backup_encryption_status",
-    "load_owner_key_history",
     "map_get",
     "matched_rules",
     "merkle_hash",
-    "owner_keys_from_canonical_bytes",
-    "owner_keys_to_canonical_bytes",
     "parse_schema_diff",
     "read_varint",
-    "save_owner_key_history",
     "schema_diff_add_axis_bytes",
     "schema_diff_modify_axis_threshold_bytes",
-    "verify_operator_witness",
-    "verify_owner_signed_attestation",
     "verify_signature",
     "write_varint",
 ]

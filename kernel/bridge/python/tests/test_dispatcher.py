@@ -629,34 +629,6 @@ def test_compute_intent_empty_dag_returns_cold_start() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _do_handshake_with_owner_keys(state: DispatcherState, tmp_path) -> bytes:  # type: ignore[no-untyped-def]
-    """Complete hello + initialize owner_keys via load_state with genesis_owner_pubkey.
-
-    Returns the pubkey bytes (so tests can re-use them for signing)."""
-    from myco_kernel_governance.canonical_bytes import (  # noqa: PLC0415
-        Bytes as CbBytes,
-    )
-
-    _do_handshake(state)
-    # Simulate Rust calling load_state with a genesis_owner_pubkey.
-    pubkey = bytes([0xAA] * 32)  # placeholder; will be overridden by test-specific keys
-    response = dispatch(
-        state,
-        Message(
-            type=MessageType.LOAD_STATE,
-            request_id=80,
-            payload=CbMap.from_dict(
-                {
-                    "state_dir": CbString(str(tmp_path)),
-                    "genesis_owner_pubkey": CbBytes(pubkey),
-                }
-            ),
-        ),
-    )
-    assert response is not None
-    return pubkey
-
-
 def test_submit_daily_mutation_accepted() -> None:
     state = DispatcherState()
     _do_handshake(state)
@@ -712,7 +684,10 @@ def test_submit_untyped_mutation_rejected() -> None:
     assert expect_bool(fields["accepted"]) is False
 
 
-def test_submit_ci_mutation_without_attestation_rejected(tmp_path) -> None:  # type: ignore[no-untyped-def]
+def test_submit_ci_mutation_without_attestation_accepted_keyless(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """v0.9 owner-key removal: a CI-classified mutation is now ACCEPTED KEYLESS
+    — no owner_keys, no attestation_signature. The CI *classification* is still
+    reported (a meta-structure touch is contract_identity_level)."""
     from myco_kernel_governance.canonical_bytes import (  # noqa: PLC0415
         Bytes as CbBytes,
         expect_bool,
@@ -720,19 +695,13 @@ def test_submit_ci_mutation_without_attestation_rejected(tmp_path) -> None:  # t
 
     state = DispatcherState()
     _do_handshake(state)
-    # Initialize owner_keys (needed to enable CI verification path).
-    pubkey = bytes([0xAA] * 32)
+    # Keyless load_state (no genesis_owner_pubkey — the owner-key path is gone).
     dispatch(
         state,
         Message(
             type=MessageType.LOAD_STATE,
             request_id=85,
-            payload=CbMap.from_dict(
-                {
-                    "state_dir": CbString(str(tmp_path)),
-                    "genesis_owner_pubkey": CbBytes(pubkey),
-                }
-            ),
+            payload=CbMap.from_dict({"state_dir": CbString(str(tmp_path))}),
         ),
     )
 
@@ -750,7 +719,7 @@ def test_submit_ci_mutation_without_attestation_rejected(tmp_path) -> None:  # t
                         (CbString("appetite_axis_schema"),)
                     ),
                     "content_canonical_bytes": CbBytes(b"ci attempt"),
-                    # No attestation_signature → reject
+                    # No attestation_signature — accepted keyless in v0.9.
                 }
             ),
         ),
@@ -758,8 +727,8 @@ def test_submit_ci_mutation_without_attestation_rejected(tmp_path) -> None:  # t
     assert response is not None
     fields = dict(response.payload.value)
     assert expect_string(fields["classification"]) == "contract_identity_level"
-    assert expect_bool(fields["accepted"]) is False
-    assert "attestation" in expect_string(fields["rejection_reason"]).lower()
+    assert expect_bool(fields["accepted"]) is True
+    assert expect_string(fields["rejection_reason"]) == ""
 
 
 def test_compute_intent_populated_dag_returns_clusters() -> None:

@@ -18,7 +18,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Final
 
-from myco_kernel_governance.owner_keys import OwnerKeyHistory
 from myco_kernel_tropism.gradient import GradientConfiguration
 
 
@@ -41,16 +40,16 @@ class DispatcherState:
     session_secret:
         The session secret transported by ``hello``. Used by the daemon
         loop to verify subsequent message HMACs.
-    owner_keys:
-        Owner-key history (M10). Initialized either by load_state from disk
-        or by the load_state's ``genesis_owner_pubkey`` field on first sight.
-        Consulted by ``submit_mutation`` for CI-attestation verification.
+
+    **v0.9 owner-key removal**: the ``owner_keys`` history field was removed
+    with the rest of the owner-key/anchor subsystem. CI mutations are accepted
+    keyless (see ``handlers.governance_ops``), so the dispatcher no longer holds
+    any owner-key state.
     """
 
     gradient: GradientConfiguration = field(default_factory=GradientConfiguration)
     handshake_complete: bool = False
     session_secret: bytes | None = None
-    owner_keys: OwnerKeyHistory | None = None
 
     # --- v3.1.1 Sprint 8.G (P03 §10.4) two-phase schema migration ---
     #

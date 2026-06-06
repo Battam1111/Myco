@@ -724,9 +724,16 @@ fn sprint_5f_rapid_same_detector_emissions_rate_limited_to_one() {
 
 #[test]
 fn sprint_5f_distinct_detectors_have_independent_rate_limits() {
-    // Trigger C56 (preserve_all) once, then trigger C5/C-other (different
-    // detector) — both should emit because rate limits are per-detector,
-    // not global.
+    // Trigger C56 (preserve_all) once, then trigger a DIFFERENT detector — both
+    // should emit because rate limits are per-detector, not global.
+    //
+    // **v0.9 owner-key removal**: the original second trigger was an
+    // `l0_revision_attest` mutation with a malformed owner-signed envelope,
+    // which produced C5 attestation_invalid. That owner-signed mutation type was
+    // removed (it now classifies UNTYPED), so this test uses C14
+    // untyped_mutation_blocked as the distinct second detector — still a
+    // different detector_id than C56, which is all the rate-limit independence
+    // assertion needs.
     let (mut client, _dir) = spawn_substrate();
 
     // C56 — preserve_all
@@ -741,15 +748,15 @@ fn sprint_5f_distinct_detectors_have_independent_rate_limits() {
         ]),
     );
 
-    // l0_revision_attest with malformed content → C5 attestation_invalid.
-    // Different detector_id than C56, so should emit independently.
+    // An unclassifiable mutation → C14 untyped_mutation_blocked. Different
+    // detector_id than C56, so it should emit independently.
     let _ = client.call(
         proto::SUBMIT_MUTATION,
         build_payload(vec![
-            ("mutation_type", CbValue::String("l0_revision_attest".to_string())),
+            ("mutation_type", CbValue::String("totally_unknown_mutation_xyz".to_string())),
             (
                 "content_canonical_bytes",
-                CbValue::Bytes(b"malformed_envelope".to_vec()),
+                CbValue::Bytes(b"unclassifiable".to_vec()),
             ),
             ("touched_fields", CbValue::Array(vec![])),
             ("touched_files", CbValue::Array(vec![])),
@@ -757,7 +764,7 @@ fn sprint_5f_distinct_detectors_have_independent_rate_limits() {
         ]),
     );
 
-    // Query all immune:* events — should see both C56 AND C5.
+    // Query all immune:* events — should see both C56 AND C14.
     let resp = client
         .call(
             proto::QUERY_RECENT_NODES,
@@ -785,16 +792,16 @@ fn sprint_5f_distinct_detectors_have_independent_rate_limits() {
     let saw_c56 = detector_ids
         .iter()
         .any(|s| s.starts_with("C56_cultivator_preserve_all"));
-    let saw_c5 = detector_ids
+    let saw_c14 = detector_ids
         .iter()
-        .any(|s| s.starts_with("C5_attestation_invalid"));
+        .any(|s| s.starts_with("C14_untyped_mutation"));
     assert!(
         saw_c56,
         "Sprint 5.F T2.4: C56 missing from immune events; saw {detector_ids:?}"
     );
     assert!(
-        saw_c5,
-        "Sprint 5.F T2.4: C5 missing — distinct detectors should NOT \
+        saw_c14,
+        "Sprint 5.F T2.4: C14 missing — distinct detectors should NOT \
          share rate limits; saw {detector_ids:?}"
     );
     client.shutdown().expect("shutdown");

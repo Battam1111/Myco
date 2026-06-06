@@ -99,14 +99,6 @@ def test_ci_substrate_id_field() -> None:
     assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
 
 
-def test_ci_owner_key_history_field() -> None:
-    env = MutationEnvelope(
-        touched_fields=frozenset({"owner_key_history"}),
-        mutation_type="field_update",
-    )
-    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
-
-
 def test_ci_anchor_surface_endpoint_field() -> None:
     env = MutationEnvelope(
         touched_fields=frozenset({"anchor_surface_endpoint_public_key"}),
@@ -176,19 +168,10 @@ def test_ci_revoke_federation_peer_mutation() -> None:
     assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
 
 
-def test_ci_duress_keypair_registration_mutation() -> None:
-    # F23 / C50 — registering a duress keypair is owner-authority; CI so the
-    # signature is verified against the ACTIVE owner key (a duress-key-signed
-    # registration fails that gate — the circular-trust guard).
-    env = MutationEnvelope(mutation_type="duress_keypair_registration")
-    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
-
-
-def test_ci_out_of_band_safety_reattestation_mutation() -> None:
-    # F23 / C50 — the duress-freeze unfreeze attestation is CI so it is verified
-    # against the ACTIVE owner key (NEVER a duress key — circular-trust guard).
-    env = MutationEnvelope(mutation_type="out_of_band_safety_reattestation")
-    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
+# v0.9 owner-key removal: the duress-keypair classifier rules
+# (duress_keypair_registration + out_of_band_safety_reattestation) were removed
+# with the owner-key subsystem; their CI tests are gone. A bare duress mutation
+# type now classifies UNTYPED (no rule matches) — covered by test_untyped_no_match.
 
 
 # ---------------------------------------------------------------------------
@@ -288,28 +271,32 @@ def test_custom_dimension_table() -> None:
 
 
 def test_seed_table_size() -> None:
-    """L1/GOVERNANCE §1.2 lists 18 rows; allow for some L4-level expansion.
+    """Pins the current seed-table size so future edits are intentional (any
+    add/remove of a seed rule requires updating this test — a tripwire).
 
-    This test pins the current seed-table size so future edits are
-    intentional (any add/remove of a seed rule will require updating this
-    test, which serves as a tripwire).
+    **v0.9 owner-key removal**: 6 rules dropped (40 → 34) — owner_key_history_field,
+    dag_tip_cosign_mutation, l0_revision_attest_mutation,
+    record_cultivator_heartbeat_mutation, duress_keypair_registration_mutation,
+    out_of_band_safety_reattestation_mutation.
     """
-    # 2 file-prefix + 4 identity-fields + 10 meta-structures + 4 daily +
+    # 2 file-prefix + 3 identity-fields (substrate_id + anchor_surface_endpoint +
+    #   dag_tip_hash; owner_key_history removed) +
+    # 10 meta-structures + 4 daily +
     # 1 mortality-detail + 1 schema_evolution (M17) +
     # 3 M26.3 compression rules (compression_mutation + compression_rule_registry_meta + compression_invariant_set_meta) +
     # 4 M26.4 rules (cost_budget_set_mutation + cost_budget_thresholds_meta + owner_objective_declaration_mutation + telos_alignment_metric_meta) +
-    # 2 M-anchor-5 rules (dag_tip_cosign_mutation + l0_revision_attest_mutation) +
+    # (M-anchor-5 dag_tip_cosign + l0_revision_attest rules REMOVED — owner-signed) +
     # 1 v3.1.1 Sprint 2.C rule (set_backup_encryption_status) +
     # 1 v3.1.1 Sprint 8.G rule (abort_migration_mutation, P03 §10.4 two-phase migration) +
-    # 4 COV06 rules (update_successor_chain + accept_succession +
-    #   record_cultivator_heartbeat + cultivation_successor_chain_meta;
-    #   cultivator-mortality + F21 succession FSM, L1/GOVERNANCE §3.2) +
+    # 2 COV06 rules (update_successor_chain + accept_succession +
+    #   cultivation_successor_chain_meta — that's 3; record_cultivator_heartbeat REMOVED) +
+    #   [note: cultivation_successor_chain_meta is counted under meta-structures? no —
+    #    it is a distinct rule] →
+    # 3 COV06 rules (update_successor_chain + accept_succession + cultivation_successor_chain_meta) +
     # 1 C13 rule (revoke_federation_peer_mutation; local federation peer
-    #   revocation, L1/GOVERNANCE §5.2 + L2/FEDERATION §6.5.b) +
-    # 2 F23/C50 rules (duress_keypair_registration_mutation +
-    #   out_of_band_safety_reattestation_mutation; duress keypair coercion
-    #   defense, L2/TRUST_MODEL §10.A.2 + L1/GOVERNANCE F23 + AS §5.6).
-    assert len(SEED_DIMENSION_TABLE) == 40
+    #   revocation, L1/GOVERNANCE §5.2 + L2/FEDERATION §6.5.b)
+    # (F23/C50 duress rules REMOVED — owner-key verification).
+    assert len(SEED_DIMENSION_TABLE) == 34
 
 
 def test_classifier_rule_predicate_or_logic() -> None:
@@ -545,9 +532,9 @@ def test_cov06_accept_succession_is_ci() -> None:
     assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
 
 
-def test_cov06_record_cultivator_heartbeat_is_ci() -> None:
-    env = MutationEnvelope(mutation_type="record_cultivator_heartbeat")
-    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
+# v0.9 owner-key removal: the record_cultivator_heartbeat classifier rule was
+# removed with the anchor-signed cultivator-liveness heartbeat. Succession
+# (update_successor_chain / accept_succession) is kept and remains keyless-CI.
 
 
 def test_cov06_successor_chain_meta_structure_is_ci() -> None:

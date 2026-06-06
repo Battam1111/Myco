@@ -1,8 +1,7 @@
-"""20 CRITICAL breach detectors (L1/HARD_RULES §1 C1-C20).
+"""CRITICAL breach detectors (L1/HARD_RULES §1).
 
 When ANY of these fires, the substrate auto-quarantines per L1/CONTINUITY
-§5 and emits the corresponding immune sporocarp. Owner-attested
-quarantine_clearance is required for resumption.
+§5 and emits the corresponding immune sporocarp.
 
 ## Doctrine
 
@@ -13,13 +12,20 @@ silently downgraded). Each row independently traces to ≥1 L0 P + ≥1 I.
 
 This module ships the detector framework + structured event types. M3
 already implemented some of these in their respective kernel crates
-(e.g., kernel/skin C2/C11; kernel/schema C7; kernel/governance C5/C17).
-This module provides the UNIFIED dispatch surface that downstream
-runtime consumers (the substrate's metabolic cycle step 4) use to check
-all 20 in one pass.
+(e.g., kernel/skin C2/C11; kernel/schema C7). This module provides the
+UNIFIED dispatch surface that downstream runtime consumers (the substrate's
+metabolic cycle step 4) use to check them in one pass.
 
-For M4 minimum-viable: detector framework + 10 representative detectors.
-M5+ adds remaining detectors + concrete cross-crate integration.
+## v0.9 owner-key removal
+
+The owner-attestation breach rows — **C5** (attestation_invalid), **C12**
+(successor_activation_with_fresh_owner_heartbeat), **C17**
+(operator_witness_forgery), and **C20** (genesis_attestation_chain_broken) —
+were removed with the rest of the owner-key/anchor subsystem (owner-signed
+attestation envelopes, the operator witness signature, the cultivator
+heartbeat, and the genesis birth-attestation chain no longer exist). All
+non-owner-key detectors are retained, including C16 mortality_signal_suppression
+(the P07 mortality-discipline watchdog).
 """
 
 from __future__ import annotations
@@ -30,13 +36,19 @@ from enum import Enum
 
 
 class BreachId(Enum):
-    """L1/HARD_RULES §1 C-row identifiers (20 CRITICAL detectors)."""
+    """L1/HARD_RULES §1 C-row identifiers (CRITICAL detectors).
+
+    **v0.9 owner-key removal**: C5 (attestation_invalid), C12
+    (successor_activation_with_fresh_owner_heartbeat), C17
+    (operator_witness_forgery), and C20 (genesis_attestation_chain_broken) were
+    removed with the owner-key/anchor subsystem. The remaining C-rows keep their
+    historical numbers (no renumbering).
+    """
 
     C1_APPETITE_LOCALITY_BREACH = "appetite_locality_breach"
     C2_OUTPUT_ENDPOINT_BREACH = "output_endpoint_breach"
     C3_POST_HANDSHAKE_CI_UNATTESTED = "post_handshake_ci_unattested"
     C4_SUBSTRATE_SECRET_UNSEALED = "substrate_secret_unsealed"
-    C5_ATTESTATION_INVALID = "attestation_invalid"
     C6_DAG_ENUMERATION_UNCLOSED = "dag_enumeration_unclosed"
     C7_DAG_RETRO_EDIT_DETECTED = "dag_retro_edit_detected"
     C8_SSOT_MIGRATION_PHASE_SKIP = "ssot_migration_phase_skip"
@@ -45,17 +57,12 @@ class BreachId(Enum):
         "agent_discriminating_attribute_persisted"
     )
     C11_CONCURRENT_OPERATOR_PERSISTENT = "concurrent_operator_persistent"
-    C12_SUCCESSOR_ACTIVATION_WITH_FRESH_OWNER_HEARTBEAT = (
-        "successor_activation_with_fresh_owner_heartbeat"
-    )
     C13_PEER_ATTESTATION_REVOKED_EGRESS = "peer_attestation_revoked_egress"
     C14_UNTYPED_MUTATION = "untyped_mutation"
     C15_CLASSIFIER_FIXED_POINT_BYPASS = "classifier_fixed_point_bypass"
     C16_MORTALITY_SIGNAL_SUPPRESSION = "mortality_signal_suppression"
-    C17_OPERATOR_WITNESS_FORGERY = "operator_witness_forgery"
     C18_CANONICAL_BYTES_RENDER_DRIFT = "canonical_bytes_render_drift"
     C19_PAUSED_DORMANCY_UNSAFE_HOST = "paused_dormancy_unsafe_host"
-    C20_GENESIS_ATTESTATION_CHAIN_BROKEN = "genesis_attestation_chain_broken"
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,22 +118,6 @@ class DagNodeAttempt:
 
     stored_hash_hex: str
     recomputed_hash_hex: str
-
-
-@dataclass(frozen=True, slots=True)
-class OperatorWitnessVerification:
-    """An operator-witness verification attempt (C17 detector input)."""
-
-    verified: bool
-    operator_pubkey_hex: str
-
-
-@dataclass(frozen=True, slots=True)
-class AttestationVerification:
-    """An owner-attestation verification attempt (C5 detector input)."""
-
-    verified: bool
-    failure_reason: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,23 +188,6 @@ def detect_c7_dag_retro_edit(
     return None
 
 
-def detect_c5_attestation_invalid(
-    verification: AttestationVerification, at_cycle: int
-) -> ImmuneEvent | None:
-    """C5: detect attestation verification failure (L1/GOVERNANCE §2.3)."""
-    if not verification.verified:
-        return ImmuneEvent(
-            breach_id=BreachId.C5_ATTESTATION_INVALID,
-            at_cycle=at_cycle,
-            description=(
-                f"attestation invalid: "
-                f"{verification.failure_reason or 'unspecified'}"
-            ),
-            evidence={"failure_reason": verification.failure_reason},
-        )
-    return None
-
-
 def detect_c11_concurrent_operator(
     attempt: HandshakeAttempt, at_cycle: int
 ) -> ImmuneEvent | None:
@@ -243,24 +217,6 @@ def detect_c14_untyped_mutation(
             at_cycle=at_cycle,
             description="mutation cannot be classified",
             evidence={},
-        )
-    return None
-
-
-def detect_c17_operator_witness_forgery(
-    verification: OperatorWitnessVerification, at_cycle: int
-) -> ImmuneEvent | None:
-    """C17: detect operator_witness signature forgery (L1/GOVERNANCE §2.2 +
-    pass-3 mycorrhiza-17)."""
-    if not verification.verified:
-        return ImmuneEvent(
-            breach_id=BreachId.C17_OPERATOR_WITNESS_FORGERY,
-            at_cycle=at_cycle,
-            description=(
-                f"operator_witness forgery on key "
-                f"{verification.operator_pubkey_hex[:16]}…"
-            ),
-            evidence={"operator_pubkey_hex": verification.operator_pubkey_hex},
         )
     return None
 
@@ -296,8 +252,9 @@ def detect_c18_canonical_bytes_render_drift(
 
 @dataclass(slots=True)
 class DetectorRegistry:
-    """Holds the active detectors. M4 minimum: 8 detectors registered.
-    M5+ adds C3 / C4 / C6 / C8 / C9 / C10 / C12 / C13 / C15 / C16 / C19 / C20.
+    """Holds the active detectors. M4 minimum: 6 detectors registered
+    (C5 + C17 removed with the v0.9 owner-key subsystem).
+    M5+ adds C3 / C4 / C6 / C8 / C9 / C10 / C13 / C15 / C16 / C19.
     """
 
     _detectors: dict[BreachId, Callable[..., ImmuneEvent | None]] = field(
@@ -328,14 +285,13 @@ class DetectorRegistry:
 
 
 def build_default_registry() -> DetectorRegistry:
-    """Construct the M4-default detector registry (8 detectors)."""
+    """Construct the M4-default detector registry (6 detectors; C5 + C17 removed
+    with the v0.9 owner-key subsystem)."""
     reg = DetectorRegistry()
     reg.register(BreachId.C1_APPETITE_LOCALITY_BREACH, detect_c1_appetite_locality_breach)
     reg.register(BreachId.C2_OUTPUT_ENDPOINT_BREACH, detect_c2_output_endpoint_breach)
-    reg.register(BreachId.C5_ATTESTATION_INVALID, detect_c5_attestation_invalid)
     reg.register(BreachId.C7_DAG_RETRO_EDIT_DETECTED, detect_c7_dag_retro_edit)
     reg.register(BreachId.C11_CONCURRENT_OPERATOR_PERSISTENT, detect_c11_concurrent_operator)
     reg.register(BreachId.C14_UNTYPED_MUTATION, detect_c14_untyped_mutation)
-    reg.register(BreachId.C17_OPERATOR_WITNESS_FORGERY, detect_c17_operator_witness_forgery)
     reg.register(BreachId.C18_CANONICAL_BYTES_RENDER_DRIFT, detect_c18_canonical_bytes_render_drift)
     return reg

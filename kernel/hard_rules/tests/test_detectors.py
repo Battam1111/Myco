@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
 from myco_kernel_hard_rules.detectors import (
-    AttestationVerification,
     BreachId,
     DagNodeAttempt,
     DetectorRegistry,
@@ -13,15 +10,12 @@ from myco_kernel_hard_rules.detectors import (
     HandshakeAttempt,
     ImmuneEvent,
     MutationClassification,
-    OperatorWitnessVerification,
     build_default_registry,
     detect_c1_appetite_locality_breach,
     detect_c2_output_endpoint_breach,
-    detect_c5_attestation_invalid,
     detect_c7_dag_retro_edit,
     detect_c11_concurrent_operator,
     detect_c14_untyped_mutation,
-    detect_c17_operator_witness_forgery,
     detect_c18_canonical_bytes_render_drift,
 )
 
@@ -94,28 +88,6 @@ def test_c7_passes_on_hash_match() -> None:
 
 
 # ---------------------------------------------------------------------------
-# C5: attestation invalid.
-# ---------------------------------------------------------------------------
-
-
-def test_c5_fires_on_invalid_attestation() -> None:
-    event = detect_c5_attestation_invalid(
-        AttestationVerification(verified=False, failure_reason="bad signature"),
-        at_cycle=100,
-    )
-    assert event is not None
-    assert event.breach_id is BreachId.C5_ATTESTATION_INVALID
-
-
-def test_c5_passes_on_valid_attestation() -> None:
-    event = detect_c5_attestation_invalid(
-        AttestationVerification(verified=True, failure_reason=None),
-        at_cycle=100,
-    )
-    assert event is None
-
-
-# ---------------------------------------------------------------------------
 # C11: concurrent operator.
 # ---------------------------------------------------------------------------
 
@@ -159,27 +131,6 @@ def test_c14_passes_on_classified() -> None:
 
 
 # ---------------------------------------------------------------------------
-# C17: operator witness forgery.
-# ---------------------------------------------------------------------------
-
-
-def test_c17_fires_on_unverified_witness() -> None:
-    event = detect_c17_operator_witness_forgery(
-        OperatorWitnessVerification(verified=False, operator_pubkey_hex="ff" * 32),
-        at_cycle=1,
-    )
-    assert event is not None
-
-
-def test_c17_passes_on_verified() -> None:
-    event = detect_c17_operator_witness_forgery(
-        OperatorWitnessVerification(verified=True, operator_pubkey_hex="ff" * 32),
-        at_cycle=1,
-    )
-    assert event is None
-
-
-# ---------------------------------------------------------------------------
 # C18: render drift.
 # ---------------------------------------------------------------------------
 
@@ -208,9 +159,11 @@ def test_c18_passes_on_render_match() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_default_registry_has_8_detectors() -> None:
+def test_default_registry_has_6_detectors() -> None:
+    # v0.9 owner-key removal: C5 (attestation_invalid) + C17
+    # (operator_witness_forgery) were removed → 8 - 2 = 6.
     reg = build_default_registry()
-    assert len(reg.registered_ids()) == 8
+    assert len(reg.registered_ids()) == 6
 
 
 def test_default_registry_contains_expected_ids() -> None:
@@ -218,11 +171,9 @@ def test_default_registry_contains_expected_ids() -> None:
     expected = {
         BreachId.C1_APPETITE_LOCALITY_BREACH,
         BreachId.C2_OUTPUT_ENDPOINT_BREACH,
-        BreachId.C5_ATTESTATION_INVALID,
         BreachId.C7_DAG_RETRO_EDIT_DETECTED,
         BreachId.C11_CONCURRENT_OPERATOR_PERSISTENT,
         BreachId.C14_UNTYPED_MUTATION,
-        BreachId.C17_OPERATOR_WITNESS_FORGERY,
         BreachId.C18_CANONICAL_BYTES_RENDER_DRIFT,
     }
     assert set(reg.registered_ids()) == expected
@@ -246,13 +197,25 @@ def test_registry_has_method() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 20 breach-id enum completeness.
+# breach-id enum completeness.
 # ---------------------------------------------------------------------------
 
 
-def test_breach_id_enum_has_20_members() -> None:
-    """Per L1/HARD_RULES §1: exactly 20 C-row CRITICAL detectors."""
-    assert len(list(BreachId)) == 20
+def test_breach_id_enum_has_16_members() -> None:
+    """v0.9 owner-key removal: the catalog of 20 C-rows dropped the four
+    owner-attestation rows (C5 attestation_invalid, C12
+    successor_activation_with_fresh_owner_heartbeat, C17
+    operator_witness_forgery, C20 genesis_attestation_chain_broken) → 16.
+    The surviving rows keep their historical numbers (no renumbering)."""
+    assert len(list(BreachId)) == 16
+    # The removed owner-attestation rows must be gone.
+    names = {b.name for b in BreachId}
+    assert "C5_ATTESTATION_INVALID" not in names
+    assert "C12_SUCCESSOR_ACTIVATION_WITH_FRESH_OWNER_HEARTBEAT" not in names
+    assert "C17_OPERATOR_WITNESS_FORGERY" not in names
+    assert "C20_GENESIS_ATTESTATION_CHAIN_BROKEN" not in names
+    # A representative non-owner-key row (mortality discipline) is retained.
+    assert "C16_MORTALITY_SIGNAL_SUPPRESSION" in names
 
 
 def test_immune_event_with_evidence() -> None:

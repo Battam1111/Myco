@@ -136,11 +136,8 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         field_name="substrate_id",
     ),
-    ClassifierRule(
-        name="owner_key_history_field",
-        classification=Classification.CONTRACT_IDENTITY_LEVEL,
-        field_name="owner_key_history",
-    ),
+    # **v0.9 owner-key removal**: the ``owner_key_history`` field classifier
+    # rule was removed — owner_key_history is gone (the substrate is keyless).
     ClassifierRule(
         name="anchor_surface_endpoint_field",
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
@@ -292,28 +289,11 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         meta_structure_name="telos_alignment_metric_definition",
     ),
-    # **M-anchor-5 §9.2.2**: DAG-tip co-signing. Owner co-signs the current
-    # DAG tip + enumerated nodes since prior co-sign + proposed CI mutation
-    # (or zero hash for standalone). Content is the canonical-bytes envelope
-    # per substrate::events::build_dag_tip_cosign_canonical_bytes.
-    # Always CI per L1/SCHEMA §2.2 ("Every CI crossing: owner MUST co-sign
-    # current DAG-tip").
-    ClassifierRule(
-        name="dag_tip_cosign_mutation",
-        classification=Classification.CONTRACT_IDENTITY_LEVEL,
-        mutation_type="dag_tip_cosign",
-    ),
-    # **M-anchor-5 §9.2.4**: L0 revision attestation. Owner attests a
-    # transition from prior_l0_hash to new_l0_hash with a diff summary +
-    # anchor timestamp + anchor nonce. Content is the canonical-bytes
-    # envelope per substrate::events::build_l0_revision_canonical_bytes.
-    # Always CI (L0 doctrine changes are unconditionally CI per
-    # L1/GOVERNANCE §1.2 + L0/META §7 (amendment)).
-    ClassifierRule(
-        name="l0_revision_attest_mutation",
-        classification=Classification.CONTRACT_IDENTITY_LEVEL,
-        mutation_type="l0_revision_attest",
-    ),
+    # **v0.9 owner-key removal**: the owner-signed staged-envelope mutation
+    # rules ``dag_tip_cosign`` (M-anchor-5 §9.2.2 DAG-tip co-signing) and
+    # ``l0_revision_attest`` (§9.2.4 L0 revision attestation) were removed —
+    # both required an owner signature, and the owner-key/anchor subsystem is
+    # gone. L0 doctrine changes remain CI by the ``l0_file_touched`` prefix rule.
     # Daily-content mutation types.
     ClassifierRule(
         name="daily_delta_absorb",
@@ -375,36 +355,21 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         mutation_type="accept_succession",
     ),
-    ClassifierRule(
-        name="record_cultivator_heartbeat_mutation",
-        classification=Classification.CONTRACT_IDENTITY_LEVEL,
-        mutation_type="record_cultivator_heartbeat",
-    ),
+    # **v0.9 owner-key removal**: the ``record_cultivator_heartbeat`` classifier
+    # rule was removed — the anchor-signed cultivator-liveness heartbeat (and its
+    # COV06 staleness watchdog + C12) is gone. Succession (update_successor_chain
+    # / accept_succession) is kept and remains keyless-CI.
     # F21 successor-chain meta-structure (tier-1 SSoT per L1/GOVERNANCE §15 F21).
     ClassifierRule(
         name="cultivation_successor_chain_meta",
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         meta_structure_name="cultivation_successor_chain",
     ),
-    # F23 / C50 — duress keypair coercion defense (L2/TRUST_MODEL §10.A.2 +
-    # L1/GOVERNANCE F23 + AS §5.6). BOTH mutations are CONTRACT-IDENTITY-LEVEL:
-    # they are verified against the ACTIVE owner key (NEVER a duress key — the
-    # circular-trust guard). `duress_keypair_registration` registers a duress
-    # pubkey; `out_of_band_safety_reattestation` lifts the duress freeze. A
-    # duress-KEY-signed instance of either fails this CI gate's owner-key
-    # verification (Python returns accepted=false), which is precisely how the
-    # circular-trust guard is realized: a coerced owner cannot use a duress key
-    # to either register more duress keys or clear their own freeze.
-    ClassifierRule(
-        name="duress_keypair_registration_mutation",
-        classification=Classification.CONTRACT_IDENTITY_LEVEL,
-        mutation_type="duress_keypair_registration",
-    ),
-    ClassifierRule(
-        name="out_of_band_safety_reattestation_mutation",
-        classification=Classification.CONTRACT_IDENTITY_LEVEL,
-        mutation_type="out_of_band_safety_reattestation",
-    ),
+    # **v0.9 owner-key removal**: the F23 / C50 duress-keypair coercion-defense
+    # rules (``duress_keypair_registration`` + ``out_of_band_safety_reattestation``)
+    # were removed. Both depended on owner-key verification against the ACTIVE
+    # owner key (the circular-trust guard); with the owner-key subsystem gone,
+    # the duress machinery is gone too.
 )
 
 

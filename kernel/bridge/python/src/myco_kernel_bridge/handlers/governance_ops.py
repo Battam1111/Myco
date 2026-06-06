@@ -1,11 +1,19 @@
-"""Governance handler — classify a mutation + verify owner attestation (M10).
+"""Governance handler — classify a mutation (keyless) + apply schema evolution.
 
 ``submit_mutation`` is the bridge's policy gate: it classifies an
 operator-submitted mutation (daily / contract-identity-level / untyped) via
-``kernel/governance``'s classifier, verifies the owner attestation signature
-for CI-level mutations (M10/M14 reveal-key path), and — when an accepted
-mutation is a ``schema_evolution`` — applies the schema diff to the live
-gradient with rollback on failure (M17 P3 永恒进化).
+``kernel/governance``'s classifier and — when an accepted mutation is a
+``schema_evolution`` — applies the schema diff to the live gradient with
+rollback on failure (M17 P3 永恒进化).
+
+**v0.9 owner-key removal**: the owner-attestation signature requirement on
+contract-identity-level mutations has been removed along with the rest of the
+owner-key/anchor-surface subsystem (stage 3 removed it from the Rust substrate;
+the substrate no longer supplies a genesis owner key, so Python held no
+``owner_keys`` to verify against). CI mutations are now accepted KEYLESS: the
+CI *classification* is preserved (a schema_evolution is still
+contract-identity-level), but the owner-signature gate is gone. Any
+``attestation_signature`` field an operator still sends is ignored.
 
 The response echoes the content canonical bytes so the Rust substrate can
 wrap the mutation as a DAG node, and carries the evolution-outcome fields so
@@ -25,21 +33,11 @@ from myco_kernel_governance.canonical_bytes import (
     expect_bool,
     expect_bytes,
     expect_string,
-    expect_uint,
 )
 from myco_kernel_governance.classifier import (
     Classification,
     MutationEnvelope,
     classify,
-)
-from myco_kernel_governance.crypto import (
-    CryptoError,
-    Ed25519PublicKey,
-    verify_signature,
-)
-from myco_kernel_governance.owner_keys import (
-    OwnerKeyEntry,
-    OwnerKeyHistoryError,
 )
 from myco_kernel_governance.schema_evolution import (
     SchemaEvolutionError,
@@ -62,7 +60,7 @@ from myco_kernel_bridge.protocol import (
 def _handle_submit_mutation(
     state: DispatcherState, request: Message
 ) -> Message:
-    """Classify an operator-submitted mutation + (for CI) verify owner attestation.
+    """Classify an operator-submitted mutation (keyless CI acceptance).
 
     Returns a submit_mutation_response carrying:
     - ``classification``: String ("daily" / "contract_identity_level" / "untyped")
@@ -104,54 +102,13 @@ def _handle_submit_mutation(
         accepted = True
 
     elif classification is Classification.CONTRACT_IDENTITY_LEVEL:
-        # CI: require attestation_signature; verify against active owner key.
-        if state.owner_keys is None:
-            accepted = False
-            rejection_reason = (
-                "CI mutation requires owner_keys (M10 init missing; "
-                "operator must complete TOFU handshake first)"
-            )
-        elif "attestation_signature" not in keys:
-            accepted = False
-            rejection_reason = (
-                "CI mutation requires attestation_signature; none provided"
-            )
-        else:
-            try:
-                sig_bytes = expect_bytes(keys["attestation_signature"])
-                if len(sig_bytes) != 64:
-                    raise BridgeProtocolError(
-                        f"attestation_signature must be 64 bytes; got {len(sig_bytes)}"
-                    )
-                # M14: when reveal_pubkey is present, the attestation signature
-                # was made by the REVEAL key (fresh per-handshake), not the
-                # IDENTITY key. The Rust substrate already verified the IDENTITY-
-                # signature-over-REVEAL bundle; here we verify REVEAL-signed-content.
-                # When reveal_pubkey is absent, fall back to M10 path (verify
-                # against the active owner key, which == operator identity).
-                if "reveal_pubkey" in keys:
-                    reveal_pubkey_bytes = expect_bytes(keys["reveal_pubkey"])
-                    if len(reveal_pubkey_bytes) != 32:
-                        raise BridgeProtocolError(
-                            f"reveal_pubkey must be 32 bytes; got {len(reveal_pubkey_bytes)}"
-                        )
-                    verify_signature(
-                        reveal_pubkey_bytes,
-                        sig_bytes,
-                        content_bytes,
-                    )
-                else:
-                    # M10 simplified verification: signature by current owner key.
-                    active_key = state.owner_keys.current_active()
-                    verify_signature(
-                        active_key.bytes_,
-                        sig_bytes,
-                        content_bytes,
-                    )
-                accepted = True
-            except (CryptoError, BridgeProtocolError) as e:
-                accepted = False
-                rejection_reason = f"attestation verification failed: {e}"
+        # **v0.9 owner-key removal**: CI mutations are accepted KEYLESS. The
+        # owner-attestation signature gate (and the owner_keys state it verified
+        # against) was removed with the rest of the owner-key/anchor subsystem.
+        # The CI *classification* is preserved above (a schema_evolution is still
+        # contract-identity-level); only the owner-signature requirement is gone.
+        # Any ``attestation_signature`` an operator still sends is ignored.
+        accepted = True
 
     else:
         # UNTYPED: per L1/HARD_RULES C14 untyped_mutation_blocked.
@@ -292,84 +249,6 @@ def _handle_abort_migration(
     state.candidate_diff_bytes = b""
     return Message(
         type=MessageType.ABORT_MIGRATION_ACK,
-        request_id=request.request_id,
-        payload=empty_payload(),
-    )
-
-
-@handler(MessageType.APPLY_OWNER_KEY_ROTATION)
-def _handle_apply_owner_key_rotation(
-    state: DispatcherState, request: Message
-) -> Message:
-    """C70: apply an ACTIVATED owner-key rotation to the in-memory ``owner_keys``.
-
-    Authority lives in the Rust substrate: by the time this fires, the substrate
-    has verified the request's current-key signature, the 30-day cooldown has
-    elapsed, and BOTH the old key (over the envelope) and the new key (over the
-    activate-core) have signed. This handler only mutates the storage primitive
-    so the NEXT CI mutation's ``attestation_signature`` verifies against the
-    rotated key: retire the prior (currently-active) key — stamping its
-    ``valid_until`` + ``cooldown_expired_at`` — and add the new key as the active
-    entry.
-
-    Payload (canonical-bytes Map):
-      { prior_active_pubkey: Bytes(32), new_pubkey: Bytes(32),
-        activate_anchor_timestamp_unix_seconds: Uint,
-        cooldown_expires_at_unix_seconds: Uint }
-
-    Idempotent at the "already rotated" level: if the new key is already the
-    currently-active key (e.g. a duplicate ack), this is a no-op success.
-    """
-    keys = dict(request.payload.value)
-    try:
-        prior_bytes = expect_bytes(keys["prior_active_pubkey"])
-        new_bytes = expect_bytes(keys["new_pubkey"])
-        activate_ts = int(expect_uint(keys["activate_anchor_timestamp_unix_seconds"]))
-        cooldown_expires_at = int(expect_uint(keys["cooldown_expires_at_unix_seconds"]))
-    except (KeyError, CanonicalBytesError) as e:
-        raise BridgeProtocolError(
-            f"apply_owner_key_rotation: malformed payload: {e}"
-        ) from e
-    if len(prior_bytes) != 32 or len(new_bytes) != 32:
-        raise BridgeProtocolError(
-            "apply_owner_key_rotation: prior/new pubkeys must be 32 bytes"
-        )
-    if state.owner_keys is None:
-        raise BridgeProtocolError(
-            "apply_owner_key_rotation: owner_keys not initialized"
-        )
-
-    prior_key = Ed25519PublicKey(prior_bytes)
-    new_key = Ed25519PublicKey(new_bytes)
-
-    # Idempotency: if the new key is already the active key, the rotation has
-    # already been applied — return success without re-mutating.
-    try:
-        already_active = state.owner_keys.current_active().bytes_ == new_bytes
-    except OwnerKeyHistoryError:
-        already_active = False
-    if not already_active:
-        try:
-            # Atomic retire+add (rollback on any failure): a predate rejection
-            # must NOT leave the old key retired with no successor -> zero valid
-            # keys -> permanent, un-retryable CI lockout. See
-            # OwnerKeyHistory.rotate_active_key.
-            state.owner_keys.rotate_active_key(
-                retired_public_key=prior_key,
-                valid_until_anchor_timestamp=activate_ts,
-                cooldown_expired_at_anchor_timestamp=cooldown_expires_at,
-                new_entry=OwnerKeyEntry(
-                    public_key=new_key,
-                    valid_from_anchor_timestamp=activate_ts,
-                ),
-            )
-        except OwnerKeyHistoryError as e:
-            raise BridgeProtocolError(
-                f"apply_owner_key_rotation: history mutation failed: {e}"
-            ) from e
-
-    return Message(
-        type=MessageType.APPLY_OWNER_KEY_ROTATION_ACK,
         request_id=request.request_id,
         payload=empty_payload(),
     )
