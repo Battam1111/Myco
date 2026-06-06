@@ -4,16 +4,18 @@ Myco v0.9 — kernel/governance (Python) per L3/PACKAGE_MAP §5.
 
 ## Modules (M2 scope)
 
-- `canonical_bytes` — canonical-bytes serializer (cross-language parity with
-  Rust `kernel/shared` + TypeScript `anchor-client`).
-- `crypto` — Merkle hash + HMAC + signature verification (cross-language
-  parity).
-- `classifier` — I2 classifier function + dimension table (L1/GOVERNANCE §1.2).
-- `attestation` — attestation envelope construction + verification
-  (L1/GOVERNANCE §2).
-- `owner_keys` — key rotation + succession + cooldown window
-  (L1/GOVERNANCE §3.1).
-- `schema_evolution` — schema-evolution gating helpers.
+- `canonical_bytes`: canonical-bytes serializer (cross-language parity with
+  Rust `kernel/shared` + the TypeScript operator `operators/claude`).
+- `crypto`: Merkle hash + HMAC + Ed25519 signature verification
+  (cross-language parity). v0.9 keyless: the Ed25519 primitives cover the
+  substrate's own F24 keypair + federation peer auth, not an owner key.
+- `classifier`: I2 classifier function + dimension table (L1/GOVERNANCE §1.2).
+- `schema_evolution`: schema-evolution gating helpers.
+
+**v0.9 owner-key removal**: the `attestation` (owner-attestation envelope) and
+`owner_keys` (key rotation / succession / cooldown) modules were removed with
+the owner-key + anchor surface. CI mutations are classified keyless; the CI
+authority is the doctrine-repo PR review + the BLAKE3 drift gate.
 
 ### Deferred (M6+ per L1/GOVERNANCE)
 

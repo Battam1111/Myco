@@ -1,4 +1,4 @@
-//! Substrate integrity checks — extracted from `server.rs` (Phase B Step 4).
+//! Substrate integrity checks, extracted from `server.rs` (Phase B Step 4).
 //!
 //! Owns the boot-time and ad-hoc integrity check pipeline:
 //! - `handle_run_immune_check` is the operator-driven entry point (dispatched
@@ -21,7 +21,7 @@ use myco_kernel_bridge::protocol::{msg_type, Message};
 use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
 
 use crate::server::{
-    emit_immune_sporocarp, emit_substrate_event, hex_encode, hex_first_8_bytes, save_dag_state,
+    emit_immune_sporocarp, emit_substrate_event, hex_encode, save_dag_state,
     ServerState,
 };
 use crate::SubstrateError;
@@ -29,11 +29,11 @@ use crate::SubstrateError;
 /// M12: Result of one integrity check (C9 cold_resume_invariant_failure sub-check).
 ///
 /// **M-anchor-4 §9.3.4**: extended with `witness_inputs_canonical_bytes`, the
-/// raw inputs the owner re-feeds into the canonical check. The substrate
+/// raw inputs re-fed into the canonical check at the CI gate. The substrate
 /// itself does not emit pass/fail per doctrine §9.3.4; the `passed` field
 /// remains for backward-compat with the immune-emission pipeline (which fires
 /// on detected failures) but the witness emission path treats it as
-/// substrate's CLAIM only — owner verifies independently.
+/// substrate's CLAIM only, verified independently at the CI gate.
 #[derive(Debug, Clone)]
 pub(crate) struct IntegrityCheckResult {
     pub(crate) check_id: String,
@@ -41,20 +41,21 @@ pub(crate) struct IntegrityCheckResult {
     pub(crate) evidence: String,
     /// **M-anchor-4**: witness inputs (canonical-bytes Map encoding the raw
     /// check inputs). Empty `Vec` if the check has no structured inputs
-    /// worth witnessing (e.g., placeholder owner_keys_consistency deferred
-    /// to Python path).
+    /// worth witnessing.
     pub(crate) witness_inputs_canonical_bytes: Vec<u8>,
     /// **M-anchor-4**: which doctrine tier this check belongs to per
-    /// L1/SCHEMA §4.1. Owner uses to route verification.
+    /// L1/SCHEMA §4.1. Used to route verification at the CI gate.
     pub(crate) tier: &'static str,
 }
 
 /// M12: Run the substrate's comprehensive integrity checks ad-hoc.
 ///
 /// Runs the same checks as boot-time C9 (substrate_id_well_formed,
-/// cycle_counter_monotonic, pinned_pubkey_well_formed, dag_verify_all,
-/// owner_keys_consistency). For each failing check, emits a new C9 immune
-/// sporocarp. Always returns a structured report regardless of outcome.
+/// cycle_counter_monotonic, dag_verify_all, canonical_bytes_render_drift,
+/// substrate_state_orphan_detected, silent_internal_mortality,
+/// genesis_event_uniqueness, manifest_cycle_vs_dag_advance_count). For each
+/// failing check, emits a new C9 immune sporocarp. Always returns a structured
+/// report regardless of outcome.
 pub(crate) fn handle_run_immune_check(
     state: &mut ServerState,
     request: &Message,
@@ -152,12 +153,17 @@ pub(crate) fn handle_run_immune_check(
 
 /// M12: Run the substrate's comprehensive integrity checks.
 ///
-/// Runs 5 checks:
-/// 1. `substrate_id_well_formed` — manifest.substrate_id is non-zero
-/// 2. `cycle_counter_monotonic` — manifest.cycle_counter ≥ max(DAG node at_cycle)
-/// 3. `pinned_pubkey_well_formed` — pinned pubkey is non-zero Ed25519
-/// 4. `dag_verify_all` — every DAG node's hash recomputes correctly
-/// 5. `owner_keys_consistency` — (M10 operator==owner) active owner key MUST equal pinned operator pubkey
+/// **v0.9 keyless**: the `pinned_pubkey_well_formed` and `owner_keys_consistency`
+/// checks were removed with the owner-key + anchor surface (there is no pinned
+/// operator identity and no owner key to cross-validate). The live checks are:
+/// 1. `substrate_id_well_formed`, substrate_id is non-zero
+/// 2. `cycle_counter_monotonic`, cycle_counter ≥ max(DAG node at_cycle)
+/// 3. `dag_verify_all`, every DAG node's hash recomputes correctly
+/// 4. `canonical_bytes_render_drift`, C18 substrate-generated nodes round-trip
+/// 5. `substrate_state_orphan_detected`, C19/C32 live↔DAG reconciliation
+/// 6. `silent_internal_mortality`, C55 orphan-without-tombstone detection
+/// 7. `genesis_event_uniqueness`, C57 at most one genesis_event
+/// 8. `manifest_cycle_vs_dag_advance_count`, C59 cycle-counter vs DAG advances
 ///
 /// Returns a vec of results. Caller emits a C9 immune sporocarp for each failure.
 pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckResult> {
@@ -231,16 +237,17 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         tier: "tier_1",
     });
 
-    // 3. (REMOVED v0.9) pinned_pubkey_well_formed — there is no pinned operator
+    // 3. (REMOVED v0.9) pinned_pubkey_well_formed, there is no pinned operator
     //    identity in the keyless build, so there is no pinned pubkey to check.
 
-    // 4. DAG.verify_all() — every node's hash recomputes correctly.
+    // 4. DAG.verify_all(), every node's hash recomputes correctly.
     // **M-anchor-4 §9.3.5**: witness inputs include {node_count, dag_tip_hash}.
-    // For tier-2 sampled re-verification (deferred), the owner will derive
-    // sample indices via `anchor_nonce_derived_sample_indices` and pull
-    // (hash, parent_hashes, content_hash) tuples for those indices via the
-    // existing enumerate_dag_since RPC. The witness here is the SUFFICIENT
-    // INPUT for the owner to know which leaves to sample + check.
+    // For tier-2 sampled re-verification (deferred), the CI gate derives sample
+    // indices from a substrate/DAG-tip-derived seed and pulls (hash,
+    // parent_hashes, content_hash) tuples for those indices via the existing
+    // enumerate_dag_since RPC. The witness here is the SUFFICIENT INPUT to know
+    // which leaves to sample + check. (keyless; acknowledged-debt: no external
+    // anchor-minted nonce, the sampling seed is substrate/DAG-tip-derived.)
     let dag_verify = state.dag.verify_all();
     let witness_inputs_dag_verify = {
         let mut m = BTreeMap::new();
@@ -272,34 +279,22 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         tier: "tier_1",
     });
 
-    // 5. owner_keys consistency check is operator-side: we can only verify the
-    //    pinned operator pubkey is non-zero (the owner_keys live in Python and
-    //    are loaded via load_state during hello). This check is therefore a
-    //    placeholder at the Rust layer; full owner_keys vs pinned-pubkey cross-
-    //    validation happens implicitly when the first CI mutation is submitted
-    //    (signature verification will fail if Python's owner_keys diverges from
-    //    Rust's pinned pubkey).
-    // **M-anchor-4**: this check is a placeholder at the Rust layer; no
-    // structured witness inputs.
-    results.push(IntegrityCheckResult {
-        check_id: "owner_keys_consistency".to_string(),
-        passed: true,
-        evidence: "deferred to Python load_state path; CI mutation signatures cross-validate"
-            .to_string(),
-        witness_inputs_canonical_bytes: Vec::new(),
-        tier: "tier_1",
-    });
+    // 5. (REMOVED v0.9) owner_keys_consistency, there is no owner key and no
+    //    pinned operator pubkey in the keyless build, so there is nothing to
+    //    cross-validate. The old check was an unconditional `passed: true`
+    //    placeholder describing retired owner-key vs pinned-pubkey
+    //    cross-validation; it is deleted rather than left lying.
 
     // 6. M19 P9 皮肤 / L1/HARD_RULES C18 canonical_bytes_render_drift:
     //    decode each DAG node's content_canonical_bytes, re-encode, and compare.
     //    Any divergence indicates canonical-bytes rendering is non-deterministic
     //    (e.g., map keys not sorted, repr drift, integer encoding inconsistency)
-    //    — a CRITICAL skin breach that would let an attacker present the same
+    //   , a CRITICAL skin breach that would let an attacker present the same
     //    semantic content with different byte sequences.
     //
     //    M19-MV scope: scan substrate-self-generated DAG nodes. Operator-
-    //    supplied content (mutation:*) is opaque to the substrate — the
-    //    operator chooses the encoding — so we skip those nodes. Substrate-
+    //    supplied content (mutation:*) is opaque to the substrate, the
+    //    operator chooses the encoding, so we skip those nodes. Substrate-
     //    generated nodes (sporocarp:*, immune:*, absorption_event:*,
     //    evolution_*:*, self_euthanasia_proposal:*, perturb_from_raw:*,
     //    raw_material:*) MUST round-trip cleanly because the substrate itself
@@ -411,10 +406,11 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
     //    are dead tissue."
     //
     //    M21.1 dual-write phase scope: this check verifies that all Rust-side
-    //    fields (substrate_id, genesis_time, cycle_counter, last_absorbed_cycle,
-    //    pinned_operator_identity, nonce_log) can be derived from DAG events.
-    //    Python-owned state (gradient, owner_keys) is deferred to M21.3 when
-    //    Python becomes a derived-view consumer.
+    //    fields (substrate_id, genesis_time, cycle_counter, last_absorbed_cycle)
+    //    can be derived from DAG events. Python-owned state (gradient) is
+    //    deferred to M21.3 when Python becomes a derived-view consumer. (v0.9
+    //    keyless: the pinned_operator_identity + nonce_log reconciliations were
+    //    removed with the owner-key + anchor surface.)
     let (orphan_passed, orphan_evidence) = check_substrate_state_orphans(state);
     // **M-anchor-4**: witness inputs = {substrate_id, manifest_cycle, dag_node_count}.
     // Owner re-runs DerivedState::from_dag and compares against these values.
@@ -449,7 +445,7 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
     //    corresponding `internal_mortality_event:*` tombstone in the DAG
     //    referencing it as `killed_part_hash`. An orphan without a tombstone
     //    means a part was logically retired without the audit trail P07
-    //    §3.3 mandates — silent removal, forbidden.
+    //    §3.3 mandates, silent removal, forbidden.
     //
     //    Under healthy substrate operation the prune-scan deep-cycle step
     //    catches all such orphans every PRUNE_SCAN_DEEP_CYCLE_INTERVAL
@@ -466,12 +462,12 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         tier: "tier_1",
     });
 
-    // 9. **v3.1.1 Sprint 5.C / C57 genesis_event_non_unique** — the DAG MUST
+    // 9. **v3.1.1 Sprint 5.C / C57 genesis_event_non_unique**, the DAG MUST
     //    contain at most one `genesis_event:*` node. Multiple genesis events
     //    indicate a boot-time ambiguity: either the substrate booted twice
     //    against the same state_dir without proper genesis-already-present
     //    detection, or a DAG corruption let two genesis events through. Either
-    //    way the substrate identity is unstable — refuse to operate silently.
+    //    way the substrate identity is unstable, refuse to operate silently.
     //    Per P06 §3.5: every causal chain has exactly one root.
     let (genesis_passed, genesis_evidence, genesis_witness) =
         check_genesis_event_uniqueness(state);
@@ -483,17 +479,17 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
         tier: "tier_1",
     });
 
-    // 10. (REMOVED v0.9) C58 owner_pubkey_dag_pin_inconsistent — there is no
+    // 10. (REMOVED v0.9) C58 owner_pubkey_dag_pin_inconsistent, there is no
     //     pinned operator identity and no owner_key_initialized event in the
     //     keyless build, so there is nothing to cross-check.
 
-    // 11. **v3.1.1 Sprint 5.C / C59 manifest_cycle_vs_dag_advance_mismatch** —
+    // 11. **v3.1.1 Sprint 5.C / C59 manifest_cycle_vs_dag_advance_mismatch**,
     //     manifest.cycle_counter SHOULD equal the count of `cycle_advanced`
     //     DAG events (with tolerance of ±1 to account for the pre-first-cycle
     //     genesis substrate). Mismatch beyond tolerance indicates either
-    //     manifest tamper (cycle_counter advanced without DAG emission — silent
+    //     manifest tamper (cycle_counter advanced without DAG emission, silent
     //     mutation, P06 violation) or DAG truncation (cycle_advanced events
-    //     removed — retro-edit). Either is a boot-time correctness alarm.
+    //     removed, retro-edit). Either is a boot-time correctness alarm.
     let (cycle_count_passed, cycle_count_evidence, cycle_count_witness) =
         check_manifest_cycle_vs_dag_advance_count(state);
     results.push(IntegrityCheckResult {
@@ -508,10 +504,10 @@ pub(crate) fn run_integrity_checks(state: &ServerState) -> Vec<IntegrityCheckRes
 }
 
 // ---------------------------------------------------------------------------
-// **v3.1.1 Sprint 5.C** — new cross-file consistency checks (C57/C58/C59).
+// **v3.1.1 Sprint 5.C**, new cross-file consistency checks (C57/C58/C59).
 // ---------------------------------------------------------------------------
 
-/// **C57 genesis_event_uniqueness** — DAG must contain at most one
+/// **C57 genesis_event_uniqueness**, DAG must contain at most one
 /// `genesis_event:*` node.
 fn check_genesis_event_uniqueness(state: &ServerState) -> (bool, String, Vec<u8>) {
     let mut count: u64 = 0;
@@ -552,7 +548,7 @@ fn check_genesis_event_uniqueness(state: &ServerState) -> (bool, String, Vec<u8>
     }
 }
 
-/// **C59 manifest_cycle_vs_dag_advance_count** — count cycle_advanced events
+/// **C59 manifest_cycle_vs_dag_advance_count**, count cycle_advanced events
 /// and compare to manifest.cycle_counter; ±1 tolerance for the pre-first-cycle
 /// genesis case.
 fn check_manifest_cycle_vs_dag_advance_count(
@@ -613,7 +609,7 @@ fn check_manifest_cycle_vs_dag_advance_count(
 /// 2. Build set of all `killed_part_hash` values from existing tombstones.
 /// 3. For each DAG node past grace window that is (a) not referenced by
 ///    any later node AND (b) not the current tip AND (c) not in the P10
-///    invariant-protected set AND (d) not itself a tombstone — check if it
+///    invariant-protected set AND (d) not itself a tombstone, check if it
 ///    appears in the tombstone-killed-set. If not, it is a C55 violation.
 fn check_silent_internal_mortality(
     state: &ServerState,
@@ -655,7 +651,7 @@ fn check_silent_internal_mortality(
         let content = node.content_canonical_bytes.as_ref();
         let decoded = match cb_decode(content) {
             Ok(v) => v,
-            Err(_) => continue, // malformed tombstone — skipped here; would
+            Err(_) => continue, // malformed tombstone, skipped here; would
                                 // be a C18 finding via the canonical_bytes
                                 // round-trip check.
         };
@@ -687,7 +683,7 @@ fn check_silent_internal_mortality(
             {
                 continue;
             }
-            // P10 invariant-protected — never 应朽, so never expected to
+            // P10 invariant-protected, never 应朽, so never expected to
             // have a tombstone. Shared SSoT with the prune-scan rules.
             if crate::prune::is_p10_invariant_protected(&node.node_type) {
                 continue;
@@ -764,7 +760,7 @@ fn check_silent_internal_mortality(
 
 /// **M-anchor-4 §9.3.4**: emit `invariant_witness:{check_id}` DAG events
 /// for each integrity check result. Witnesses are emitted REGARDLESS of
-/// pass/fail per doctrine — the substrate provides raw inputs; the owner
+/// pass/fail per doctrine, the substrate provides raw inputs; the owner
 /// re-derives. The immune-sporocarp path (which fires on detected failures)
 /// is preserved separately.
 ///
@@ -807,12 +803,11 @@ pub(crate) fn emit_invariant_witnesses(
     let mut count: u64 = 0;
     for result in results {
         if result.witness_inputs_canonical_bytes.is_empty() {
-            // No structured inputs — skip emission (e.g., owner_keys_consistency
-            // placeholder).
+            // No structured inputs, skip emission.
             continue;
         }
         if already_witnessed.contains(&result.check_id) {
-            // Same cycle, already witnessed — skip.
+            // Same cycle, already witnessed, skip.
             continue;
         }
         let body = crate::events::encode_invariant_witness(
@@ -821,10 +816,6 @@ pub(crate) fn emit_invariant_witnesses(
             at_cycle,
             at_unix_ns,
             &result.witness_inputs_canonical_bytes,
-            // M-anchor-4 tier-1: no anchor-nonce sampling yet (tier-1 checks
-            // don't sample). Tier-2 checks (M-anchor-4.5+) will fill these.
-            &[],
-            &[],
         );
         let nt = crate::events::invariant_witness_node_type(&result.check_id);
         if emit_substrate_event(state, nt, body).is_ok() {
@@ -845,7 +836,9 @@ pub(crate) fn emit_invariant_witnesses(
 /// - genesis_time_unix_ns: live state.genesis_time_unix_ns() == derived.genesis_time_unix_ns
 /// - cycle_counter: live state.cycle_counter() == derived.cycle_counter
 /// - last_absorbed_cycle: live state.last_absorbed_cycle() == derived.last_absorbed_cycle
-/// - nonce_log: live state.nonce_log size + per-entry consumed flags == derived.nonce_log
+///
+/// (v0.9 keyless: the nonce_log + pinned_operator_identity reconciliations were
+/// removed with the owner-key + anchor surface.)
 fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
     use crate::derived_state::DerivedState;
 
@@ -864,7 +857,7 @@ fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
     // substrate_id: derived is Some iff a genesis_event has been emitted.
     // If derived.substrate_id is None but live manifest has one, that means
     // the substrate is running on a manifest.cb without a corresponding
-    // genesis_event in DAG — this is exactly the M21.1 migration condition
+    // genesis_event in DAG, this is exactly the M21.1 migration condition
     // (existing substrates pre-M21 have no genesis_event). To avoid false
     // positives during migration, we ONLY report divergence when derived
     // HAS substrate_id and it differs from live.
@@ -892,7 +885,7 @@ fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
     // returns, but the cycle_advanced event is emitted from inside the dispatch
     // arm too. So derived.cycle_counter should EQUAL live.cycle_counter after
     // an advance. For pre-M21 manifests that never emitted cycle_advanced, the
-    // derived value will be 0 while live can be > 0 — only report divergence
+    // derived value will be 0 while live can be > 0, only report divergence
     // when derived.cycle_counter > 0 OR (derived.substrate_id is Some, i.e. we
     // have a genesis event and thus the substrate is post-M21).
     if (derived.cycle_counter > 0 || derived.substrate_id.is_some())
@@ -919,59 +912,16 @@ fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
         }
     }
 
-    // (v0.9 owner-key removal: the pinned_operator_identity live↔derived
-    // reconciliation was removed — neither side carries a pinned identity.)
-
-    // nonce_log: derived from nonce_issued/consumed/expired events.
-    // Compare entry-by-entry. Migration tolerance: if derived.nonce_log is
-    // empty AND live.nonce_log is non-empty AND no genesis_event in DAG, this
-    // is pre-M21 legacy nonce data — tolerate. Otherwise enforce match.
-    let derived_is_post_m21 = derived.substrate_id.is_some();
-    if derived_is_post_m21 {
-        for (nonce, live_entry) in &state.nonce_log {
-            match derived.nonce_log.get(nonce) {
-                Some(d_entry) => {
-                    if live_entry.consumed != d_entry.consumed {
-                        divergences.push(format!(
-                            "nonce {} consumed-flag mismatch: live={}, derived={}",
-                            hex_first_8_bytes(nonce),
-                            live_entry.consumed,
-                            d_entry.consumed
-                        ));
-                    }
-                    if live_entry.expiry_unix_ns != d_entry.expiry_unix_ns {
-                        divergences.push(format!(
-                            "nonce {} expiry mismatch",
-                            hex_first_8_bytes(nonce)
-                        ));
-                    }
-                }
-                None => {
-                    divergences.push(format!(
-                        "nonce {} in live log but no nonce_issued event in DAG",
-                        hex_first_8_bytes(nonce)
-                    ));
-                }
-            }
-        }
-        // Check derived has no extras absent from live.
-        for nonce in derived.nonce_log.keys() {
-            if !state.nonce_log.contains_key(nonce) {
-                divergences.push(format!(
-                    "nonce {} has nonce_issued event in DAG but absent in live log (premature prune?)",
-                    hex_first_8_bytes(nonce)
-                ));
-            }
-        }
-    }
+    // (v0.9 keyless removal: the pinned_operator_identity live↔derived
+    // reconciliation AND the nonce_log entry-by-entry reconciliation were
+    // removed with the owner-key + anchor surface, neither side carries a
+    // pinned identity or a nonce ledger.)
 
     if divergences.is_empty() {
         (
             true,
-            format!(
-                "ok (Rust-side state fully derivable from DAG; nonce_log={} entries)",
-                state.nonce_log.len()
-            ),
+            "ok (Rust-side identity / metabolic-position state fully derivable from DAG)"
+                .to_string(),
         )
     } else {
         let summary = if divergences.len() == 1 {
@@ -989,7 +939,7 @@ fn check_substrate_state_orphans(state: &ServerState) -> (bool, String) {
 
 #[cfg(test)]
 mod tests {
-    //! **Phase ③ — P05 negative exact-polarity witness.**
+    //! **Phase ③, P05 negative exact-polarity witness.**
     //!
     //! The shipped C32 (`substrate_state_orphan_detected`) is the live-state ↔
     //! DAG-derived reconciler: every Rust-side ServerState record MUST be
@@ -999,25 +949,32 @@ mod tests {
     //!
     //! This witness lives at the lib level (NOT in `substrate/tests/`) by
     //! necessity: a post-M21 substrate boots EVERY reconciled field
-    //! (identity / cycle_counter / nonce_log / pinned operator) FROM the DAG
-    //! itself, so live and derived are sourced from the same graph and can never
-    //! diverge through external-file tampering — the e2e operator surface cannot
-    //! induce the divergence. We therefore construct a `ServerState` whose live
-    //! `nonce_log` carries an entry the DAG never issued, and drive the REAL
-    //! detector (`check_substrate_state_orphans` + the `handle_run_immune_check`
+    //! (identity / cycle_counter / last_absorbed_cycle) FROM the DAG itself, so
+    //! live and derived are sourced from the same graph and can never diverge
+    //! through external-file tampering, the e2e operator surface cannot induce
+    //! the divergence. We therefore construct a `ServerState` whose live
+    //! `cycle_counter` exceeds what the DAG derives, and drive the REAL detector
+    //! (`check_substrate_state_orphans` + the `handle_run_immune_check`
     //! C32-emission path) with exact negative polarity. This is byte-neutral
     //! (`#[cfg(test)]`, excluded from release) and changes no detector logic.
+    //!
+    //! **v0.9 keyless**: the original negative witness injected a live `nonce_log`
+    //! entry with no DAG `nonce_issued` event. The attestation-nonce ledger was
+    //! removed with the owner-key + anchor surface, so the witness now induces a
+    //! `cycle_counter` orphan instead, an equivalent live↔DAG divergence that
+    //! exercises the same reconciler + C32-emission path.
 
     use super::*;
-    use crate::attestation::AttestationNonce;
     use crate::persistence::Manifest;
     use crate::server::ServerState;
     use myco_kernel_schema::dag::Dag;
 
     /// Build a `ServerState` over a DAG whose genesis_event carries the SAME
-    /// identity the live state is constructed with — so the ONLY divergence the
+    /// identity the live state is constructed with, so the ONLY divergence the
     /// tests induce is the one under test (no spurious substrate_id mismatch).
-    fn state_with_matching_genesis() -> ServerState {
+    /// `live_cycle_counter` lets a test set the live counter independently of the
+    /// DAG (whose only event is the genesis at cycle 0 → derived.cycle_counter=0).
+    fn state_with_matching_genesis(live_cycle_counter: u64) -> ServerState {
         let g = Manifest::genesis();
         let mut dag = Dag::new();
         let genesis_content =
@@ -1034,7 +991,7 @@ mod tests {
             state_dir,
             Some(g.substrate_id),
             Some(g.genesis_time_unix_ns),
-            g.cycle_counter,
+            live_cycle_counter,
             g.last_absorbed_cycle,
             g.generation_depth,
             dag,
@@ -1053,9 +1010,10 @@ mod tests {
     #[test]
     fn p05_negative_clean_substrate_passes_orphan_check() {
         // **Positive control**: a substrate whose live state is fully derivable
-        // from its DAG (no injected orphan) MUST pass the orphan reconciler — so
-        // the negative test below proves DETECTION, not a tautology.
-        let state = state_with_matching_genesis();
+        // from its DAG (live cycle_counter == derived 0; no injected orphan) MUST
+        // pass the orphan reconciler, so the negative test below proves
+        // DETECTION, not a tautology.
+        let state = state_with_matching_genesis(0);
         let (passed, evidence) = check_substrate_state_orphans(&state);
         assert!(
             passed,
@@ -1066,35 +1024,31 @@ mod tests {
 
     #[test]
     fn p05_negative_active_tier_orphan_nonce_fires_c32() {
-        // **P05 §3.2 negative witness**: inject a LIVE nonce_log entry with no
-        // `nonce_issued` event in the active-tier DAG → an orphaned live record.
-        // The reconciler MUST flag it, and the ad-hoc immune-check path MUST emit
-        // the C32_substrate_state_orphan_detected sporocarp.
-        let mut state = state_with_matching_genesis();
-
-        // A live nonce the DAG never issued (no nonce_issued event) → orphan.
-        let orphan = AttestationNonce {
-            nonce: [0xABu8; 32],
-            bound_content_hash: [0u8; 32],
-            bound_dag_tip: [0u8; 32],
-            substrate_issued_at_unix_ns: 1,
-            expiry_unix_ns: i64::MAX / 2,
-            anchor_clock_issued_at_unix_ns: None,
-            anchor_clock_expiry_unix_ns: None,
-            consumed: false,
-        };
-        state.nonce_log.insert(orphan.nonce, orphan);
+        // NOTE (keyless v3.1.5): this fn keeps the sealed-L0 witness name (the P05
+        // card `negative:` field references "orphan_nonce"). After the keyless
+        // nonce-ledger retirement there is no nonce orphan to inject, so the
+        // scenario is re-grounded on an equivalent active-tier orphan (a live
+        // cycle_counter with no cycle_advanced DAG events) that fires the SAME C32
+        // check. The witness name will be renamed to match at the next L0 reseal;
+        // until then the sealed name is the binding contract.
+        // **P05 §3.2 negative witness**: build a substrate whose LIVE
+        // cycle_counter (5) has no corresponding `cycle_advanced` events in the
+        // active-tier DAG (which derives cycle_counter=0 from the lone genesis
+        // event) → an orphaned live record. The reconciler MUST flag it, and the
+        // ad-hoc immune-check path MUST emit the C32_substrate_state_orphan_detected
+        // sporocarp.
+        let mut state = state_with_matching_genesis(5);
 
         // (1) The reconciler itself flags the divergence (the detector's verdict).
         let (passed, evidence) = check_substrate_state_orphans(&state);
         assert!(
             !passed,
-            "P05 §3.2 violated: a live nonce with no nonce_issued DAG event is an \
-             active-tier orphan; the reconciler MUST fail"
+            "P05 §3.2 violated: a live cycle_counter with no cycle_advanced DAG \
+             events is an active-tier orphan; the reconciler MUST fail"
         );
         assert!(
-            evidence.to_lowercase().contains("nonce"),
-            "P05 §3.2: orphan evidence should name the orphaned nonce record; got: {evidence}"
+            evidence.to_lowercase().contains("cycle_counter"),
+            "P05 §3.2: orphan evidence should name the orphaned cycle_counter; got: {evidence}"
         );
 
         // (2) The operator-driven immune-check path emits the C32 sporocarp.

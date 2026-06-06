@@ -17,14 +17,14 @@ fn layer_c_p01c_negative_agent_discriminating_attribute_not_persisted() {
     // carrier card. The bestowal direction is substrate → agent; agent-
     // discriminating attributes (model name, prompt persona, API key) MUST
     // NOT persist into substrate state, even if the agent / operator tries
-    // to inject them. The substrate is responsible for refusing — agent
+    // to inject them. The substrate is responsible for refusing, agent
     // initiative does not exonerate (§7.3 M3).
     //
     // **Strategy**: submit_mutation with a fabricated agent-persona mutation
     // type. The Python classifier returns `accepted: false` (untyped /
     // unknown), proving the substrate has no path for absorbing such state.
     // Then verify the DAG contains NO node carrying that mutation type's
-    // content. The combined property — Python rejects + DAG stays clean —
+    // content. The combined property, Python rejects + DAG stays clean,
     // is the eternity-clause defense.
     let (mut client, _dir) = spawn_substrate();
     let resp = client
@@ -158,7 +158,7 @@ fn layer_c_p07_negative_cultivator_preserve_all_rejected() {
     ];
     for mt in forbidden {
         // Note: C56 early-reject in attestation.rs fires BEFORE the payload
-        // is forwarded to Python, so touched_* fields are unnecessary —
+        // is forwarded to Python, so touched_* fields are unnecessary,
         // including them defensively anyway for protocol completeness.
         let resp = client
             .call(
@@ -200,7 +200,7 @@ fn layer_c_p07_negative_cultivator_preserve_all_rejected() {
     // event (first one) with subsequent attempts tracked via the
     // `suppressed_since_last_emission` counter on that event. The
     // rejection itself (accepted=false above) ALWAYS fires regardless of
-    // rate limit — only the DAG-side immune event is suppressed.
+    // rate limit, only the DAG-side immune event is suppressed.
     let nodes_resp = client
         .call(
             proto::QUERY_RECENT_NODES,
@@ -238,10 +238,10 @@ fn layer_c_p09_negative_malformed_envelope_rejected() {
     // typed signal, never silently accepted.
     //
     // **Strategy**: two flavors of malformed envelopes:
-    //   (1) missing required `mutation_type` field — the dispatcher MUST
+    //   (1) missing required `mutation_type` field, the dispatcher MUST
     //       raise a typed protocol error envelope (BridgeError::Protocol),
     //       i.e., the call returns Err, never a silent success.
-    //   (2) well-formed but unknown mutation_type — accepted=false at the
+    //   (2) well-formed but unknown mutation_type, accepted=false at the
     //       classifier with a non-empty rejection_reason.
     //
     // Per §4.3 the typed rejection takes either form (protocol envelope OR
@@ -264,7 +264,7 @@ fn layer_c_p09_negative_malformed_envelope_rejected() {
          submit_mutation envelope missing the required mutation_type field. \
          Expected typed protocol error; got Ok(_)"
     );
-    // Verify the error carries a descriptive message — not an empty / panicky
+    // Verify the error carries a descriptive message, not an empty / panicky
     // failure. P09 §4.3 demands typed immune signal, not silent drop.
     let err_msg = format!("{}", result_no_type.unwrap_err());
     assert!(
@@ -320,7 +320,7 @@ fn layer_c_p01_positive_daily_ops_unsupervised() {
     //   declared in card → tests/integration/p01_daily_ops_unsupervised.rs
     //                     ::test_advance_cycle_without_cultivator_attestation
     //
-    // **Doctrine being proven**: P01's operational-primacy half — the
+    // **Doctrine being proven**: P01's operational-primacy half, the
     // substrate is fully operable by an LLM agent for daily operations
     // (perturb / advance) without any cultivator presence. The cultivator
     // is "present at gates, absent from gardens".
@@ -366,7 +366,7 @@ fn layer_c_p01_positive_daily_ops_unsupervised() {
          (CI gate accidentally crossed for ordinary perturb/advance)",
         muts.len()
     );
-    // P01 §3.3: cycle counter advanced — observatory's signal_7 ≥ rolling-mean
+    // P01 §3.3: cycle counter advanced, observatory's signal_7 ≥ rolling-mean
     // sample. (signal_7 is non-zero after pump_cycles.)
     let obs = client
         .call(proto::QUERY_SUBSTRATE_OBSERVATORY, build_payload(vec![]))
@@ -392,7 +392,7 @@ fn layer_c_p02_positive_ingestion_produces_dag_event() {
     //   declared in card → tests/integration/p02_ingestion_drives_evolution.rs
     //                     ::test_paper_ingested_triggers_proposal
     //
-    // **Doctrine being proven**: P02 永恒吞噬 — ingested external material
+    // **Doctrine being proven**: P02 永恒吞噬, ingested external material
     // drives downstream metabolism, not mere storage. Refutes the
     // "permanent-memory" misreading (§7.1): admission produces a DAG
     // event + classifier path.
@@ -446,18 +446,18 @@ fn layer_c_p03_positive_classifier_path_traversed() {
     //   declared in card → tests/integration/p03_schema_evolution_succeeds.rs
     //                     ::test_modify_axis_threshold_via_CI
     //
-    // **Doctrine being proven**: P03 可逆迭代 — schema mutations traverse
+    // **Doctrine being proven**: P03 可逆迭代, schema mutations traverse
     // the classifier → attestation → migration path. Substrate state is
     // first-class mutable under discipline, not constitutionally frozen.
     //
     // **Strategy**: submit_mutation with a schema-evolution mutation type.
     // Python classifier MUST return a classification field (proving the
-    // classifier path is wired). The existence of the classification — and that
-    // it is CI for schema_evolution — proves the P03 path is alive.
+    // classifier path is wired). The existence of the classification, and that
+    // it is CI for schema_evolution, proves the P03 path is alive.
     //
     // **v0.9 owner-key removal**: the CI mutation is now accepted KEYLESS (the
     // owner-attestation gate was removed). The classifier still grades
-    // schema_evolution as contract_identity_level — that CI *classification* is
+    // schema_evolution as contract_identity_level, that CI *classification* is
     // what P03 §3.1/§4.1 require here. The content below is not a valid
     // schema_diff Map, so the apply stage fails (schema_apply_succeeded=false)
     // even though the CI mutation is accepted.
@@ -512,9 +512,9 @@ fn layer_c_p04_positive_each_cycle_changes_state() {
     //   declared in card → tests/integration/p04_cycle_advances_refine.rs
     //                     ::test_each_advance_changes_at_least_one_state
     //
-    // **Doctrine being proven**: P04 永恒迭代 — each metabolic cycle
+    // **Doctrine being proven**: P04 永恒迭代, each metabolic cycle
     // refines at least one observable state. Substrate is "always one
-    // cycle from a different state" — never terminal-alive.
+    // cycle from a different state", never terminal-alive.
     //
     // **Strategy**: register axis, drive 5 cycles. After each cycle, query
     // the DAG and verify a new `cycle_advanced` event appeared. Counter
@@ -561,7 +561,7 @@ fn layer_c_p05_positive_dag_nodes_carry_parent_hashes() {
     //   declared in card → tests/integration/p05_active_tier_fully_connected.rs
     //                     ::test_every_active_node_reachable_from_tip
     //
-    // **Doctrine being proven**: P05 万物互联 — DAG is a connected
+    // **Doctrine being proven**: P05 万物互联, DAG is a connected
     // mycelium, not a heap. Reachability is graph-path via parent-hash
     // chains, not address-retrieval (§7.1 M1).
     //
@@ -635,7 +635,7 @@ fn layer_c_p08_positive_child_substrate_spawn_succeeds() {
     //   declared in card → tests/integration/p08_sprout_child_attested.rs
     //                     ::test_owner_cosigned_spawn_succeeds
     //
-    // **Doctrine being proven**: P08 永恒繁衍 — generation-bounded
+    // **Doctrine being proven**: P08 永恒繁衍, generation-bounded
     // reproduction. Parent emits spore-schema; the SPROUT_CHILD operation
     // produces a child substrate state-dir that subsequently boots into
     // a valid genesis state with parent linkage.
@@ -709,7 +709,7 @@ fn layer_c_p10_positive_compression_invariant_set_covers_p10_b() {
     //   declared in card → tests/integration/p10_compression_with_witness.rs
     //                     ::test_compression_emits_witness_and_preserves_invariant_set
     //
-    // **Doctrine being proven**: P10 选择性凝结 — healthy compression
+    // **Doctrine being proven**: P10 选择性凝结, healthy compression
     // operates only via F18-registered rules and preserves the P10.b
     // invariant set. Compression is transformation-with-witness, not
     // deletion (§7.1 M1).
@@ -750,7 +750,8 @@ fn layer_c_p10_positive_compression_invariant_set_covers_p10_b() {
     );
     for protected in &[
         "genesis_event:any",
-        "owner_key_initialized",
+        // (v0.9 keyless: the retired `owner_key_initialized` membership literal
+        // was dropped, that event is never emitted in the keyless build.)
         "mutation:add_axis",
         "evolution_succeeded:add_axis",
         "self_euthanasia_executed:axis_x",
@@ -771,7 +772,7 @@ fn layer_c_p11_positive_per_cycle_cost_signals_emitted() {
     //   declared in card → tests/integration/p11_observable_cost_per_operation.rs
     //                     ::test_every_operation_emits_cost_signal
     //
-    // **Doctrine being proven**: P11 代谢经济 — every state-mutating
+    // **Doctrine being proven**: P11 代谢经济, every state-mutating
     // operation produces observable cost signals across the three cost
     // units (Persistence, Compute, Network). I10 holds: no silent
     // absorption of cost.
@@ -779,7 +780,7 @@ fn layer_c_p11_positive_per_cycle_cost_signals_emitted() {
     // **Strategy**: pump 3 cycles. Query observatory. Verify all three
     // cost signals are present and non-degenerate (signal_7 compute_ns
     // > 0, signal_9 storage_bytes > 0; signal_8 network may be 0 without
-    // federation — that's the correct value, NOT missing). This restates
+    // federation, that's the correct value, NOT missing). This restates
     // m26_2 as P11 positive witness with the cost-trinity check explicit.
     let (mut client, _dir) = spawn_substrate();
     pump_cycles(&mut client, 3);
@@ -834,7 +835,7 @@ fn layer_c_p11_positive_per_cycle_cost_signals_emitted() {
 }
 
 // ===========================================================================
-// Phase ③ — exact-polarity Layer-C witnesses (replacing nearest-available slots).
+// Phase ③, exact-polarity Layer-C witnesses (replacing nearest-available slots).
 //
 // These bind the REAL detector mechanisms (now shipped by Phases ①②) to the
 // card witness slots with exact polarity:
@@ -847,12 +848,12 @@ fn layer_c_p11_positive_per_cycle_cost_signals_emitted() {
 //     the DAG; no model/persona/session node-types persist; bestowal stays
 //     substrate → connection).
 //
-// (The P05 NEGATIVE witness — C32 substrate_state_orphan_detected FIRES on an
-// active-tier orphan — lives at the lib level as
+// (The P05 NEGATIVE witness, C32 substrate_state_orphan_detected FIRES on an
+// active-tier orphan, lives at the lib level as
 // `substrate/src/integrity.rs::tests::p05_negative_active_tier_orphan_nonce_fires_c32`.
 // It cannot be an e2e witness: a post-M21 substrate boots every reconciled field
 // (identity / cycle_counter / nonce_log / pinned operator) FROM the DAG, so live
-// and derived are the same graph — no external-file tampering can induce the
+// and derived are the same graph, no external-file tampering can induce the
 // divergence C32 guards. The lib test injects a live nonce_log entry with no DAG
 // root and drives the real reconciler + C32-emission path. See the report.)
 // ===========================================================================
@@ -863,7 +864,7 @@ fn layer_c_p05_edge_cold_tier_node_exempt_from_reachability() {
     //   exact replacement for the nearest-available
     //   e2e_bootstrap.rs::m8_dag_node_hashes_form_causal_chain.
     //
-    // **Doctrine being proven**: P05 §3.3 — active-tier reachability has
+    // **Doctrine being proven**: P05 §3.3, active-tier reachability has
     // ENUMERABLE exemption classes (F10): cold-tier nodes (beyond retention
     // horizon, owner-attested fetch), P10 compressed roll-ups (with witness),
     // and federation-coupling edges. A node in an exemption class is NOT "dead
@@ -873,9 +874,9 @@ fn layer_c_p05_edge_cold_tier_node_exempt_from_reachability() {
     // **Strategy**: the substrate exposes the reachability-exemption /
     // never-orphaned classes as the F10-enumerable P05/P10.b invariant set
     // (`seed_compression_invariant_set`). Assert the owner-attested / cold-tier /
-    // federation / compressed-roll-up node-type families are members (exempt —
+    // federation / compressed-roll-up node-type families are members (exempt,
     // not dead tissue when off the live frontier), while a plain active-tier
-    // raw_material node is NOT — i.e. the exemption boundary is real and named
+    // raw_material node is NOT, i.e. the exemption boundary is real and named
     // (enumerable), not silent. A silent exemption is decay; an enumerated one
     // is stratification (the deposit's distinction).
     use substrate::events::{node_type_in_invariant_set, seed_compression_invariant_set};
@@ -883,7 +884,7 @@ fn layer_c_p05_edge_cold_tier_node_exempt_from_reachability() {
     let inv = seed_compression_invariant_set();
 
     // Cold-tier / owner-attested / federation / compressed-roll-up exemptions:
-    // these are the P05 §3.3 enumerable classes — NOT flagged as active-tier
+    // these are the P05 §3.3 enumerable classes, NOT flagged as active-tier
     // orphans even off the live frontier.
     for exempt in &[
         // genesis attestation chain (substrate-ID-class cold root)
@@ -929,7 +930,7 @@ fn layer_c_p01c_edge_handshake_terminate_leaves_no_residue() {
     //   exact replacement for the nearest-available
     //   e2e_bootstrap.rs::substrate_handshake_reports_versions.
     //
-    // **Doctrine being defended**: P01c (eternity-clause asymmetric carrier) —
+    // **Doctrine being defended**: P01c (eternity-clause asymmetric carrier),
     // "the substrate persists; the operator-connection passes." The act of a
     // connection handshaking, doing work, and TERMINATING must leave NO
     // persistent agent-discriminating residue. The per-session secret, the
@@ -1035,7 +1036,7 @@ fn layer_c_p01c_edge_handshake_terminate_leaves_no_residue() {
 
     // (3) No agent-discriminating node-type persisted by the connect/terminate
     // cycle. The legitimate carrier record is `operator_pinned:` (the cultivator
-    // KEY, substrate-ID-class) — that is NOT agent-discriminating residue; the
+    // KEY, substrate-ID-class), that is NOT agent-discriminating residue; the
     // forbidden families are model / persona / agent-thread / session identity.
     for node in &nodes {
         let m = match node {

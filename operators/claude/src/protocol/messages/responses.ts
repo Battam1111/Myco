@@ -384,7 +384,9 @@ export interface ImmuneEvent {
   nodeType: string;
   atCycle: bigint;
   /** Raw canonical-bytes of the immune event payload (Map with detector_id +
-   *  evidence + timestamp). Operators can decode via anchor-client renderer. */
+   *  evidence + timestamp). Operators can decode via the canonical-bytes
+   *  renderer (`src/canonical/renderer.ts`; relocated from the deleted
+   *  anchor client). */
   contentCanonicalBytes: Uint8Array;
 }
 
@@ -549,12 +551,14 @@ export interface MutationResult {
   /** M26.3 P10.c: DAG node hash of the `compression_event:{rule_id}` event
    *  emitted after a successful compression mutation. Null otherwise. */
   compressionEventHash: Uint8Array | null;
-  /** M-anchor-5 §9.2.2: DAG node hash of the `tip_cosigned:{prefix}` event
-   *  emitted after a successful dag_tip_cosign mutation. Null otherwise. */
+  /** **v0.9 owner-key removal**: vestigial. The `dag_tip_cosign` /
+   *  `l0_revision_attest` mutation types were removed with the anchor surface,
+   *  so the substrate never emits `tip_cosigned:{prefix}` /
+   *  `l0_revision_attested:{prefix}`; these always parse as `null`. Retained
+   *  as optional back-compat fields so old response payloads still decode. */
   tipCosignEventHash: Uint8Array | null;
-  /** M-anchor-5 §9.2.4: DAG node hash of the
-   *  `l0_revision_attested:{prefix}` event emitted after a successful
-   *  l0_revision_attest mutation. Null otherwise. */
+  /** **v0.9 owner-key removal**: vestigial (always `null`). See
+   *  `tipCosignEventHash`. */
   l0RevisionEventHash: Uint8Array | null;
   /** v3.1.1 Sprint 8.G (P03 §10.4): true iff the substrate took the two-phase
    *  migration path for this mutation (migration_mode was requested + accepted). */

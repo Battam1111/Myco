@@ -4,7 +4,9 @@
 //!
 //! Deterministic encoding from typed values to canonical bytes. Identical
 //! inputs MUST produce identical outputs across all language implementations
-//! (substrate-kernel Rust, operator-bindings per LLM-host, anchor-client TS).
+//! (substrate-kernel Rust, the Python kernel, the TypeScript operator
+//! `operators/claude`; v0.9 keyless: the deleted anchor client's TS once
+//! lived here too).
 //!
 //! ## Encoding
 //!
@@ -40,14 +42,15 @@
 //!
 //! ## Doctrine traceability
 //!
-//! - L0/cards/AS_anchor_surface §3: canonical-bytes serialization is part of the anchor-surface
-//!   doctrine. Substrate emits canonical bytes; anchor-surface client renders
-//!   deterministically for owner review.
+//! - L0/cards/AS_anchor_surface §3: canonical-bytes serialization is part of the
+//!   canonical-bytes doctrine. The substrate emits canonical bytes; a downstream
+//!   renderer reconstructs them deterministically. (v0.9 keyless: the
+//!   owner-controlled anchor-surface client this card describes is removed.)
 //! - L1/SCHEMA §3.1: `canonical_bytes_serializer_spec` is part of the
 //!   spore-schema (spore-inheritable) AND a tier-1 SSoT field.
-//! - L1/HARD_RULES C18: `canonical_bytes_render_drift` (if substrate-side render
-//!   differs from anchor-surface render of the same canonical bytes) is a
-//!   CRITICAL skin breach.
+//! - L1/HARD_RULES C18: `canonical_bytes_render_drift` (if one implementation's
+//!   render differs from another's for the same canonical bytes) is a CRITICAL
+//!   skin breach.
 //!
 //! ## M1 implementation status
 //!

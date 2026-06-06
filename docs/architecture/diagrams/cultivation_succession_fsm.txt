@@ -1,16 +1,32 @@
 Cultivation succession FSM (L1/GOVERNANCE §3.2; per L0/cards/COV06_no_abandonment_succession (cultivator mortality))
 ============================================================
 
+KEYLESS v3.1.5. The owner key + the out-of-band anchor surface are retired
+(GOVERNANCE §3). There is no owner_key_history, no anchor-stamped timestamp,
+no owner-signature envelope field, no anchor liveness-heartbeat, and no
+anchor-side auto-transition. Succession's only gate is the C46 catechumenate
+floor (>=50 dual-confirmed cultivation sessions), verified by
+substrate/src/cultivation.rs::handle_accept_succession, plus CI approval at the
+live human-in-the-loop gate. The trust root is keyless (META §7.8): the live
+human at the CI gate + the causal DAG (P06) + the BLAKE3-sealed bundle.
+
 Substrate-ID INVARIANT across all transitions (P1.c). Only Cultivator-side changes.
+
+All windows are counted on the substrate's own clock (keyless; acknowledged-debt
+per GOVERNANCE §3.2.B, until a trusted-time source returns). `successor_pubkey`
+is retained as the successor's identity handle, NOT an owner-signature verifier.
 
 
 STATES (sub-states of alive; L0 §I1):
-  alive::normal       — heartbeat fresh; full daily + CI operations
-  alive::legacy       — heartbeat stale; daily ops continue, CI FROZEN
-                        except `successor_chain` mutation
-  alive::orphaned     — legacy_window elapsed OR empty chain at legacy entry;
+  alive::normal       : cultivator present at sustainable cadence (COV06 §3.1);
+                        full daily + CI operations
+  alive::legacy       : cultivator presence lapsed (established at the live CI
+                        gate, e.g. a pre-named contact; NOT auto-timed in keyless
+                        mode); daily ops continue, CI FROZEN except
+                        `successor_chain` mutation
+  alive::orphaned     : legacy_window elapsed OR empty chain at legacy entry;
                         operational ceiling enforced
-  alive::archived     — terminal-non-destroyed via L0/cards/LB_living_bets §4 (retirement) bet-retirement;
+  alive::archived     : terminal-non-destroyed via L0/cards/LB_living_bets §4 (retirement) bet-retirement;
                         state_dir preserved; no metabolism; cold-readable
 
 Also (L1/CONTINUITY §5): alive::quarantined (orthogonal sub-state).
@@ -20,47 +36,62 @@ TRANSITION MATRIX:
 ==================
 
 [T1] normal -> legacy
-     Trigger:  heartbeat stale beyond threshold (default 90 anchor-days)
-     Emit:     `cultivator_heartbeat_stale` (anchor-side)
+     Trigger:  cultivator presence lapse ESTABLISHED AT THE LIVE CI GATE
+               (keyless v3.1.5: the prior `cultivator_heartbeat_stale`
+               anchor-side auto-transition is RETIRED; keyless mode has no
+               trusted wall-clock to time a security-bearing staleness timeout,
+               so a human-in-the-loop declares the lapse, e.g. via a pre-named
+               contact; the cultivator's duty of presence stands, GOVERNANCE
+               §3.2.B / COV06 §3.1).
      Effect:   CI FROZEN except `successor_chain` mutation;
                daily ops continue.
 
 [T2] legacy -> normal  (vacation / hardware-failure recovery)
-     Trigger:  fresh `liveness_heartbeat` from prior Cultivator pubkey
+     Trigger:  the prior Cultivator re-establishes presence at the live CI gate
+               (keyless: no anchor-stamped `liveness_heartbeat` envelope).
      Effect:   resume normal (no succession event).
 
 [T3] legacy -> normal  (succession activation)
-     Trigger:  chain-head successor signs
-               `succession_acceptance` { substrate_id, successor_pubkey,
-                 prior_cultivator_pubkey, anchor_surface_timestamp, signature }
+     Trigger:  chain-head successor accepts succession at the live CI gate;
+               C46 catechumenate floor satisfied (>=50 dual-confirmed sessions,
+               verified by cultivation.rs::handle_accept_succession);
+               envelope { substrate_id, successor_pubkey, prior_cultivator_pubkey }
+               (keyless v3.1.5: the prior `anchor_surface_timestamp` +
+               `signature` owner-signature fields are REMOVED).
      Emit:     `succession_completed:{successor_pubkey}` (CI, compression-invariant)
-     Effect:   appends to owner_key_history; -> alive::normal.
+     Effect:   -> alive::normal. (Keyless: there is NO `owner_key_history` append;
+               `successor_pubkey` becomes the active cultivator identity handle,
+               not an owner-signing key.)
 
 [T4] legacy -> orphaned
-     Trigger:  legacy_window elapsed (default 365 anchor-days)
-               OR empty successor_chain at legacy entry
-     Emit:     `cultivation_orphaned:{prior_cultivator_pubkey,
-                                       anchor_surface_timestamp}`
-               (CI, compression-invariant)
+     Trigger:  legacy_window elapsed (default 365 active-operation days, substrate
+               clock) OR empty successor_chain at legacy entry.
+     Emit:     `cultivation_orphaned:{prior_cultivator_pubkey}`
+               (CI, compression-invariant; keyless: no `anchor_surface_timestamp`).
      Effect:   operational ceiling (see CEILING below).
 
 [T5] orphaned -> normal  (exceptional recovery)
      Trigger:  court-attested key recovery (cryptographic mechanism
                out-of-scope v0.9; honor-system per L0/cards/AS_anchor_surface §6 (recoveries)).
-               Successor presents acceptance + recovery proof reference.
+               Successor presents acceptance + recovery proof reference at the
+               live CI gate.
      Emit:     `cultivation_recovered:{successor_pubkey,
                                         recovery_proof_reference}`
                (CI, compression-invariant)
 
 [T6] orphaned -> destroyed  (terminal default)
-     Trigger:  orphaned_terminal_window elapsed (default 730 anchor-days)
+     Trigger:  orphaned_terminal_window elapsed (default 730 active-operation days)
                AND genesis-time choice == self_euthanasia
      Emit:     `endogenous_mortality_proposal:cultivation_orphaned_terminal`
+               (executed only on cultivator co-approval at the live CI gate)
 
 [T7] orphaned -> archived  (terminal via bet-retirement)
      Trigger:  orphaned_terminal_window elapsed
                AND genesis-time choice == bet_retirement
-     Effect:   state_dir preserved with anchor `bet_retirement_seal`;
+     Effect:   state_dir preserved, sealed by the BLAKE3 at-rest seal (F5) of
+               the substrate's own final tip (keyless v3.1.5: the prior anchor
+               `bet_retirement_seal` co-sign is REMOVED; the seal is the
+               substrate's own BLAKE3 state seal, not an anchor co-sign);
                cold-readable forensic; recoverable by future Cultivator.
 
 [T8] orphaned -> orphaned  (indefinite)
@@ -86,27 +117,35 @@ FORBIDDEN:
   - F20 telos_alignment_metric_definition mutation
 
 REVERSION:
-  - successor MAY present `succession_acceptance` any time -> alive::normal.
+  - successor MAY accept succession at the live CI gate any time -> alive::normal.
 
 
 WATCHDOGS:
 ==========
-- Heartbeat query cadence: 1/metabolic-cycle OR 1/24h, whichever more frequent.
-- Anchor unreachable -> emit `cultivator_heartbeat_query_failed`.
-- Sustained > 7 anchor-days -> emit `anchor_surface_partition` observability
-  (separate signal; NOT a sub-state transition).
+- Keyless v3.1.5: the prior anchor heartbeat-query cadence + the
+  `cultivator_heartbeat_query_failed` / `anchor_surface_partition` signals are
+  RETIRED with the anchor surface (no trusted-time source to query). Presence
+  lapse is established by a human-in-the-loop at the live CI gate (T1), not by
+  an auto-timed query. This is acknowledged-debt (COV06 §8.5) until a trusted
+  wall-clock returns.
 
 PROTECTIONS (L0/cards/P07_mortality §4 (substrate irreducible commitments) + L1/GOVERNANCE §1.2):
 - `cultivation_orphaned` cannot be suppressed by Cultivator pressure
-  (P7 + classifier fixed-point).
+  (P7 + classifier fixed-point); the un-suppressibility is enforced keyless by
+  C69 (`c69_cultivation_orphaned_suppression_refused`).
 - Cultivation_orphaned / cultivation_recovered / succession_completed
   / bet_retired_proposal / bet_retired threshold + update-rule + emergence-rule
   are CI (L1/GOVERNANCE §1.2).
 
 
-POST-M-ANCHOR-3 ENFORCEMENT:
-============================
-- Refuse `successor_chain` mutation unattested against anchor-fetched cultivator_pubkey.
-- Refuse `succession_acceptance` whose `prior_cultivator_pubkey`
-  != anchor's last-active.
+KEYLESS ENFORCEMENT (v3.1.5):
+=============================
+- `successor_chain` mutation requires CI approval at the live human-in-the-loop
+  gate; without -> `untyped` (C14). (Keyless: the prior POST-M-ANCHOR-3 rule
+  refusing mutation unattested against an anchor-fetched `cultivator_pubkey` is
+  RETIRED; there is no anchor to fetch a pubkey from; the gate is a present
+  human, GOVERNANCE §3.2.A.)
+- `succession_acceptance` is gated by the C46 catechumenate floor (>=50
+  dual-confirmed sessions) + CI approval, not by a `prior_cultivator_pubkey`
+  match against an anchor's last-active record.
 - Operational ceiling enforced via classifier (forbidden mutations -> `untyped` C14).

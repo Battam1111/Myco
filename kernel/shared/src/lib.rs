@@ -5,27 +5,30 @@
 //! - **Canonical-bytes serializer** ([`canonical_bytes`]) — deterministic encoding
 //!   from typed values to canonical bytes. Per L0/cards/AS_anchor_surface §3 + L2/TRUST_MODEL §3.4,
 //!   the serializer spec is spore-inheritable + tier-1 SSoT (per L1/SCHEMA §3.1
-//!   + §4.1). Every party (substrate, operator-runtime, anchor-client) computes
-//!   identical canonical bytes from identical inputs.
+//!   + §4.1). Every party (substrate, operator-runtime, the Python kernel)
+//!   computes identical canonical bytes from identical inputs.
 //!
 //! - **Cryptographic primitives** ([`crypto`]) — Merkle hash (per L1/SCHEMA §2.1
-//!   Merkle DAG), HMAC (per L1/SKIN §2 envelope_digest), signature verification
-//!   (per L0/cards/AS_anchor_surface §3 anchor-surface verification).
+//!   Merkle DAG), HMAC (per L1/SKIN §2 envelope_digest), Ed25519 signature
+//!   verification (per L1/GOVERNANCE §2.3). v0.9 keyless: signatures cover the
+//!   substrate's own F24 keypair + federation peer auth, not an owner key.
 //!
 //! - **Sealed-derive wrapper** ([`sealed_derive`]) — OS-level sealing API for
 //!   substrate_secret. Substrate code uses sealed-derive without ever seeing
 //!   substrate_secret in plaintext (per L1/SKIN §4.2 + pass-3 mycoparasite-1).
 //!
 //! - **Active-prefix + archived-tail data structure** ([`active_prefix`]) —
-//!   generic primitive used for `owner_key_history`, `template_version_registry`,
-//!   federation aggregate-reattestation chain (per L1/GOVERNANCE §3.1 +
-//!   pass-3 saprotroph-1).
+//!   generic primitive used for `template_version_registry` + the federation
+//!   aggregate-reattestation chain (per L1/GOVERNANCE §3.1 + pass-3
+//!   saprotroph-1). v0.9 keyless: `owner_key_history` was removed with the
+//!   owner key.
 //!
 //! ## Doctrine traceability
 //!
 //! This crate implements the following L0/L1/L2/L3 commitments:
 //!
-//! - L0/cards/AS_anchor_surface §3 canonical-bytes doctrine + §9.2 anchor-surface witness mechanism
+//! - L0/cards/AS_anchor_surface §3 canonical-bytes doctrine (v0.9 keyless: the
+//!   §9.2 anchor-surface witness mechanism the card describes is removed)
 //! - L1/SCHEMA §2.1 Merkle DAG content-addressing
 //! - L1/SKIN §2 envelope_digest HMAC, §4.2 sealed_derive operator_token
 //! - L1/GOVERNANCE §3.1 active-prefix + archived-tail discipline

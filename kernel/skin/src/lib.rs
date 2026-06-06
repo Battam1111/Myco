@@ -14,8 +14,9 @@
 //!   pass-3 mycoparasite-1). Operator generates a per-handshake signing keypair
 //!   (per L1/SKIN §4.1 + pass-3 mycorrhiza-17 + rhizomorph-1).
 //! - **Output gating** ([`output_gate`]) — outputs leave through declared output
-//!   endpoints; canonical-bytes discipline for anchor-surface output (per
-//!   L0/cards/AS_anchor_surface §3 + L1/SKIN §3).
+//!   endpoints; canonical-bytes discipline for the canonical-bytes output
+//!   channel (per L0/cards/AS_anchor_surface §3 + L1/SKIN §3). v0.9 keyless: the
+//!   owner-controlled anchor surface this once fed is removed.
 //! - **Network-egress enforcement** ([`egress_enforce`]) — runtime detection of
 //!   unauthorized network egress; specific mechanism is L4-platform-pick.
 //!   M1 ships a software-only stub that checks against the declared list;
@@ -53,11 +54,13 @@
 //!
 //! **Deferred to M2+**:
 //! - Federation peer freshness proof (depends on `kernel/governance` peer-list +
-//!   anchor-surface negative-revocation proof). M1 provides a [`output_gate::FederationPeerFreshness`]
+//!   the substrate's own DAG-derived revoked-set; v0.9 keyless: no anchor-surface
+//!   revocation proof). M1 provides a [`output_gate::FederationPeerFreshness`]
 //!   trait with a stub impl.
-//! - Continuity-attestation cryptographic verification (depends on
-//!   `kernel/governance` owner_key_history active prefix). M1 grants the requested
-//!   quarantine reduction based on the claim shape; M2 enforces signature.
+//! - Continuity-attestation cryptographic verification (v0.9 keyless: the
+//!   attestation is a substrate/DAG-tip-derived continuity proof, not an owner
+//!   signature — the owner key was removed). M1 grants the requested quarantine
+//!   reduction based on the claim shape; M2 enforces the proof.
 //! - Real OS-level network-egress enforcement (kernel namespace / eBPF / etc.).
 //!   M1 provides a [`egress_enforce::StubEgressEnforce`].
 //! - Transport layer (sockets, queues, pipes). L4 platform-pick.

@@ -5,15 +5,18 @@
 //! Outputs leave the substrate through declared output endpoints (L1/SKIN §1
 //! declared via [`crate::surface::SkinSurface`]). Per L1/SKIN §3:
 //!
-//! - Output envelopes are **signed by the substrate** (substrate's signing key
-//!   from the identity record). M1 accepts the signature bytes as an opaque
-//!   parameter (caller provides). M2 wires the actual signature production via
-//!   `kernel/governance` attestation pipeline.
+//! - Output envelopes are **signed by the substrate** (the substrate's OWN
+//!   F24 signing key, kept in v0.9; this is NOT an owner key). M1 accepts the
+//!   signature bytes as an opaque parameter (caller provides). M2 wires the
+//!   actual signature production via the `kernel/governance` attestation
+//!   pipeline.
 //!
-//! - **Canonical-bytes discipline** for anchor-surface output (L0/cards/AS_anchor_surface §3): outputs
-//!   to the anchor-surface endpoint carry canonical bytes, NOT substrate-
-//!   rendered summaries. The anchor-surface client renders deterministically
-//!   for owner review.
+//! - **Canonical-bytes discipline** for the canonical-bytes output channel
+//!   (L0/cards/AS_anchor_surface §3): outputs carry canonical bytes, NOT
+//!   substrate-rendered summaries, so a downstream renderer reconstructs them
+//!   deterministically. v0.9 keyless: the owner-controlled anchor surface this
+//!   discipline once fed is removed; the canonical-bytes rule survives for any
+//!   self-published canonical output.
 //!
 //! - **Federation egress freshness check** (L1/SKIN §3.1): every outbound
 //!   federation envelope verifies its target peer's freshness + non-revocation
@@ -27,8 +30,9 @@
 //!
 //! Logic + API-boundary check only. Real transport happens at L4. The
 //! [`FederationPeerFreshness`] trait abstracts the freshness check; M1 ships a
-//! [`StubPeerFreshness`] that always passes. M2 wires the real check via
-//! `kernel/governance` peer-list + anchor-surface negative-revocation proof.
+//! [`StubPeerFreshness`] that always passes. The live substrate enforces the
+//! real check substrate-side from the DAG-derived revoked-set (v0.9 keyless:
+//! no anchor-surface revocation proof — see [`RevokedPeerFreshness`]).
 
 use crate::surface::{Endpoint, EndpointKind, SkinSurface};
 use myco_kernel_shared::canonical_bytes::CanonicalBytes;
@@ -63,14 +67,15 @@ pub enum OutputError {
     #[error("federation_egress_blocked: peer {0} stale or revoked")]
     FederationEgressBlocked(String),
 
-    /// Anchor-surface output was emitted with a substrate-side rendered summary
-    /// instead of canonical bytes. Reserved for the future `OutputEnvelope`
-    /// constructor that takes either canonical or rendered bytes; M1 forces
-    /// canonical at the type level (the payload is [`CanonicalBytes`]) so this
-    /// variant is unreachable in M1 but defined for L1/HARD_RULES C18 future
-    /// hook.
+    /// A canonical-bytes-channel output was emitted with a substrate-side
+    /// rendered summary instead of canonical bytes. Reserved for the future
+    /// `OutputEnvelope` constructor that takes either canonical or rendered
+    /// bytes; M1 forces canonical at the type level (the payload is
+    /// [`CanonicalBytes`]) so this variant is unreachable in M1 but defined for
+    /// the L1/HARD_RULES C18 future hook. (Variant name retained for API
+    /// stability; v0.9 keyless: the anchor surface it once named is removed.)
     #[error(
-        "canonical-bytes discipline violation: anchor-surface output must carry canonical bytes"
+        "canonical-bytes discipline violation: canonical-bytes-channel output must carry canonical bytes"
     )]
     NonCanonicalAnchorOutput,
 }
@@ -86,9 +91,9 @@ pub struct OutputEnvelope {
     /// Target endpoint (must be in declared output list at construction time).
     pub target: Endpoint,
 
-    /// Canonical-bytes payload (per L0/cards/AS_anchor_surface §3 for anchor-surface; for federation
-    /// peers also canonical-bytes per L1/GOVERNANCE §5.3 low-entropy
-    /// serialization).
+    /// Canonical-bytes payload (per L0/cards/AS_anchor_surface §3 for the
+    /// canonical-bytes output channel; for federation peers also canonical-bytes
+    /// per L1/GOVERNANCE §5.3 low-entropy serialization).
     pub payload: CanonicalBytes,
 
     /// Substrate's signature on the canonical-bytes payload.
@@ -99,9 +104,9 @@ pub struct OutputEnvelope {
 /// Trait for federation peer freshness check (L1/SKIN §3.1).
 ///
 /// Real implementations consult the `kernel/governance` peer-list mirror AND
-/// the anchor-surface negative-revocation proof. The substrate's canon caches
-/// peer list, but the proof is required for emission, not the cache (per
-/// L1/SKIN §3.1).
+/// the substrate's own DAG-derived revoked-set. v0.9 keyless: there is no
+/// anchor-surface negative-revocation proof; the substrate caches the peer
+/// list and derives revocation from its causal DAG (per L1/SKIN §3.1).
 pub trait FederationPeerFreshness {
     /// Check if the given peer endpoint URI has a fresh, non-revoked
     /// attestation. Returns `Ok(())` if fresh; `Err(FederationEgressBlocked)`
@@ -114,10 +119,12 @@ pub trait FederationPeerFreshness {
 /// **M1 ONLY.** The real check (per L1/SKIN §3.1) requires:
 ///
 /// - `kernel/governance` peer-attestation-list (substrate-cached mirror) AND
-/// - Anchor-surface negative-revocation proof (freshness oracle).
+/// - the substrate's own DAG-derived revoked-set (v0.9 keyless: NOT an
+///   anchor-surface revocation proof).
 ///
-/// M2 ships [`crate::output_gate::AnchorSurfaceProofChecker`] (TBD) which
-/// replaces this stub. Production substrates MUST NOT ship with this stub.
+/// The live substrate enforces this substrate-side; [`RevokedPeerFreshness`]
+/// is the revocation-honest skin-trait impl. Production substrates MUST NOT
+/// ship with this stub.
 pub struct StubPeerFreshness;
 
 impl FederationPeerFreshness for StubPeerFreshness {
@@ -138,12 +145,13 @@ impl FederationPeerFreshness for DenyAllPeerFreshness {
     }
 }
 
-/// **C13 — owner-revocation-aware peer-freshness checker** (L1/GOVERNANCE §5.2
+/// **C13 — revocation-aware peer-freshness checker** (L1/GOVERNANCE §5.2
 /// + L1/HARD_RULES C13 `peer_attestation_revoked_egress`).
 ///
 /// A real [`FederationPeerFreshness`] impl that blocks egress to any peer whose
-/// endpoint URI is on the owner-revocation set, and passes everyone else. This
-/// replaces the conceptual role of [`StubPeerFreshness`] (which always passes)
+/// endpoint URI is on the revoked-peer set, and passes everyone else. v0.9
+/// keyless: the revoked-set is DAG-derived, not an owner-signed revocation.
+/// This replaces the conceptual role of [`StubPeerFreshness`] (which always passes)
 /// for the revocation dimension of the §3.1 check.
 ///
 /// **Wiring note (skin-trait vs substrate-side).** In the live Myco substrate

@@ -14,7 +14,7 @@ use crate::SubstrateError;
 
 /// M25.0: filename for the substrate-private Ed25519 signing keypair seed.
 ///
-/// This is the SUBSTRATE'S OWN private key — separate from any operator/owner
+/// This is the SUBSTRATE'S OWN private key, separate from any operator/owner
 /// key. Used to (1) sign `snapshot.cb` so a malicious actor with write access
 /// to state_dir cannot substitute a forged snapshot, and (2) sign FED_HELLO
 /// payloads so federation peers can mutually authenticate beyond TOFU.
@@ -44,7 +44,7 @@ fn bytes_to_hex_short(bytes: &[u8]) -> String {
     s
 }
 
-/// **v3.1.1 Sprint 2** — substrate_signing_key.cb format versions accepted
+/// **v3.1.1 Sprint 2**, substrate_signing_key.cb format versions accepted
 /// by the load path. v1 is the legacy plain-bytes format (cross-platform);
 /// v2 is the Windows DPAPI-wrapped format that closes L1/HARD_RULES C4 on
 /// Windows hosts.
@@ -55,7 +55,7 @@ pub const SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V1: u64 = 1;
 /// same Windows user account on the same host. See `substrate/src/dpapi.rs`.
 pub const SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V2: u64 = 2;
 
-/// **v3.1.1 Sprint 2** — the format version this build's save path writes.
+/// **v3.1.1 Sprint 2**, the format version this build's save path writes.
 /// On Windows: v2 (DPAPI-wrapped). Elsewhere: v1 (plain bytes + chmod 0600).
 /// Linux keyring / macOS Secure Enclave backends arrive in follow-up sprints
 /// (Sprint 2.B+).
@@ -81,17 +81,18 @@ pub const SUBSTRATE_SIGNING_KEY_PREFERRED_WRITE_VERSION: u64 =
 /// M26.1 C6 SECURITY FIX (Phase γ.2): on Unix the seed file is `chmod 0600`d
 /// (owner read+write only) immediately after the atomic rename. Pre-fix, the
 /// seed file inherited default permissions (often 0644 = world-readable on
-/// shared hosts) — violating L1/HARD_RULES C4 `substrate_secret_unsealed`.
-/// On Windows the file inherits ACLs from the parent directory; defense-in-
-/// depth there is deferred to M-anchor-1 (OS-sealed keystore: TPM / Apple
-/// Secure Enclave / Linux keyring / Windows DPAPI). The interim fix closes
-/// the most common Unix exposure class while keeping behavior unchanged for
-/// Windows substrates.
+/// shared hosts), violating L1/HARD_RULES C4 `substrate_secret_unsealed`.
+/// On Windows, OS-sealing SHIPPED via DPAPI (`CryptProtectData`, the v2 format
+/// below): the seed ciphertext is bound to the current Windows user account, so
+/// a filesystem read cannot recover the plaintext. The remaining cross-platform
+/// OS-sealing backends (Linux kernel keyring / macOS Secure Enclave) are
+/// scheduled follow-ups (scaffolded in `crate::sealing`).
 ///
-/// The seed bytes are stored as-is (no envelope encryption at M25.0/M26.1 —
-/// the trust boundary is the state_dir as a whole; if an attacker has write
-/// access there, snapshot integrity is moot anyway). Full OS sealing arrives
-/// at M-anchor-1.
+/// On non-Windows the seed bytes are stored as plain canonical-bytes + a
+/// BLAKE3 integrity tag + chmod 0600 (the trust boundary is the state_dir as a
+/// whole; if an attacker has write access there, snapshot integrity is moot
+/// anyway). (v0.9 keyless: the F24 keypair is the substrate's OWN signing key,
+/// not an owner key.)
 pub fn save_substrate_signing_key(
     seed: &[u8; 32],
     state_dir: &Path,
@@ -112,8 +113,8 @@ pub fn save_substrate_signing_key(
     // the current Windows user account such that filesystem-read attacks
     // cannot extract the plaintext seed without compromising the same
     // user's login session. On non-Windows we keep the legacy v1 plain
-    // format with chmod 0600 (real OS-sealing backends — Linux kernel
-    // keyring, macOS Secure Enclave — scheduled for Sprint 2.B+).
+    // format with chmod 0600 (real OS-sealing backends, Linux kernel
+    // keyring, macOS Secure Enclave, scheduled for Sprint 2.B+).
     #[cfg(windows)]
     {
         match crate::dpapi::protect(seed) {
@@ -133,7 +134,7 @@ pub fn save_substrate_signing_key(
     #[cfg(not(windows))]
     {
         m.insert("seed".to_string(), Value::Bytes(seed.to_vec()));
-        // **v3.1.1 Sprint 2.B** — integrity tag for v1 plain-bytes format.
+        // **v3.1.1 Sprint 2.B**, integrity tag for v1 plain-bytes format.
         //
         // BLAKE3(seed) stored alongside the plaintext seed. On non-Windows
         // hosts the seed lives on disk as plain canonical-bytes; this
@@ -142,7 +143,7 @@ pub fn save_substrate_signing_key(
         //   - partial / torn writes (process killed mid-fsync)
         //   - unintentional manual edits ("I'll just tweak this byte")
         //   - bugs in the substrate that accidentally rewrite the file
-        // It does NOT add adversarial tamper protection — an attacker who
+        // It does NOT add adversarial tamper protection, an attacker who
         // can rewrite the seed can also compute the matching BLAKE3 hash.
         // Adversarial defense remains the OS-sealing backend (DPAPI on
         // Windows already done; Linux kernel keyring + macOS Secure
@@ -171,7 +172,7 @@ pub fn save_substrate_signing_key(
     fs::rename(&tmp_path, &final_path)?;
     // M26.1 C6: harden permissions to 0600 on Unix immediately after rename.
     // The rename target inherits the temp file's permissions, which on Unix
-    // are subject to the process umask — we cannot rely on umask being
+    // are subject to the process umask, we cannot rely on umask being
     // restrictive enough. Set explicitly. On Windows std::os::unix::fs is not
     // available so the cfg gate compiles out; DPAPI above provides the
     // confidentiality guarantee instead of POSIX permissions.
@@ -181,9 +182,9 @@ pub fn save_substrate_signing_key(
 
 /// M26.1 C6 SECURITY FIX: harden the on-disk permissions of a substrate
 /// secret file to "owner read+write only" (`0600` on Unix). On Windows this
-/// is currently a no-op — Windows ACLs are inherited from the parent
-/// directory and full hardening requires the `windows` crate or a PowerShell
-/// shell-out, both of which are deferred to M-anchor-1.
+/// is a no-op, confidentiality there comes from DPAPI-wrapping the seed
+/// ciphertext (see `save_substrate_signing_key`), not from POSIX file modes;
+/// the file inherits ACLs from the parent (user-profile) directory.
 ///
 /// Errors from the permission set are returned as `SubstrateError::Io` so the
 /// caller can surface them; the secret is still on disk (save_* persisted
@@ -199,9 +200,10 @@ fn restrict_secret_file_permissions(path: &Path) -> Result<(), SubstrateError> {
     #[cfg(not(unix))]
     {
         // Touch the path so the parameter is "used" on non-Unix builds
-        // (silences `unused_variables`); the actual ACL hardening on Windows
-        // is M-anchor-1 work. Pre-M-anchor-1 Windows substrates rely on the
-        // user-profile directory ACL inheritance for confidentiality.
+        // (silences `unused_variables`). On Windows, seed confidentiality comes
+        // from DPAPI-wrapping the ciphertext (see save_substrate_signing_key),
+        // so POSIX-mode hardening here is moot; the file relies on user-profile
+        // directory ACL inheritance.
         let _ = path;
     }
     Ok(())
@@ -213,11 +215,12 @@ fn restrict_secret_file_permissions(path: &Path) -> Result<(), SubstrateError> {
 /// created by an older substrate version or had its mode manually relaxed.
 ///
 /// Returns:
-/// - `Ok(true)` — permissions look fine (0600-equivalent on Unix; always
-///   true on Windows — Windows ACL inspection is M-anchor-1 work).
-/// - `Ok(false)` — Unix mode has any group/other bits set (caller emits
+/// - `Ok(true)`, permissions look fine (0600-equivalent on Unix; always
+///   true on Windows, where seed confidentiality comes from DPAPI-wrapping
+///   rather than file ACLs, so a POSIX-mode check does not apply).
+/// - `Ok(false)`, Unix mode has any group/other bits set (caller emits
 ///   C4 sporocarp + tightens permissions in-place if possible).
-/// - `Err(...)` — I/O error reading metadata.
+/// - `Err(...)`, I/O error reading metadata.
 #[allow(dead_code)] // exported for callers in server.rs / persistence_runtime.rs
 pub fn substrate_secret_permissions_are_restrictive(
     path: &Path,
@@ -233,9 +236,9 @@ pub fn substrate_secret_permissions_are_restrictive(
     #[cfg(not(unix))]
     {
         let _ = path;
-        // Windows: cannot cheaply inspect ACLs without the `windows` crate.
-        // Report restrictive to avoid spurious C4 sporocarps; doctrine debt
-        // tracked at M-anchor-1.
+        // Windows: cannot cheaply inspect ACLs without the `windows` crate, and
+        // seed confidentiality comes from DPAPI-wrapping (not file ACLs) anyway.
+        // Report restrictive to avoid spurious C4 sporocarps.
         Ok(true)
     }
 }
@@ -244,12 +247,12 @@ pub fn substrate_secret_permissions_are_restrictive(
 /// `<state_dir>/substrate_signing_key.cb`.
 ///
 /// Returns:
-/// - `Ok(Some(seed))` — file present + format matches.
-/// - `Ok(None)` — file missing OR version mismatch (caller treats as
+/// - `Ok(Some(seed))`, file present + format matches.
+/// - `Ok(None)`, file missing OR version mismatch (caller treats as
 ///   "no key yet, must genesis"; see [`boot_or_genesis_substrate_signing_key`]).
-/// - `Err(...)` — I/O or canonical-bytes decode error.
+/// - `Err(...)`, I/O or canonical-bytes decode error.
 ///
-/// M26.1 C6 SECURITY FIX: this loader does NOT inspect permissions — that's
+/// M26.1 C6 SECURITY FIX: this loader does NOT inspect permissions, that's
 /// done by [`boot_or_genesis_substrate_signing_key`] via
 /// [`load_substrate_signing_key_with_permission_check`] so a loose-mode
 /// finding can be surfaced to ServerState's caller (which is the only site
@@ -263,11 +266,11 @@ pub fn load_substrate_signing_key(state_dir: &Path) -> Result<Option<[u8; 32]>, 
 /// permission status is checked BEFORE the contents are read, so even a
 /// malformed file's loose mode is reported.
 ///
-/// Returns `Ok(Some((seed, was_restrictive)))` on success — the caller emits
+/// Returns `Ok(Some((seed, was_restrictive)))` on success, the caller emits
 /// a `C4_substrate_secret_unsealed` immune sporocarp + tightens the mode
 /// in-place when `was_restrictive == false`. Returns `Ok(None)` for the
 /// usual "missing / version mismatch" path (no permission concern in that
-/// case — there's nothing on disk to be loose).
+/// case, there's nothing on disk to be loose).
 pub fn load_substrate_signing_key_with_permission_check(
     state_dir: &Path,
 ) -> Result<Option<([u8; 32], bool)>, SubstrateError> {
@@ -312,7 +315,7 @@ pub fn load_substrate_signing_key_with_permission_check(
             seed.copy_from_slice(seed_bytes);
             // **v3.1.1 Sprint 2.B** integrity check. v1 files written by
             // Sprint-2.B+ carry a `seed_blake3` field. Pre-Sprint-2.B files
-            // lack it — load with warning. v1 files that DO have the field
+            // lack it, load with warning. v1 files that DO have the field
             // but the hash MISMATCHES → reject (bitrot detected; refuse
             // to boot with a corrupted seed). This is fail-closed: better
             // to surface the corruption than to silently load junk and
@@ -391,9 +394,10 @@ pub fn load_substrate_signing_key_with_permission_check(
 
 /// M26.1 C6 SECURITY FIX: tighten the substrate signing key file's
 /// permissions in-place to 0600 on Unix. Called by the boot path when
-/// [`load_substrate_signing_key_with_permission_check`] reports loose mode
-/// — repairs the gap going forward + the substrate keeps booting (interim
-/// behavior; long-term doctrine M-anchor-1 will surface a hard refusal).
+/// [`load_substrate_signing_key_with_permission_check`] reports loose mode:
+/// repairs the gap going forward + the substrate keeps booting (interim
+/// behavior; a future doctrine revision may escalate a loose-mode seed to a
+/// hard refusal).
 pub fn tighten_substrate_signing_key_permissions(
     state_dir: &Path,
 ) -> Result<(), SubstrateError> {
@@ -404,7 +408,7 @@ pub fn tighten_substrate_signing_key_permissions(
     restrict_secret_file_permissions(&path)
 }
 
-/// M25.0: boot path helper — load the substrate's signing seed if persisted,
+/// M25.0: boot path helper, load the substrate's signing seed if persisted,
 /// else generate a fresh one (genesis), persist it, and return it.
 ///
 /// The seed-generation mix is the same time + pid + stack-address SHA-256
@@ -422,12 +426,12 @@ pub fn boot_or_genesis_substrate_signing_key(
 /// on-disk seed file (when it existed before this call) had restrictive
 /// permissions. The caller in `server.rs` uses this signal to emit a
 /// `C4_substrate_secret_unsealed` immune sporocarp on the DAG when the
-/// permission posture is loose — and immediately tightens the file in-place
+/// permission posture is loose, and immediately tightens the file in-place
 /// so the next boot won't re-emit.
 ///
 /// Returns `(seed, was_restrictive_at_load_time)`. For the genesis path
 /// (fresh seed; file didn't exist) `was_restrictive_at_load_time` is `true`
-/// — `save_substrate_signing_key` immediately writes the file with 0600 on
+///, `save_substrate_signing_key` immediately writes the file with 0600 on
 /// Unix, so there's no exposure window to report.
 pub fn boot_or_genesis_substrate_signing_key_with_permission_status(
     state_dir: &Path,
@@ -435,7 +439,7 @@ pub fn boot_or_genesis_substrate_signing_key_with_permission_status(
     if let Some((seed, was_restrictive)) =
         load_substrate_signing_key_with_permission_check(state_dir)?
     {
-        // **v3.1.1 Sprint 2** — Windows DPAPI migration. If the on-disk
+        // **v3.1.1 Sprint 2**, Windows DPAPI migration. If the on-disk
         // file is still v1 (legacy plain bytes) but we are on Windows, the
         // preferred write format is now v2 (DPAPI-wrapped). Re-save the
         // seed atomically with the new format so subsequent boots load
@@ -445,7 +449,7 @@ pub fn boot_or_genesis_substrate_signing_key_with_permission_status(
         // We deliberately migrate ONLY when the load succeeded and we hold
         // the validated 32-byte seed in memory. If the migration save
         // fails, we still return the loaded seed (boot succeeds) but emit
-        // the failure via the boot path's error channel — the next boot
+        // the failure via the boot path's error channel, the next boot
         // will retry. This guarantees an unbootable substrate is never
         // produced by a partial migration.
         #[cfg(windows)]
@@ -456,7 +460,7 @@ pub fn boot_or_genesis_substrate_signing_key_with_permission_status(
                     && SUBSTRATE_SIGNING_KEY_PREFERRED_WRITE_VERSION
                         == SUBSTRATE_SIGNING_KEY_FORMAT_VERSION_V2
                 {
-                    // Best-effort migrate. Errors are non-fatal here — the
+                    // Best-effort migrate. Errors are non-fatal here, the
                     // seed in memory is already correct; the on-disk file
                     // stays as v1 until a future boot retries (or until the
                     // operator surfaces the failure via the immune signal
@@ -473,12 +477,12 @@ pub fn boot_or_genesis_substrate_signing_key_with_permission_status(
     Ok((seed, true))
 }
 
-/// **v3.1.1 Sprint 2** — peek at the on-disk substrate_signing_key.cb to
+/// **v3.1.1 Sprint 2**, peek at the on-disk substrate_signing_key.cb to
 /// determine if it is still in v1 (plain bytes) format. Used by the boot
 /// path on Windows to trigger v1→v2 DPAPI migration. Returns:
-///   - `Ok(true)`  — file present, format_version == 1
-///   - `Ok(false)` — file present with format_version != 1 (v2 or unknown)
-///   - `Err(...)`  — I/O or canonical-bytes decode error
+///   - `Ok(true)` , file present, format_version == 1
+///   - `Ok(false)`, file present with format_version != 1 (v2 or unknown)
+///   - `Err(...)` , I/O or canonical-bytes decode error
 ///   - File missing returns `Ok(false)` (no migration needed)
 #[cfg(windows)]
 fn current_signing_key_format_version_is_v1(path: &Path) -> Result<bool, SubstrateError> {

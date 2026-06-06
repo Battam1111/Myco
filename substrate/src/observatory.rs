@@ -234,9 +234,10 @@ pub(crate) struct ObservatoryCounts {
 /// 4-6 orders of magnitude under typical cycle cadence (~1 cycle/sec) so
 /// the prior cycle-based window was structurally wrong.
 ///
-/// INTERIM: substrate-process wall-clock used here. M-anchor-3 promotes
-/// to anchor-stamped wall-clock per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics) (anchor surface authoritative
-/// for time-bound defenses).
+/// Keyless v3.1.5: the substrate-process wall-clock is used here, per
+/// L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics). The prior plan to
+/// promote this to an anchor-stamped wall-clock is retired with the anchor surface;
+/// time-bound defenses are acknowledged-debt (no external trusted clock).
 ///
 /// Mapping cycle → wall-clock uses `state.observatory_history` (each
 /// snapshot stamps `at_unix_ns` alongside `at_cycle`). When observatory
@@ -1088,8 +1089,9 @@ fn apply_p14c_telos_drift(state: &mut ServerState, telos_cosine: Option<f64>) {
 /// at evaluation time via `observatory_history` (the same `at_cycle ↔
 /// at_unix_ns` map `compute_observatory_counts` uses). L1-tunable seed.
 ///
-/// INTERIM: substrate-process wall-clock per L0/cards/P06 + L1/CONTINUITY;
-/// M-anchor-3 promotes to anchor-stamped wall-clock.
+/// Keyless v3.1.5: substrate-process wall-clock per L0/cards/P06 + L1/CONTINUITY;
+/// the prior anchor-stamped-clock promotion is retired with the anchor surface
+/// (acknowledged-debt: no external trusted clock).
 pub(crate) const C75_FIDUCIARY_STRAIN_WINDOW_UNIX_NS: i64 =
     180 * 24 * 60 * 60 * 1_000_000_000;
 
@@ -1272,8 +1274,8 @@ fn apply_c75_cultivator_fiduciary_strain(state: &mut ServerState) {
 /// (NOT substrate-cycles). 90 days is the L0/cards/LB_living_bets §3 (falsifiability quorum) + L2/OBSERVABILITY §8
 /// seed; the L1 tunable will live in a future seed-config event.
 ///
-/// INTERIM: substrate-process wall-clock per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics); M-anchor-3 promotes
-/// to anchor-stamped wall-clock.
+/// Keyless v3.1.5: substrate-process wall-clock per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics); the prior
+/// anchor-stamped-clock promotion is retired with the anchor surface (acknowledged-debt: no external trusted clock).
 pub(crate) const M25_1_DOCTRINE_BURST_WINDOW_UNIX_NS: i64 =
     90 * 24 * 60 * 60 * 1_000_000_000;
 /// M25.1: threshold above which the CI-event burst window fires a C37

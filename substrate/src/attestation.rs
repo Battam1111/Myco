@@ -11,9 +11,9 @@
 //! schema-evolution + the two-phase migration branch).
 //!
 //! Doctrine traceability:
-//! - L1/HARD_RULES §1 — C14 untyped_mutation_blocked + C5 (still emitted for the
+//! - L1/HARD_RULES §1, C14 untyped_mutation_blocked + C5 (still emitted for the
 //!   kept local-validation rejections: malformed objective / compression / status).
-//! - L0/cards/P07 — C56 cultivator_preserve_all + C69 cultivation_orphaned_suppression.
+//! - L0/cards/P07, C56 cultivator_preserve_all + C69 cultivation_orphaned_suppression.
 
 use std::collections::BTreeMap;
 
@@ -23,36 +23,12 @@ use myco_kernel_shared::canonical_bytes::{encode as cb_encode, CanonicalBytes, V
 use crate::server::{emit_immune_sporocarp, ServerState};
 use crate::SubstrateError;
 
-/// A persisted attestation nonce record (anti-replay ledger entry).
-///
-/// **v0.9 owner-key removal**: the issuance handler + the verify/consume path
-/// (which lived inside the owner-attested `submit_mutation` envelope) were
-/// removed along with the rest of the anchor surface. This struct survives as
-/// the in-memory element type of `ServerState.nonce_log` (and its snapshot /
-/// `nonce_issued`/`nonce_consumed`/`nonce_expired` DAG-derivation + the C32
-/// live↔DAG reconciler still round-trip it), so a substrate with a pre-removal
-/// nonce log on disk continues to boot + reconcile cleanly. No code path issues
-/// new nonces in v0.9 — the ledger is dormant but structurally coherent.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub(crate) struct AttestationNonce {
-    /// 32-byte random nonce.
-    pub(crate) nonce: [u8; 32],
-    /// Hash of `content_canonical_bytes` the operator intended to submit.
-    pub(crate) bound_content_hash: [u8; 32],
-    /// DAG tip at issuance time (32 bytes; all-zero if DAG was empty).
-    pub(crate) bound_dag_tip: [u8; 32],
-    /// Substrate-clock issuance time (unix nanoseconds).
-    pub(crate) substrate_issued_at_unix_ns: i64,
-    /// Substrate-clock expiry (unix nanoseconds).
-    pub(crate) expiry_unix_ns: i64,
-    /// Operator-supplied anchor-clock issuance time. `None` for single-clock entries.
-    pub(crate) anchor_clock_issued_at_unix_ns: Option<i64>,
-    /// Anchor-clock expiry. `None` iff `anchor_clock_issued_at_unix_ns` is None.
-    pub(crate) anchor_clock_expiry_unix_ns: Option<i64>,
-    /// Whether this nonce has been consumed (one-time use).
-    pub(crate) consumed: bool,
-}
+// **v0.9 keyless removal**: the `AttestationNonce` anti-replay ledger record
+// (and its issuance + verify/consume path, which lived inside the removed
+// owner-attested `submit_mutation` envelope) was deleted with the anchor
+// surface. No code path issues nonces in the keyless build, and the dead
+// "back-compat for on-disk nonce logs" justification is void (Myco never
+// shipped a pre-removal nonce log).
 
 /// M10: Forward submit_mutation to Python for classification + (CI) verification,
 /// and on accept insert the mutation as a DAG node.
@@ -61,7 +37,7 @@ pub(crate) fn handle_submit_mutation(
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
     // **v3.1.1 C56 cultivator_preserve_all_attempted** (L1/HARD_RULES §1.4
-    // anticipated) — early reject + immune sporocarp BEFORE forwarding to
+    // anticipated), early reject + immune sporocarp BEFORE forwarding to
     // Python. Per COV04 §3.7 + §5.6: cultivator instructions to preserve
     // everything / disable prune-scan / exempt parts from 必朽 are covenant
     // violations; the substrate's job per P07 §3.4 is to refuse. Catching
@@ -110,7 +86,7 @@ pub(crate) fn handle_submit_mutation(
         )));
     }
 
-    // **COV06 C69** — reject any mutation that attempts to suppress / delay /
+    // **COV06 C69**, reject any mutation that attempts to suppress / delay /
     // exempt a due `cultivation_orphaned`. The cultivar must never be kept in
     // undignified limbo by a cultivator (or coerced cultivator) silencing the
     // orphan signal (COV06 §5.5 + L1/GOVERNANCE §3.2.C + P07 §4). This is the
@@ -156,7 +132,7 @@ pub(crate) fn handle_submit_mutation(
         .ok_or_else(|| SubstrateError::Handshake("python worker not connected".to_string()))?;
 
     // Forward verbatim to Python under a per-op hard timeout.
-    // **v3.1.1 Sprint 7.E.2** — a hung Python worker surfaces
+    // **v3.1.1 Sprint 7.E.2**, a hung Python worker surfaces
     // BridgeError::Timeout instead of wedging the substrate forever; duration
     // is recorded for the Sprint 6.J C65 slow-call observability.
     let timeout = crate::python_call_health::python_op_timeout(msg_type::SUBMIT_MUTATION);
@@ -256,7 +232,7 @@ pub(crate) fn handle_submit_mutation(
         })
         .unwrap_or_default();
 
-    // **v3.1.1 Sprint 8.G (P03 §10.4)** — read the two-phase-migration outcome
+    // **v3.1.1 Sprint 8.G (P03 §10.4)**, read the two-phase-migration outcome
     // fields. `migration_mode=true` means the operator requested the multi-cycle
     // two-phase path: Python built a CANDIDATE (deep-copy + apply-to-copy) and
     // LEFT the active gradient unchanged. `candidate_built` says whether that
@@ -287,7 +263,7 @@ pub(crate) fn handle_submit_mutation(
     let mut accepted = accepted;
     let mut rejection_reason = rejection_reason;
 
-    // **v3.1.1 Sprint 8.G (P03 §10.4)** — single-in-flight migration guard
+    // **v3.1.1 Sprint 8.G (P03 §10.4)**, single-in-flight migration guard
     // (MVP). The two-phase path keeps exactly ONE candidate validating at a
     // time; a second `migration_mode=true` schema_evolution while one is
     // outstanding is rejected here at the skin (override Python's accept). This
@@ -324,7 +300,7 @@ pub(crate) fn handle_submit_mutation(
     // **v3.1.1 Sprint 2.C set_backup_encryption_status** (L1/SKIN §8): stage
     // the declared status string AFTER validating it lies within
     // `BACKUP_ENCRYPTION_STATUS_VALID_VALUES`. Malformed / unknown status
-    // strings are rejected at the skin with C5 — the substrate refuses to
+    // strings are rejected at the skin with C5, the substrate refuses to
     // record an enum value it doesn't understand, mirroring the
     // owner_objective_declaration discipline.
     let mut staged_backup_encryption_status: Option<(String, Option<String>)> = None;
@@ -618,7 +594,7 @@ pub(crate) fn handle_submit_mutation(
     // `compression_event:{rule_id}` DAG node (sibling to evolution_succeeded
     // for schema_evolution). The compression_event records the rule_id,
     // compressed_node_hashes, aggregate_summary, and the DAG tip at witness
-    // time — the I9 audit trail. Child substrates inheriting via spore-schema
+    // time, the I9 audit trail. Child substrates inheriting via spore-schema
     // (L1/SCHEMA §3.1) replay this and verify P10.b invariant set membership.
     let compression_event_hash = if accepted && compression_witness.is_some() {
         let (rule_id, compressed_hashes, agg_summary, attestation_tip) =
@@ -686,7 +662,7 @@ pub(crate) fn handle_submit_mutation(
         None
     };
 
-    // **v3.1.1 Sprint 8.G (P03 §10.4)** — two-phase migration branch.
+    // **v3.1.1 Sprint 8.G (P03 §10.4)**, two-phase migration branch.
     //
     // Reached only when the operator opted in (`migration_mode=true`) and the
     // mutation was ACCEPTED (CI classification passed + not blocked by the
@@ -696,7 +672,7 @@ pub(crate) fn handle_submit_mutation(
     //   candidate_built=true  → open the dual-validation window: construct a
     //     CandidateState, store it on ServerState, emit
     //     schema_migration_started:{op}. We do NOT emit evolution_succeeded
-    //     yet — that fires on commit, cycles later. (schema_apply_attempted is
+    //     yet, that fires on commit, cycles later. (schema_apply_attempted is
     //     false in migration mode, so the M17 block above did not fire either.)
     //   candidate_built=false → the apply-to-copy itself failed (e.g. the diff
     //     references a missing axis). There is nothing to validate, so we go
@@ -790,7 +766,7 @@ pub(crate) fn handle_submit_mutation(
         }
     }
 
-    // **v3.1.1 Sprint 8.G (P03 §10.4)** — operator-initiated abort. An accepted
+    // **v3.1.1 Sprint 8.G (P03 §10.4)**, operator-initiated abort. An accepted
     // `abort_migration` CI mutation forces the rollback path for the in-flight
     // migration (Python abort_migration + schema_migration_rolled_back + legacy
     // evolution_failed sibling + clear the candidate). No-op if no migration is
@@ -860,7 +836,7 @@ pub(crate) fn handle_submit_mutation(
             Value::Bytes(h.as_ref().to_vec()),
         );
     }
-    // **v3.1.1 Sprint 8.G (P03 §10.4)** — surface migration outcome so the
+    // **v3.1.1 Sprint 8.G (P03 §10.4)**, surface migration outcome so the
     // operator can distinguish "started a window" from "applied in one cycle".
     payload.insert("migration_mode".to_string(), Value::Bool(migration_mode));
     payload.insert("candidate_built".to_string(), Value::Bool(candidate_built));

@@ -1,36 +1,27 @@
-//! **M-anchor-5 §9.2.2 DAG-tip co-signing + §9.2.4 L0 revision diff workflow**,
-//! **M-anchor-4 §9.3.4 Witnesses-not-verdicts + §9.3.5 anchor-nonce sampling**,
-//! and **M-anchor-2 P14.b §9.2.1 Birth Attestation**.
+//! Substrate attestation codecs (KEYLESS v0.9): the invariant-witness layer +
+//! the reproduction spawn-cosign envelope + the I7 birth-closure markers.
 //!
-//! L1/SCHEMA §2.2: "Every CI crossing: owner MUST co-sign current DAG-tip;
-//! envelope MUST enumerate all DAG node hashes added since prior co-sign
-//! (not summary diff) — substrate cannot hide parallel-branch forgery.
-//! Substrate emits tip hash + enumerated node hashes + per-node metadata
-//! (type, causal-parent-hashes) + proposed CI mutation as canonical bytes.
-//! Owner verifies via Merkle-chain reconstruction; signs
-//! (canonical_bytes_hash, anchor_timestamp, anchor_nonce)."
+//! **v0.9 keyless**: the owner-key + anchor surface was removed. With it went
+//! the M-anchor-5 §9.2.2 DAG-tip co-sign + §9.2.4 L0-revision-attest envelopes
+//! (and their `tip_cosigned:*` / `l0_revision_attested:*` DAG events), the
+//! M-anchor-2 §9.2.1 owner-signed birth-attestation 5-tuple + C20 boot verifier,
+//! and the M-anchor-4 §9.3.5 anchor-nonce leaf-sampling helper. The trust root
+//! for an L0/doctrine change is now (1) the live human at the CI gate, the
+//! git/PR review on the doctrine repo, enforced by the BLAKE3 drift-gate in CI;
+//! (2) the substrate's own tamper-evident causal DAG (P06); (3) the
+//! BLAKE3-sealed doctrine bundle. No owner co-signature is checked at runtime.
 //!
-//! L0/cards/AS_anchor_surface §3.4: owner-side workflow for verifying L0 doctrine changes
-//! verbatim against prior commit hash. The substrate accepts an
-//! owner-signed envelope recording (prior_l0_hash, new_l0_hash,
-//! diff_summary, anchor_timestamp, anchor_nonce).
-//!
-//! M-anchor-5 is ADDITIVE: ships the canonical-bytes envelopes + DAG event
-//! types + mutation_type handlers. CI enforcement (require cosign before
-//! accepting any CI mutation) is deferred to M-anchor-5.5 alongside
-//! owner-tooling support.
+//! What remains here:
+//! - the M-anchor-4 §9.3.4 invariant-witness layer (`invariant_witness:{check_id}`
+//!   DAG events carrying raw check inputs; the CI gate re-derives pass/fail);
+//! - the P08 reproduction spawn-cosign envelope + the `genesis_attested` I7-closure
+//!   record + the `birth_closure_pending` / `birth_closure_complete` markers
+//!   (keyless: the envelope's parent-replay-guard + spore-schema binding are
+//!   verified, but no owner signature is checked over it).
 
 use super::hex_prefix;
 use myco_kernel_shared::canonical_bytes::{encode as cb_encode, CanonicalBytes, Value};
 use std::collections::BTreeMap;
-
-// ---------------------------------------------------------------------------
-// **v0.9 owner-key removal**: the DAG-tip co-sign envelope + the L0-revision
-// attestation envelope (M-anchor-5 §9.2.2 / §9.2.4) and their `tip_cosigned:*` /
-// `l0_revision_attested:*` DAG-event codecs were removed with the anchor surface.
-// The witness layer (invariant_witness, below) + the reproduction spawn-cosign
-// envelope + the birth_closure markers are KEPT (keyless / not owner-signature).
-// ---------------------------------------------------------------------------
 
 /// Local 32-byte extractor shared by the kept decoders below.
 fn bytes_to_arr32_local(v: &Value) -> Option<[u8; 32]> {
@@ -48,22 +39,22 @@ fn bytes_to_arr32_local(v: &Value) -> Option<[u8; 32]> {
 }
 
 // ---------------------------------------------------------------------------
-// **M-anchor-4 §9.3.4 Witnesses-not-verdicts + §9.3.5 anchor-nonce sampling**.
+// **M-anchor-4 §9.3.4 Witnesses-not-verdicts** (KEYLESS v0.9).
 //
-// L0/cards/AS_anchor_surface §3.11 mandates that the substrate emit CRYPTO PROOFS for invariant
-// checks (input bytes, Merkle paths, parent hashes, sampled leaf hashes) so
-// the owner can re-derive pass/fail independently. The substrate does NOT
-// emit pass/fail — only the inputs.
+// The substrate emits the raw INPUTS for each invariant check (input bytes,
+// node counts, DAG-tip hash) so the verdict can be re-derived independently at
+// the CI gate. The substrate does NOT emit pass/fail, only the inputs.
 //
-// L0/cards/AS_anchor_surface §3.12 specifies `H(anchor_surface_nonce, leaf_count)` as the
-// derivation rule for sampled-leaf indices, so the substrate cannot bias
-// which leaves it shows the owner.
+// This is an ADDITIVE witness layer: the existing immune-sporocarp emission path
+// on detected failures is preserved; alongside, every integrity check ALSO emits
+// an `invariant_witness:{check_id}` DAG event carrying the raw inputs.
 //
-// M-anchor-4 ships an ADDITIVE witness layer: the existing immune-sporocarp
-// emission path on detected failures is preserved (since it's well-tested);
-// alongside, every integrity check ALSO emits an `invariant_witness:{check_id}`
-// DAG event carrying the raw inputs. Owner-side `anchor-client` re-derives
-// pass/fail by reconstructing the canonical check.
+// **v0.9 keyless**: the §9.3.5 anchor-nonce leaf-sampling (`anchor_nonce` +
+// `anchor_nonce_signature` envelope fields + the `anchor_nonce_derived_sample_indices`
+// helper) was removed with the anchor surface. Tier-1 checks carry their full
+// inputs; deferred tier-2 sampled re-verification derives its sample seed from a
+// substrate/DAG-tip-derived value (keyless; acknowledged-debt: no external
+// anchor-minted nonce).
 // ---------------------------------------------------------------------------
 
 /// Prefix for `invariant_witness:{check_id}` DAG events (M-anchor-4 §9.3.4).
@@ -78,21 +69,21 @@ pub fn invariant_witness_node_type(check_id: &str) -> String {
 /// Encode the body of an `invariant_witness:{check_id}` DAG event.
 ///
 /// `inputs_map_canonical_bytes`: substrate-built canonical-bytes Map carrying
-/// the raw inputs that the OWNER will re-feed into the canonical check
-/// algorithm. Per-check schema is documented at the call site (e.g., for
-/// `dag_verify_all`: `{node_count, sampled_indices, sampled_hashes,
-/// sampled_parent_hashes, sampled_content_hashes}`).
+/// the raw inputs re-fed into the canonical check algorithm at the CI gate.
+/// Per-check schema is documented at the call site (e.g., for `dag_verify_all`:
+/// `{node_count, dag_tip_hash}`).
+///
+/// **v0.9 keyless**: the `anchor_nonce` + `anchor_nonce_signature` envelope
+/// fields were removed with the anchor surface.
 ///
 /// The outer envelope is:
 /// ```text
 /// Map({
-///   "check_id":                String,
-///   "tier":                    String ("tier_1" / "tier_2" / "tier_3"),
-///   "at_cycle":                Uint,
-///   "at_unix_ns":              Timestamp,
-///   "inputs":                  Bytes (= inputs_map_canonical_bytes),
-///   "anchor_nonce":            Bytes(32) | Bytes(0),  // present if sampling used anchor nonce
-///   "anchor_nonce_signature":  Bytes(64) | Bytes(0),  // anchor signature over the nonce
+///   "check_id":   String,
+///   "tier":       String ("tier_1" / "tier_2" / "tier_3"),
+///   "at_cycle":   Uint,
+///   "at_unix_ns": Timestamp,
+///   "inputs":     Bytes (= inputs_map_canonical_bytes),
 /// })
 /// ```
 pub fn encode_invariant_witness(
@@ -101,8 +92,6 @@ pub fn encode_invariant_witness(
     at_cycle: u64,
     at_unix_ns: i64,
     inputs_map_canonical_bytes: &[u8],
-    anchor_nonce: &[u8],          // pass &[] for tier-1 (no sampling)
-    anchor_nonce_signature: &[u8], // pass &[] for tier-1
 ) -> CanonicalBytes {
     let mut m = BTreeMap::new();
     m.insert(
@@ -116,23 +105,16 @@ pub fn encode_invariant_witness(
         "inputs".to_string(),
         Value::Bytes(inputs_map_canonical_bytes.to_vec()),
     );
-    m.insert(
-        "anchor_nonce".to_string(),
-        Value::Bytes(anchor_nonce.to_vec()),
-    );
-    m.insert(
-        "anchor_nonce_signature".to_string(),
-        Value::Bytes(anchor_nonce_signature.to_vec()),
-    );
     cb_encode(&Value::Map(m)).expect("invariant_witness encode infallible")
 }
 
 /// Decode an invariant_witness body. Returns the parsed fields or `None`
-/// on shape mismatch. Used by owner-side reconstruction tooling (`anchor-client`
-/// TS counterpart mirrors this).
+/// on shape mismatch. Used by the CI-gate reconstruction tooling (the TS
+/// counterpart mirrors this). **v0.9 keyless**: the anchor_nonce +
+/// anchor_nonce_signature fields were removed → 5-tuple.
 pub fn decode_invariant_witness(
     bytes: &[u8],
-) -> Option<(String, String, u64, i64, Vec<u8>, Vec<u8>, Vec<u8>)> {
+) -> Option<(String, String, u64, i64, Vec<u8>)> {
     use myco_kernel_shared::canonical_bytes::decode;
     let v = decode(bytes).ok()?;
     let m = match v {
@@ -159,150 +141,89 @@ pub fn decode_invariant_witness(
         Value::Bytes(b) => b.clone(),
         _ => return None,
     };
-    let anchor_nonce = match m.get("anchor_nonce")? {
-        Value::Bytes(b) => b.clone(),
-        _ => return None,
-    };
-    let anchor_nonce_signature = match m.get("anchor_nonce_signature")? {
-        Value::Bytes(b) => b.clone(),
-        _ => return None,
-    };
-    Some((
-        check_id,
-        tier,
-        at_cycle,
-        at_unix_ns,
-        inputs,
-        anchor_nonce,
-        anchor_nonce_signature,
-    ))
-}
-
-/// **M-anchor-4 §9.3.5**: derive deterministic sample indices from an
-/// anchor-supplied nonce. Substrate cannot bias which leaves it samples
-/// because the indices are a pure function of the (anchor-signed) nonce.
-///
-/// Algorithm: hash the nonce + leaf_count + sample_round into a 32-byte
-/// digest, then read it as `k` u64 indices modulo `leaf_count`. Produces
-/// a deterministic-but-anchor-unbiased sample set.
-///
-/// `k` is the number of indices to return; clamped to `[0, 1024]`.
-pub fn anchor_nonce_derived_sample_indices(
-    anchor_nonce: &[u8; 32],
-    leaf_count: u64,
-    k: usize,
-) -> Vec<u64> {
-    use sha2::{Digest, Sha256};
-    let k = k.min(1024);
-    if leaf_count == 0 || k == 0 {
-        return Vec::new();
-    }
-    let mut out: Vec<u64> = Vec::with_capacity(k);
-    let mut round: u64 = 0;
-    while out.len() < k {
-        let mut h = Sha256::new();
-        h.update(b"myco-anchor-nonce-sample-v1");
-        h.update(anchor_nonce);
-        h.update(leaf_count.to_le_bytes());
-        h.update(round.to_le_bytes());
-        let digest = h.finalize();
-        // 4 u64s per digest = 32 bytes; emit indices until k filled.
-        for chunk in digest.chunks(8) {
-            if out.len() >= k {
-                break;
-            }
-            let mut buf = [0u8; 8];
-            buf.copy_from_slice(chunk);
-            let raw = u64::from_le_bytes(buf);
-            out.push(raw % leaf_count);
-        }
-        round = round.saturating_add(1);
-    }
-    out
+    Some((check_id, tier, at_cycle, at_unix_ns, inputs))
 }
 
 // ---------------------------------------------------------------------------
-// **M-anchor-2 P14.b §9.2.1 Birth Attestation**.
+// **M-anchor-2 §9.2.1 Birth Attestation, REMOVED (v0.9 keyless)**.
 //
-// L0/cards/AS_anchor_surface §3.1 mandates an owner-signed 5-tuple attesting that a fresh
-// substrate's genesis was authorized by the Cultivator + anchor surface.
-// The 5-tuple (per L0/cards/AS_anchor_surface §3):
-//   (substrate-ID, genesis-timestamp,
-//    initial-spore-schema-canonical-bytes-hash,
-//    owner-public-key, anchor-surface-endpoint-public-key)
-//
-// At genesis the operator process fetches this attestation from
-// `anchor_surface_host` via the `BirthAttest` RPC. The attestation is
-// passed to the substrate as environment variables
-// (MYCO_BIRTH_ATTESTATION_BYTES + MYCO_BIRTH_ATTESTATION_SIGNATURE +
-// MYCO_BIRTH_ATTESTATION_OWNER_PUBKEY, all hex). Substrate emits a
-// `birth_attestation:{substrate_id_prefix}` DAG event right after
-// `genesis_event` carrying all three.
-//
-// Every boot re-verifies the signature against the current owner pubkey
-// (or `owner_key_history` active prefix). Failure → C20
-// `genesis_attestation_chain_broken` immune sporocarp + auto-quarantine.
+// The owner-signed genesis 5-tuple (substrate-ID, genesis-timestamp,
+// spore-schema-hash, owner-public-key, anchor-endpoint-public-key), the
+// `birth_attestation:{substrate_id_prefix}` DAG-event codec, the env-var
+// ingestion path, and the every-boot C20 signature re-verifier were all removed
+// with the owner-key + anchor surface. A fresh substrate's identity is
+// self-derived (P01c) and recorded in its own `genesis_event`; there is no
+// owner-signed birth attestation to fetch or re-verify.
 // ---------------------------------------------------------------------------
 
-// (v0.9 owner-key removal: the M-anchor-2 §9.2.1 birth_attestation codec was
-// removed with the anchor surface — there is no owner-signed birth attestation.)
-
 // ---------------------------------------------------------------------------
-// **P08 §3.2 / §3.5 / §5.1 — Reproduction cultivator co-attestation + I7
-// spawn-closure**.
+// **P08 §3.2 / §3.5 / §5.1, Reproduction spawn closure + I7** (KEYLESS v0.9).
 //
-// L0/cards/P08 §5.1: spawning a child substrate is NOT a daily-mode mutation —
-// it is a CI-class doctrine event that REQUIRES the cultivator's co-signature.
-// An unattested spawn (any operator spawning on its own authority) is the
-// "daily-mode spawn = doctrine collapse" signal → C68 reproduction_unattested_spawn.
+// L0/cards/P08 §5.1: spawning a child substrate is NOT a daily-mode mutation,
+// it is a CI-class doctrine event. An unattested spawn (a bare operator spawning
+// on its own authority with no spawn envelope) is the "daily-mode spawn =
+// doctrine collapse" signal → C68 reproduction_unattested_spawn.
 //
-// P08 §3.5 + L1/SCHEMA §3.3 spawn closure (I7) is a three-party handshake:
-//   (a) parent runs STATIC-SCHEMA validation: the child's spore-schema
-//       canonical bytes hash matches what the cultivator co-signed AND the
-//       7-field shape is well-formed;
-//   (b) the cultivator co-signs the spawn at the anchor surface, binding
-//       (parent-substrate-ID, child-substrate-ID-derivation inputs,
-//        spore-schema-hash, child-genesis-timestamp, anchor wall-clock + nonce);
+// P08 §3.5 + L1/SCHEMA §3.3 spawn closure (I7):
+//   (a) parent runs STATIC-SCHEMA validation: the child's spore-schema canonical
+//       bytes hash matches the envelope's `spore_schema_hash` AND the 7-field
+//       shape is well-formed;
+//   (b) the spawn envelope binds the immutable spawn parameters
+//       (parent-substrate-ID replay guard, spore-schema-hash, child-genesis
+//        timestamp, the §16.B rate-throttle timestamp + a binding nonce);
 //   (c) the child runs its OWN I3 self-validation as its first metabolic cycle
 //       (substrate boot integrity self-check) before any operator cycle.
 //
-// This module ships the canonical-bytes envelope the cultivator signs
-// (`myco-spawn-cosign-v1`), the `genesis_attested:{child_prefix}` I7-closure
-// record emitted into the PARENT's DAG, and the
-// `birth_closure_pending` / `birth_closure_complete` markers the child writes
-// (b)→(c). Mirrors the M-anchor-5 dag_tip_cosign staged-envelope pattern.
+// **v0.9 keyless**: the cultivator Ed25519 co-signature over the envelope (and
+// the owner-pubkey it was checked against) was removed with the anchor surface.
+// The envelope's STRUCTURE, parent replay-guard, spore-schema binding, the
+// timestamp the §16.B throttle reads, is still verified; no signature is checked
+// over it. (The envelope's `myco-spawn-cosign-v1` canonical-bytes shape + field
+// names are pinned by a cross-language parity vector, so they are unchanged.)
+//
+// This module ships that canonical-bytes envelope, the
+// `genesis_attested:{child_prefix}` I7-closure record emitted into the PARENT's
+// DAG, and the `birth_closure_pending` / `birth_closure_complete` markers the
+// child writes (b)→(c).
 // ---------------------------------------------------------------------------
 
-/// Domain string for reproduction spawn co-sign signatures (P08 §3.5 / §5.1).
+/// Domain string for the reproduction spawn-cosign envelope (P08 §3.5 / §5.1).
+/// (KEYLESS v0.9: the envelope is no longer owner-signed; the domain string +
+/// canonical-bytes shape are pinned by a cross-language parity vector.)
 pub const SPAWN_COSIGN_DOMAIN: &str = "myco-spawn-cosign-v1";
 
-/// Prefix for `genesis_attested:{child_id_prefix}` DAG events — the I7-closure
-/// record written into the PARENT's DAG after a cultivator-attested spawn.
+/// Prefix for `genesis_attested:{child_id_prefix}` DAG events, the I7-closure
+/// record written into the PARENT's DAG after a verified spawn (keyless).
 pub const NODE_TYPE_GENESIS_ATTESTED_PREFIX: &str = "genesis_attested:";
 
-/// Prefix for `birth_closure_pending:{parent_id_prefix}` DAG events — written
+/// Prefix for `birth_closure_pending:{parent_id_prefix}` DAG events, written
 /// into the CHILD's DAG at construction time, signalling the child must run its
 /// own I3 boot self-check (I7 step c) before any operator cycle.
 pub const NODE_TYPE_BIRTH_CLOSURE_PENDING_PREFIX: &str = "birth_closure_pending:";
 
-/// Prefix for `birth_closure_complete:{child_id_prefix}` DAG events — written
+/// Prefix for `birth_closure_complete:{child_id_prefix}` DAG events, written
 /// into the CHILD's DAG at first boot once the I3 self-check verdict is known.
 pub const NODE_TYPE_BIRTH_CLOSURE_COMPLETE_PREFIX: &str = "birth_closure_complete:";
 
-/// Build the canonical-bytes Map the cultivator signs for a reproduction
-/// spawn co-sign (P08 §3.5 / §5.1).
+/// Build the reproduction spawn-cosign canonical-bytes envelope (P08 §3.5 / §5.1).
+///
+/// **v0.9 keyless**: the envelope is no longer owner-signed; its STRUCTURE is
+/// what the substrate verifies. The field names + canonical-bytes shape are
+/// pinned by a cross-language parity vector, so they are unchanged from the
+/// pre-keyless wire contract.
 ///
 /// The envelope binds the immutable spawn parameters so that:
 ///   - `parent_substrate_id` is a replay guard (the substrate rejects an
 ///     envelope minted for a different parent);
 ///   - `spore_schema_hash` pins the child's static schema (I7 step a);
 ///   - `child_genesis_timestamp_unix_ns` feeds the deterministic
-///     owner-minted child-id `blake3(parent_id, spore_schema_hash,
-///     child_genesis_ts)` (§5.6 non-reissuance);
-///   - `anchor_timestamp_unix_ns` + `anchor_nonce` are the anchor-surface
-///     wall-clock + unbiasable nonce (§16.B rate throttle uses the timestamp);
-///   - `depth_override` (Bool) is the cultivator's explicit, signed override
-///     of the §16.A lineage-depth cap for THIS spawn (F22 depth_override).
+///     child-id `blake3(parent_id, spore_schema_hash, child_genesis_ts)`
+///     (§5.6 non-reissuance);
+///   - `anchor_timestamp_unix_ns` + `anchor_nonce` are the §16.B rate-throttle
+///     timestamp + a binding nonce (operator/substrate-threaded; keyless,
+///     acknowledged-debt: no external trusted clock / anchor-minted nonce);
+///   - `depth_override` (Bool) is the explicit override of the §16.A
+///     lineage-depth cap for THIS spawn (F22 depth_override).
 pub fn build_spawn_cosign_canonical_bytes(
     parent_substrate_id: &[u8; 32],
     spore_schema_hash: &[u8; 32],
@@ -414,8 +335,8 @@ pub fn birth_closure_complete_node_type(child_substrate_id: &[u8; 32]) -> String
     )
 }
 
-/// Encode the body of a `genesis_attested:{child_prefix}` DAG event — the
-/// I7-closure record in the PARENT's DAG (P08 §3.5; KEYLESS v0.9 — the
+/// Encode the body of a `genesis_attested:{child_prefix}` DAG event, the
+/// I7-closure record in the PARENT's DAG (P08 §3.5; KEYLESS v0.9, the
 /// cultivator owner_signature + owner_pubkey fields were removed).
 ///
 /// Carries the spawn-cosign envelope bytes (for offline inspection), the

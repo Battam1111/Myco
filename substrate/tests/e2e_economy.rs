@@ -84,7 +84,7 @@ fn m26_4_owner_objective_rejects_negative_weights() {
 #[test]
 fn m26_4_budget_exhausted_events_observable_in_dag_when_exceeded() {
     // Set a deliberately-low compute_ns budget via env var (we'll need to
-    // override seed budgets — but the seed defaults to 100ms which IS
+    // override seed budgets, but the seed defaults to 100ms which IS
     // exceeded on real hardware over enough cycles). Instead of overriding,
     // we use a different signal: register many axes + perturb in tight loop
     // to force storage > 10 MiB? That's too slow.
@@ -253,7 +253,7 @@ fn sprint_5d_tight_budgets_trigger_budget_exhausted_event() {
             "1".to_string(),
         )],
     );
-    // Pump a few cycles — each one mutates dag.cb by at least the
+    // Pump a few cycles, each one mutates dag.cb by at least the
     // cycle_advanced event (~100 bytes), exceeding the 1-byte storage
     // budget on every cycle.
     pump_cycles(&mut client, 5);
@@ -363,11 +363,11 @@ fn sprint_5d_c53_under_normal_emission_pattern_stays_quiet() {
     // (observatory.rs:636-718), as long as the primary emission path
     // runs, C53 stays quiet because last_emit gets refreshed every
     // ≥10 cycles. This test pins that behavior as a regression baseline
-    // — if a future refactor changes C53 to fire under normal operation,
+    //, if a future refactor changes C53 to fire under normal operation,
     // this test fails informatively.
     //
     // The semantic property being pinned: "C53 fires ONLY when emission
-    // is silent" — under tight budgets WITH working emit, C53 quiet
+    // is silent", under tight budgets WITH working emit, C53 quiet
     // for ≤50 cycles (within the C53 detection window).
     let dir = fresh_state_dir();
     let mut client = spawn_substrate_with_env(
@@ -473,7 +473,7 @@ fn p11c_ingest_refused_under_saturation() {
 fn p11c_sustained_saturation_emits_self_euthanasia_proposal() {
     // **P11.c stage-3 → P7**: under tight budgets + tight thresholds (env sets
     // mortality threshold = 3 Saturated cycles), sustained saturation MUST
-    // escalate to a `self_euthanasia_proposal:metabolic_saturation` — a PROPOSAL
+    // escalate to a `self_euthanasia_proposal:metabolic_saturation`, a PROPOSAL
     // the accept_self_euthanasia path can execute, NOT auto-death. Without this,
     // saturation is permanently inert (P11 §5.3 violated).
     let dir = fresh_state_dir();
@@ -533,6 +533,92 @@ fn p11c_sustained_saturation_emits_self_euthanasia_proposal() {
 }
 
 #[test]
+fn p7_keyless_accept_self_euthanasia_proposal_executes() {
+    // **P7 必朽: keyless self-euthanasia happy path (the missing safety test).**
+    //
+    // The sibling `p11c_sustained_saturation_emits_self_euthanasia_proposal`
+    // proves a real `self_euthanasia_proposal:metabolic_saturation` node is
+    // EMITTED; this test closes the loop by ACCEPTING it through the keyless
+    // handler and asserting a `self_euthanasia_executed:{axis}` event results.
+    //
+    // **v0.9 keyless**: whole-death is authorized by a DELIBERATE
+    // `accept_self_euthanasia_proposal` call that REFERENCES a real proposal node
+    // (the non-arbitrary structural gate), NOT an owner Ed25519 signature (the
+    // owner-key + anchor layer was removed). The authorization root is the live
+    // human-in-the-loop. Mirrors the keyless `accept_bet_retired_proposal` path
+    // proven by `cultivation::tests::bet_retired_seals_archive_and_is_archived_keyless`.
+    let dir = fresh_state_dir();
+    let mut client = spawn_substrate_with_env(
+        &dir,
+        vec![(
+            "MYCO_TEST_TIGHTEN_BUDGETS_FOR_C53".to_string(),
+            "1".to_string(),
+        )],
+    );
+    // Drive sustained saturation so the substrate emits the real proposal node.
+    pump_cycles(&mut client, 12);
+    let resp = client
+        .call(
+            proto::QUERY_RECENT_NODES,
+            build_payload(vec![
+                ("count", CbValue::Uint(200)),
+                (
+                    "node_type_prefix",
+                    CbValue::String("self_euthanasia_proposal:metabolic_saturation".to_string()),
+                ),
+            ]),
+        )
+        .expect("query recent");
+    let nodes = match resp.payload.get("nodes") {
+        Some(CbValue::Array(a)) => a.clone(),
+        _ => panic!("nodes missing"),
+    };
+    assert!(
+        !nodes.is_empty(),
+        "precondition: sustained saturation must emit a self_euthanasia_proposal"
+    );
+    // Grab the proposal node's hash: the deliberate-action reference the keyless
+    // accept handler requires.
+    let proposal_hash = match &nodes[0] {
+        CbValue::Map(m) => match m.get("hash") {
+            Some(CbValue::Bytes(b)) => b.clone(),
+            _ => panic!("proposal node missing hash"),
+        },
+        _ => panic!("proposal node not a Map"),
+    };
+    assert_eq!(proposal_hash.len(), 32, "proposal hash must be 32 bytes");
+
+    // Accept the proposal (keyless: only the proposal_hash reference is required).
+    // The substrate emits `self_euthanasia_executed:{axis}` and returns its hash
+    // in the response, THEN shuts down (P7: the substrate has been authorized to
+    // die), so the response payload is the proof the executed event was emitted.
+    let accept = client
+        .call(
+            proto::ACCEPT_SELF_EUTHANASIA_PROPOSAL,
+            build_payload(vec![("proposal_hash", CbValue::Bytes(proposal_hash))]),
+        )
+        .expect("accept_self_euthanasia_proposal");
+    assert_eq!(
+        accept.payload.get("axis_name"),
+        Some(&CbValue::String("metabolic_saturation".to_string())),
+        "the executed event must carry the proposal's axis_name (keyless accept path)"
+    );
+    match accept.payload.get("executed_event_hash") {
+        Some(CbValue::Bytes(h)) => assert_eq!(
+            h.len(),
+            32,
+            "self_euthanasia_executed:{{axis}} must be emitted (32-byte event hash)"
+        ),
+        _ => panic!(
+            "accept response missing executed_event_hash: the keyless accept path \
+             did NOT emit self_euthanasia_executed:metabolic_saturation"
+        ),
+    }
+    // The substrate self-terminates after authorizing its own death; no shutdown
+    // call needed (the process is already exiting).
+}
+
+#[test]
 fn p11c_saturation_status_surfaced_in_observatory_v5() {
     // The observatory query (format_version 5) must surface saturation_status:
     // stage + the two consecutive-cycle counters + per-axis exceeded flags.
@@ -589,7 +675,7 @@ fn sprint_5d_saturation_stage_reaches_saturated_under_sustained_exhaustion() {
     // P11.c stage machine reaches Saturated by ~cycle 2-3 and emits a
     // substrate_saturated transition event. Note: PreEligibility and
     // PostEligibility don't emit explicit transition markers (per
-    // observatory.rs:507) — only Saturated and Normal-restored do.
+    // observatory.rs:507), only Saturated and Normal-restored do.
     let dir = fresh_state_dir();
     let mut client = spawn_substrate_with_env(
         &dir,

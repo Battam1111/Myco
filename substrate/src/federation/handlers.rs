@@ -1,4 +1,4 @@
-//! M22 P5 万物互联 — federation message handlers (extracted from `server.rs` in Phase B Step 5).
+//! M22 P5 万物互联, federation message handlers (extracted from `server.rs` in Phase B Step 5).
 //!
 //! This submodule owns the *operator-facing* federation dispatch handlers
 //! (listener lifecycle, peer connect, poll, status, parent-link, pull-events)
@@ -6,8 +6,8 @@
 //! et al.) that are shared between the synchronous dispatch handlers and the
 //! autonomous-tick path in `server.rs`.
 //!
-//! The lower-level federation primitives — wire framing, TOFU pinning,
-//! `FederationState` / `ConnectPeerOutcome` / `PollPeerEvent` types — still
+//! The lower-level federation primitives, wire framing, TOFU pinning,
+//! `FederationState` / `ConnectPeerOutcome` / `PollPeerEvent` types, still
 //! live in [`crate::federation`]. This module is a thin layer that translates
 //! between those primitives and the operator's wire protocol.
 //!
@@ -17,11 +17,11 @@
 //!   substrate is a connected graph, not a collection."
 //! - L1/HARD_RULES C33 (federation_peer_identity_mismatch), C35
 //!   (federation_substrate_private_event_injection), C39
-//!   (federation_hello_signature_invalid) — the three immune-sporocarp
+//!   (federation_hello_signature_invalid), the three immune-sporocarp
 //!   detectors this module emits.
 //! - L2/FEDERATION wrapped-events architecture: incoming peer events are
 //!   wrapped in `federation_received:{peer_id_prefix}` envelopes whose parent
-//!   is the *receiver's* DAG tip (NOT the peer's parent_hashes) — preserves
+//!   is the *receiver's* DAG tip (NOT the peer's parent_hashes), preserves
 //!   receiver Merkle-chain correctness while recording cross-substrate
 //!   provenance.
 
@@ -39,7 +39,7 @@ use crate::server::{
 use crate::SubstrateError;
 
 // ---------------------------------------------------------------------------
-// M22.1 P5 万物互联 — federation handlers (listener lifecycle + status).
+// M22.1 P5 万物互联, federation handlers (listener lifecycle + status).
 //
 // `handle_federation_open_listener` and `handle_federation_close_listener`
 // mutate `state.federation.listener` and emit a corresponding
@@ -168,7 +168,7 @@ pub(crate) fn handle_federation_close_listener(
 /// M22.2 + M25.4: emit a `federation_peer_pinned` DAG event for a newly-pinned
 /// peer.
 ///
-/// M25.4 added optional `signer_pubkey` payload — present iff the peer's
+/// M25.4 added optional `signer_pubkey` payload, present iff the peer's
 /// FED_HELLO carried a verified Ed25519 signature (so the receiver pinned the
 /// signing key alongside the substrate_id). Absence = legacy peer.
 ///
@@ -191,18 +191,18 @@ pub(crate) fn emit_federation_peer_pinned(
     emit_substrate_event(state, nt, content)
 }
 
-/// **C13** — emit a `federation_peer_revoked:{prefix}` DAG event (the
+/// **C13**, emit a `federation_peer_revoked:{prefix}` DAG event (the
 /// owner-attested CRL entry) AND insert the target into the in-memory
 /// revoked-set.
 ///
 /// **Idempotent at the EFFECT level**: if the peer is ALREADY in the
-/// revoked-set, this is a no-op — it returns `Ok(None)` WITHOUT emitting a
+/// revoked-set, this is a no-op, it returns `Ok(None)` WITHOUT emitting a
 /// second CRL event. (Content-hash dedup alone is insufficient: a re-revoke
 /// arrives at a different DAG tip, so its `merkle_hash(parents, content)`
 /// differs and `Dag::insert_node` would NOT collapse it. Guarding on the set
 /// membership makes re-revoke a genuine no-op, matching the doctrine "re-revoke
 /// = no-op".) The `mutation:revoke_federation_peer` audit node is still
-/// recorded by the caller — only the duplicate CRL effect is suppressed.
+/// recorded by the caller, only the duplicate CRL effect is suppressed.
 ///
 /// The body fields (`revoked_pubkey`, `reason`, `anchor_timestamp_unix_seconds`)
 /// and the owner attestation (`owner_signature`, `owner_pubkey`) come from the
@@ -228,7 +228,7 @@ pub(crate) fn emit_federation_peer_revoked(
         .revoked_federation_peers
         .contains(revoked_peer_substrate_id)
     {
-        // Already revoked — no-op (do not append a duplicate CRL entry).
+        // Already revoked, no-op (do not append a duplicate CRL entry).
         return Ok(None);
     }
     let nt = crate::events::federation_peer_revoked_node_type(revoked_peer_substrate_id);
@@ -247,7 +247,7 @@ pub(crate) fn emit_federation_peer_revoked(
 
 /// M25.4: emit a `federation_legacy_peer_pinned` observability event for a
 /// peer pinned WITHOUT an Ed25519 signature (legacy compat). This is NOT an
-/// immune sporocarp — legacy peers are allowed. The event exists so operators
+/// immune sporocarp, legacy peers are allowed. The event exists so operators
 /// can audit which connections were authenticated by signature vs TOFU only.
 pub(crate) fn emit_federation_legacy_peer_pinned(
     state: &mut ServerState,
@@ -358,7 +358,7 @@ pub(crate) fn handle_federation_connect_peer(
     let our_substrate_id = state.substrate_id();
     let our_dag_tip = state.dag.tip().map(|t| t.0);
     let our_signing_seed = state.substrate_signing_seed;
-    // **§6.5.a** — peer-count before the dial, to detect a 2→3 crossing.
+    // **§6.5.a**, peer-count before the dial, to detect a 2→3 crossing.
     let prior_peer_count = state.federation.peer_count();
 
     let outcome = state.federation.connect_peer(
@@ -505,7 +505,7 @@ pub(crate) fn handle_federation_connect_peer(
             );
         }
     }
-    // **§6.5.a** — emit the activation/deactivation crossing if this outbound
+    // **§6.5.a**, emit the activation/deactivation crossing if this outbound
     // connect moved peer_count across the 2↔3 boundary.
     crate::consensus::emit_consensus_floor_crossing_if_needed(state, prior_peer_count)?;
     Ok(Some(Message::new(
@@ -515,7 +515,7 @@ pub(crate) fn handle_federation_connect_peer(
     )))
 }
 
-/// M22.2: handle a `federation_poll` request — drive one round of nonblocking
+/// M22.2: handle a `federation_poll` request, drive one round of nonblocking
 /// federation I/O.
 ///
 /// Steps performed (in order):
@@ -536,7 +536,7 @@ pub(crate) fn handle_federation_poll(
     state: &mut ServerState,
     request: &Message,
 ) -> Result<Option<Message>, SubstrateError> {
-    // **§6.5.a** — capture peer-count BEFORE this poll so we can emit a
+    // **§6.5.a**, capture peer-count BEFORE this poll so we can emit a
     // consensus_floor_activated/_deactivated event if the poll crosses the 2↔3
     // boundary (inbound peers pinned during the poll change the count).
     let prior_peer_count = state.federation.peer_count();
@@ -623,7 +623,7 @@ pub(crate) fn handle_federation_poll(
                 peer_version,
                 our_version,
             } => {
-                // **v3.1.1 Sprint 5.H (T2.5)** — emit C61 immune sporocarp.
+                // **v3.1.1 Sprint 5.H (T2.5)**, emit C61 immune sporocarp.
                 let evidence = format!(
                     "federation protocol version mismatch at fed_hello: \
                      peer.substrate_id={} from {remote_addr_str} declared \
@@ -696,7 +696,7 @@ pub(crate) fn handle_federation_poll(
         }
     }
 
-    // **§6.5.a** — emit the consensus-floor activation/deactivation crossing if
+    // **§6.5.a**, emit the consensus-floor activation/deactivation crossing if
     // this poll moved peer_count across the 2↔3 boundary.
     crate::consensus::emit_consensus_floor_crossing_if_needed(state, prior_peer_count)?;
 
@@ -800,7 +800,7 @@ pub(crate) fn handle_federation_link_to_parent_from_hint(
         .to_string();
 
     // Idempotency: if a federation_parent_linked event already exists for this
-    // parent, return early — the link is already established.
+    // parent, return early, the link is already established.
     let already_linked = state
         .dag
         .iter_in_insertion_order()
@@ -920,20 +920,20 @@ pub(crate) fn handle_federation_link_to_parent_from_hint(
 // that *chained* federation propagates ("I heard A heard B say X"). But that
 // single-level allowlist check inspects only the OUTERMOST inner `node_type`.
 // A malicious peer can therefore:
-//   1. **Depth-exhaustion** — nest `federation_received:` wrappers arbitrarily
+//   1. **Depth-exhaustion**, nest `federation_received:` wrappers arbitrarily
 //      deep, forcing the receiver to carry an unbounded attestation chain
 //      (and, at boot/replay, to walk it). C43 caps the nesting depth.
-//   2. **Banned-type laundering** — bury a substrate-private node_type (e.g.
+//   2. **Banned-type laundering**, bury a substrate-private node_type (e.g.
 //      `operator_pinned:*`, `cycle_advanced`) several wrappers down, where the
 //      single-level check never looks. C35 (here extended with a
 //      `cascade_flag`) rejects it at any depth.
 //
 // `validate_federation_inner` is a PURE function over the peer event's
-// (node_type, content) — no `ServerState`, so it is deterministically
+// (node_type, content), no `ServerState`, so it is deterministically
 // unit-testable over hand-built canonical bytes (see `#[cfg(test)]` below).
 // The pull-path call site maps the returned `FederationRecursionReject` to the
 // correct immune-sporocarp emission (C43 vs C35) and DROPS the whole offending
-// envelope (no partial acceptance — layers 0..N-1's testimony was *about*
+// envelope (no partial acceptance, layers 0..N-1's testimony was *about*
 // layer N, so a banned/over-deep layer N poisons the entire chain).
 // ---------------------------------------------------------------------------
 
@@ -960,7 +960,7 @@ pub(crate) enum FederationRecursionReject {
         attempted_depth: usize,
     },
     /// A nested wrapper's inner `peer_event_node_type` is NOT
-    /// `is_federation_safe_node_type` — a substrate-private type smuggled
+    /// `is_federation_safe_node_type`, a substrate-private type smuggled
     /// `depth` levels down. Emits **C35** with `cascade_flag=true`.
     BannedInnerType {
         /// Depth (>= 1) at which the banned inner type was found.
@@ -971,7 +971,7 @@ pub(crate) enum FederationRecursionReject {
     /// A `federation_received:` wrapper's content could not be decoded as a
     /// well-formed wrapper Map (missing/!`peer_event_node_type` or
     /// `peer_event_content_canonical_bytes`, or non-canonical bytes). Treated
-    /// as a banned/cascade rejection (C35) — a peer offering a malformed
+    /// as a banned/cascade rejection (C35), a peer offering a malformed
     /// wrapper under an allowlisted prefix is conservatively refused rather
     /// than silently wrapped. `depth` is where decoding failed.
     MalformedWrapper {
@@ -982,7 +982,7 @@ pub(crate) enum FederationRecursionReject {
     },
 }
 
-/// **C43 / L2/FEDERATION §11** — recursively validate the (node_type, content)
+/// **C43 / L2/FEDERATION §11**, recursively validate the (node_type, content)
 /// of a peer event about to be wrapped on the federation pull path.
 ///
 /// Pure + side-effect-free: returns `Ok(())` if the event (and every nested
@@ -1008,7 +1008,7 @@ pub(crate) fn validate_federation_inner(
     content: &[u8],
     depth: usize,
 ) -> Result<(), FederationRecursionReject> {
-    // Depth gate FIRST — an over-deep chain is rejected before we even decode
+    // Depth gate FIRST, an over-deep chain is rejected before we even decode
     // the (potentially adversarial) content at this level. This is the
     // depth-exhaustion defense: the attacker cannot force unbounded recursion
     // / allocation here, and the over-deep envelope is dropped wholesale.
@@ -1028,7 +1028,7 @@ pub(crate) fn validate_federation_inner(
     // Wrapper: decode the embedded peer event (inner type + inner content) and
     // recurse one level deeper. A wrapper whose content is not a well-formed
     // wrapper Map is conservatively rejected (MalformedWrapper → C35) rather
-    // than accepted — a peer offering garbage under the `federation_received:`
+    // than accepted, a peer offering garbage under the `federation_received:`
     // prefix is misbehaving.
     let decoded = match cb_decode(content) {
         Ok(Value::Map(m)) => m,
@@ -1065,7 +1065,7 @@ pub(crate) fn validate_federation_inner(
     };
 
     // Banned-type-at-depth: the smuggled inner type must itself be on the
-    // federation allowlist, at EVERY depth — not just the outermost level.
+    // federation allowlist, at EVERY depth, not just the outermost level.
     if !crate::federation::protocol::is_federation_safe_node_type(&inner_node_type) {
         return Err(FederationRecursionReject::BannedInnerType {
             depth: depth + 1,
@@ -1112,14 +1112,14 @@ pub(crate) fn handle_federation_pull_events_from_peer(
     let mut peer_substrate_id = [0u8; 32];
     peer_substrate_id.copy_from_slice(&peer_id_bytes);
 
-    // **C13 — ingest non-absorption check.** If the owner has revoked this
+    // **C13, ingest non-absorption check.** If the owner has revoked this
     // peer, its events must stop being absorbed (the symmetric inbound half of
     // the GOVERNANCE §5.2 revocation: a revoked peer is cut off BOTH ways). We
-    // refuse before pulling a single frame over the wire — no revoked-peer
+    // refuse before pulling a single frame over the wire, no revoked-peer
     // event can enter the DAG. Returns a structured rejection (ingested=0) so
     // the operator gets a clear signal, and fruits C13 with explicit
     // ingest-direction evidence (reusing the C13 row rather than minting a
-    // new one — the revocation list is the same, only the direction differs).
+    // new one, the revocation list is the same, only the direction differs).
     if state.revoked_federation_peers.contains(&peer_substrate_id) {
         let evidence = format!(
             "federation_ingest_blocked: pull from peer {} refused — peer is on the \
@@ -1177,7 +1177,7 @@ pub(crate) fn handle_federation_pull_events_from_peer(
         Err(SubstrateError::Protocol(msg))
             if msg.contains("FED_EVENT_MAX_CONTENT_BYTES") =>
         {
-            // **v3.1.1 Sprint 6.B (T1.8)** — per-event size cap breach.
+            // **v3.1.1 Sprint 6.B (T1.8)**, per-event size cap breach.
             // Emit C62 immune sporocarp + structured rejection response.
             // Per-event oversize is a peer-behavior signal worth recording
             // separately from generic frame-read failures.
@@ -1220,18 +1220,18 @@ pub(crate) fn handle_federation_pull_events_from_peer(
 
     // Phase β SECURITY FIX (2026-05-15): event-type ALLOWLIST.
     //
-    // Pre-fix, this loop accepted ANY node_type from the peer — letting a
-    // malicious peer inject `operator_pinned:`, `cycle_advanced`,
-    // `genesis_event:*`, `nonce_issued:*`, etc. The injected events would
-    // then mutate Rust-authoritative state via `DerivedState::apply_event`
-    // at boot — taking over the substrate's identity, cycle counter,
-    // nonce log, or causing MultipleGenesis → empty derived state.
+    // Pre-fix, this loop accepted ANY node_type from the peer, letting a
+    // malicious peer inject `cycle_advanced`, `genesis_event:*`, etc. The
+    // injected events would then mutate Rust-authoritative state via
+    // `DerivedState::apply_event` at boot, taking over the substrate's
+    // identity or cycle counter, or causing MultipleGenesis → empty derived
+    // state.
     //
     // Post-fix: only substrate-environmental events (raw_material, sporocarp,
     // mutation, immune) are accepted. Any other node_type triggers a
     // C22 immune sporocarp emission + the event is dropped.
     //
-    // **C43 (2026-06-02) — recursive-injection / depth-exhaustion defense.**
+    // **C43 (2026-06-02), recursive-injection / depth-exhaustion defense.**
     // The single-level allowlist above permits the `federation_received:`
     // prefix (so chained federation propagates). That alone is bypassable: a
     // malicious peer can nest `federation_received:` wrappers to (a) exhaust
@@ -1239,7 +1239,7 @@ pub(crate) fn handle_federation_pull_events_from_peer(
     // several wrappers down where the single-level check never looks. Each
     // candidate "safe" event is therefore ALSO run through
     // `validate_federation_inner` (recursive, every depth). A reject DROPS the
-    // entire offending envelope (no partial acceptance — see C43 doctrine) and
+    // entire offending envelope (no partial acceptance, see C43 doctrine) and
     // emits C43 (depth-exhaustion) or C35-with-`cascade_flag` (banned/malformed
     // at depth). See `federation_recursive_validation.md` + L2/FEDERATION §11.
     // A recursive-validation reject that maps to the C35 cascade path. Carries a
@@ -1286,7 +1286,7 @@ pub(crate) fn handle_federation_pull_events_from_peer(
             continue;
         }
         // C43: recursively validate the (node_type, content) before allowing
-        // it to be wrapped. Conservative — any reject drops the whole event.
+        // it to be wrapped. Conservative, any reject drops the whole event.
         match validate_federation_inner(&ev.node_type, &ev.content_canonical_bytes, 0) {
             Ok(()) => safe_events.push(ev),
             Err(FederationRecursionReject::DepthExceeded { attempted_depth }) => {
@@ -1353,7 +1353,7 @@ pub(crate) fn handle_federation_pull_events_from_peer(
             &evidence,
         );
     }
-    // C35 (cascade) — banned / malformed inner type smuggled at depth. Distinct
+    // C35 (cascade), banned / malformed inner type smuggled at depth. Distinct
     // from the single-level C35 above by `cascade_flag=true` + `depth` +
     // `inner_type` in the evidence string.
     if !recursive_cascade_rejects.is_empty() {
@@ -1380,7 +1380,7 @@ pub(crate) fn handle_federation_pull_events_from_peer(
 
     // Phase β SECURITY: wrap each ALLOWED peer event in a
     // `federation_received:{peer_id_prefix}` envelope whose parent is the
-    // RECEIVER's local DAG tip — NOT the peer's parent_hashes. This:
+    // RECEIVER's local DAG tip, NOT the peer's parent_hashes. This:
     //   1. Preserves receiver's Merkle-chain correctness (peer's chain
     //      never merges into receiver's chain).
     //   2. Records full cross-substrate provenance (original peer event +
@@ -1564,7 +1564,7 @@ pub(crate) fn handle_federation_status(
 
 #[cfg(test)]
 mod c43_recursive_validation_tests {
-    //! C43 federation recursive-injection defense — deterministic unit tests
+    //! C43 federation recursive-injection defense, deterministic unit tests
     //! over hand-built canonical bytes (no wire / no `ServerState` needed).
     //!
     //! These exercise `validate_federation_inner` directly, which is the pure
@@ -1585,7 +1585,7 @@ mod c43_recursive_validation_tests {
         ("raw_material:peer".to_string(), content)
     }
 
-    /// A substrate-private (BANNED) leaf event — exactly the class the
+    /// A substrate-private (BANNED) leaf event, exactly the class the
     /// allowlist exists to keep out (`operator_pinned:*` overwrites the pinned
     /// operator identity at replay).
     fn banned_leaf() -> (String, Vec<u8>) {
@@ -1596,7 +1596,7 @@ mod c43_recursive_validation_tests {
     }
 
     /// Wrap an inner `(node_type, content)` pair into a `federation_received:`
-    /// envelope's canonical bytes — exactly the wrapper-content shape the pull
+    /// envelope's canonical bytes, exactly the wrapper-content shape the pull
     /// path produces (and therefore the shape the validator decodes). Returns
     /// the wrapper's own `(node_type, content)`.
     ///
@@ -1631,7 +1631,7 @@ mod c43_recursive_validation_tests {
     }
 
     /// Build a chain of `n` `federation_received:` wrappers around `leaf`.
-    /// The returned `(node_type, content)` is the OUTERMOST wrapper — i.e. what
+    /// The returned `(node_type, content)` is the OUTERMOST wrapper, i.e. what
     /// a peer would push as a single allowlisted event.
     fn nest(n: usize, leaf: (String, Vec<u8>)) -> (String, Vec<u8>) {
         let (mut ty, mut content) = leaf;
@@ -1657,7 +1657,7 @@ mod c43_recursive_validation_tests {
 
     #[test]
     fn single_level_wrapper_with_safe_inner_is_accepted() {
-        // One `federation_received:` wrapper around a raw_material leaf — the
+        // One `federation_received:` wrapper around a raw_material leaf, the
         // ordinary "I heard peer say X" attestation. Must pass (this is the
         // legitimate federation path the allowlist already permits).
         let (ty, content) = nest(1, safe_leaf());
@@ -1695,7 +1695,7 @@ mod c43_recursive_validation_tests {
     #[test]
     fn deep_nesting_well_beyond_max_still_reports_first_violation_depth() {
         // Even a 50-deep chain is rejected at the FIRST over-MAX level
-        // (attempted_depth = MAX + 1 = 6) — the validator never walks the
+        // (attempted_depth = MAX + 1 = 6), the validator never walks the
         // whole adversarial chain (depth-exhaustion protection works).
         let (ty, content) = nest(50, safe_leaf());
         let reject = validate_federation_inner(&ty, &content, 0)
@@ -1747,7 +1747,7 @@ mod c43_recursive_validation_tests {
     fn banned_leaf_within_max_depth_is_caught_as_cascade_not_depth() {
         // 6 wrappers around a banned leaf. The innermost wrapper (which holds
         // the banned `operator_pinned:` inner type) is reached at recursion
-        // depth 5 — WITHIN the depth bound — so its banned inner is caught and
+        // depth 5, WITHIN the depth bound, so its banned inner is caught and
         // reported as BannedInnerType at depth 6 (depth+1). The depth gate
         // (depth > 5) never fires because we never recurse past the banned
         // layer. Both outcomes drop the envelope; this pins the precise signal.
@@ -1769,7 +1769,7 @@ mod c43_recursive_validation_tests {
         // 7 wrappers around a banned leaf: the validator exhausts the depth
         // budget (DepthExceeded at attempted_depth=6) BEFORE it can ever reach
         // the wrapper holding the banned leaf (which sits at depth 7). This is
-        // the security-critical property — an attacker cannot push the banned
+        // the security-critical property, an attacker cannot push the banned
         // payload past inspection by nesting it deeper; the depth gate refuses
         // the whole over-deep envelope first.
         let (ty, content) = nest(7, banned_leaf());

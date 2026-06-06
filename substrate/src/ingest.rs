@@ -82,10 +82,10 @@ impl SkinBreachChecker for DagBreachWatcher {
     }
 }
 
-/// M18 HandshakeProcessor: reports whether the substrate has a pinned
-/// operator identity. In M18-MV, this is binary (1 if pinned, 0 otherwise).
-/// M19+ adds an anchor-surface inbound channel for new handshakes during a
-/// cycle, which will bump this count.
+/// HandshakeProcessor: reports the pinned-operator-identity count.
+/// Keyless v3.1.5: the pinned operator identity and the anchor-surface inbound
+/// channel were removed with the anchor surface, so this count is always 0
+/// (the struct is kept for interface shape).
 struct PinnedHandshakeReader {
     pinned_count: usize,
 }

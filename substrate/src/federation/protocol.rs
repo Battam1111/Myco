@@ -1,4 +1,4 @@
-//! M22 P5 万物互联 — federation wire protocol constants + helpers.
+//! M22 P5 万物互联, federation wire protocol constants + helpers.
 //!
 //! Federation messages reuse the bridge envelope shape from
 //! [`myco_kernel_bridge::protocol`] verbatim:
@@ -14,7 +14,7 @@
 //!
 //! What changes:
 //! - The `v` namespace is federation-specific
-//!   ([`FEDERATION_PROTOCOL_VERSION`]) — a federation protocol bump is
+//!   ([`FEDERATION_PROTOCOL_VERSION`]), a federation protocol bump is
 //!   independent of the bridge protocol bump.
 //! - The `type` value comes from [`fed_msg_type`] not
 //!   [`myco_kernel_bridge::protocol::msg_type`].
@@ -28,7 +28,7 @@ use sha2::{Digest, Sha256};
 /// federation message schemas or HMAC derivation.
 pub const FEDERATION_PROTOCOL_VERSION: u64 = 1;
 
-/// **v3.1.1 Sprint 6.H (T2.10)** — federation protocol compatibility
+/// **v3.1.1 Sprint 6.H (T2.10)**, federation protocol compatibility
 /// matrix. Sprint 5.H added strict version-match rejection (any peer
 /// version != FEDERATION_PROTOCOL_VERSION → C61 + reject). This was the
 /// safe default but creates a flag-day risk: when v2 ships, ALL
@@ -50,7 +50,7 @@ pub const FEDERATION_PROTOCOL_VERSION: u64 = 1;
 ///   - A documented limitation note (e.g., "v2 features X/Y unavailable
 ///     when paired with v1 peer")
 ///   - A planned deprecation cycle (entries are bridge spans, not
-///     permanent — old versions retire on a schedule)
+///     permanent, old versions retire on a schedule)
 ///
 /// Doctrine traceability:
 ///   - L1/SKIN §10 (anticipated): cross-version federation discipline
@@ -69,7 +69,7 @@ pub struct FederationVersionCompatibilityEntry {
     pub added_at_anchor_cycle: u64,
 }
 
-/// **v3.1.1 Sprint 6.H** — the compatibility matrix. Empty at v1 because
+/// **v3.1.1 Sprint 6.H**, the compatibility matrix. Empty at v1 because
 /// no v2 exists yet. When v2 is being designed, add an entry like:
 ///   FederationVersionCompatibilityEntry {
 ///       our_version: 2,
@@ -99,12 +99,12 @@ pub fn federation_versions_interoperable(our_version: u64, peer_version: u64) ->
 }
 
 /// Deterministic HMAC key used for [`fed_msg_type::FED_HELLO`] and
-/// [`fed_msg_type::FED_HELLO_ACK`] frames — before either side knows the
+/// [`fed_msg_type::FED_HELLO_ACK`] frames, before either side knows the
 /// peer's substrate_id (and therefore before
 /// [`derive_federation_session_key`] can be computed).
 ///
 /// Computed as `SHA-256(b"myco-federation-protocol-v1-bootstrap")`. This is
-/// **not** a real secret — TCP is not a trust boundary at M22. The bootstrap
+/// **not** a real secret, TCP is not a trust boundary at M22. The bootstrap
 /// key is a pinned constant so that protocol-version rollover is explicit
 /// and clients/servers can't accidentally accept HELLOs from a future
 /// federation version with a different key derivation.
@@ -141,10 +141,10 @@ pub mod fed_msg_type {
 /// Both peers compute the SAME key from their (now-mutually-known) id pair.
 /// Construction: `SHA-256(b"myco-federation-v1:" || min(a, b) || max(a, b))`.
 ///
-/// Ordering substrate_ids by `<=` makes the key symmetric — peer A computing
+/// Ordering substrate_ids by `<=` makes the key symmetric, peer A computing
 /// `derive(a, b)` and peer B computing `derive(b, a)` produce identical bytes.
 ///
-/// This is **not** a real public-key authentication — it relies on the
+/// This is **not** a real public-key authentication, it relies on the
 /// fact that learning a peer's substrate_id over a TCP connection authentcates
 /// that connection's later frames mostly via TOFU. M23 will add Ed25519 mutual
 /// auth on top (per-substrate signing keypair).
@@ -170,7 +170,7 @@ use std::collections::BTreeMap;
 /// M25.4: domain-separation context string for FED_HELLO signing.
 ///
 /// The signing message is `canonical_bytes(Map({"context", "peer_substrate_id",
-/// "dag_tip", "protocol_version"}))` — see [`build_fed_hello_signing_message`].
+/// "dag_tip", "protocol_version"}))`, see [`build_fed_hello_signing_message`].
 /// The fixed context prevents a FED_HELLO signature from being replayed as
 /// some other Ed25519-signed message the substrate might sign in another
 /// context (e.g., self-euthanasia attestation, snapshot wrapper). A signature
@@ -287,7 +287,7 @@ pub struct ParsedFedHello {
     /// The peer's federation protocol version.
     pub protocol_version: u64,
     /// M25.4: the peer's Ed25519 signing public key, if present.
-    /// `None` indicates a pre-M25 peer (legacy compat — receiver falls back
+    /// `None` indicates a pre-M25 peer (legacy compat, receiver falls back
     /// to substrate_id-only TOFU pinning).
     pub signer_pubkey: Option<[u8; 32]>,
     /// M25.4: the peer's Ed25519 signature over its hello signing message,
@@ -327,7 +327,7 @@ pub fn parse_fed_hello_payload(
     };
 
     // M25.4: optional signer_pubkey + hello_signature. Both must be present
-    // (or both absent) — a half-signed hello is malformed.
+    // (or both absent), a half-signed hello is malformed.
     let signer_pubkey = match payload.get("signer_pubkey") {
         Some(Value::Bytes(b)) if b.len() == 32 => {
             let mut pk = [0u8; 32];
@@ -365,19 +365,19 @@ pub fn parse_fed_hello_payload(
 /// M25.4: verification outcome for a parsed FED_HELLO's optional signature.
 ///
 /// The Ok payload distinguishes a verified signature (`true`) from a legacy
-/// peer that didn't provide one (`false`) — both are acceptable to the
+/// peer that didn't provide one (`false`), both are acceptable to the
 /// caller, but the legacy case downgrades to TOFU-only and emits a
 /// `federation_legacy_peer_pinned` observability event so the operator can
 /// see at audit time which connections were authenticated by signature vs
 /// fingerprint-pinned only.
 ///
 /// Returns:
-/// - `Ok(true)` — signature is present and Ed25519-verifies against the
+/// - `Ok(true)`, signature is present and Ed25519-verifies against the
 ///   embedded `signer_pubkey` for the canonical-bytes signing message
 ///   constructed from the hello's other fields.
-/// - `Ok(false)` — both `signer_pubkey` and `hello_signature` are absent;
+/// - `Ok(false)`, both `signer_pubkey` and `hello_signature` are absent;
 ///   this is a pre-M25 legacy peer. Caller proceeds with TOFU pinning.
-/// - `Err(msg)` — signature is present but verification failed (tampered
+/// - `Err(msg)`, signature is present but verification failed (tampered
 ///   signature, mismatched pubkey, or wire corruption). Caller MUST reject
 ///   the connection and emit a `C39_federation_hello_signature_invalid`
 ///   immune sporocarp.
@@ -416,40 +416,42 @@ pub fn build_fed_error_payload(code: &str, message: &str) -> BTreeMap<String, Va
 /// event types. A peer's pushed/pulled events may ONLY have a node_type
 /// matching one of these prefixes. Substrate-private events (those that
 /// `DerivedState::apply_event` interprets as Rust-authoritative state
-/// mutation) are explicitly **rejected** when arriving via federation —
+/// mutation) are explicitly **rejected** when arriving via federation,
 /// blocking the attack class where a malicious peer injects e.g.
-/// `operator_pinned:*` or `genesis_event:*` to take over the substrate.
+/// `genesis_event:*` to take over the substrate.
 ///
 /// The allowed types are environmental / observational / causal-history:
 /// raw_material from peer's environment, peer's sporocarp emissions,
 /// peer's mutation audit trail, peer's immune sporocarps.
 ///
-/// FORBIDDEN (substrate-private; rejection emits C22 immune sporocarp):
-/// - operator_pinned:* (overwrites pinned_operator_identity)
+/// The allowlist is the mechanism: any node_type NOT in the allowed set is
+/// rejected (emitting a C22 immune sporocarp), so a peer cannot inject
+/// substrate-private state-mutating events. Representative FORBIDDEN families:
 /// - cycle_advanced (sets cycle_counter)
 /// - genesis_event:* (causes MultipleGenesis error → empty state)
-/// - nonce_issued:*, nonce_consumed:*, nonce_expired:* (nonce log)
-/// - owner_key_* (owner key history)
 /// - federation_* (federation state)
 /// - parent_federation_hint (M22.4 federation parent linking forgery)
 /// - self_euthanasia_* (mortality state)
 /// - birth_period_quarantine_* (quarantine state)
 /// - axis_registered:* / axis_perturbed:* / axis_reset_after_fruiting:*
-///   (gradient state — peer events would corrupt local gradient)
+///   (gradient state, peer events would corrupt local gradient)
 /// - spore_emission:* (reproduction state)
 /// - absorption_event:cycle_* (cycle absorption record)
 /// - evolution_succeeded:* / evolution_failed:* (schema evolution)
 /// - perturb_from_raw:* (causal-linked perturbation)
+///
+/// (v0.9 keyless: the retired operator_pinned:* / owner_key_* / nonce_*
+/// families no longer exist; the allowlist would reject them regardless.)
 pub fn is_federation_safe_node_type(node_type: &str) -> bool {
-    // Allowed prefixes — peer environmental / observational events.
+    // Allowed prefixes, peer environmental / observational events.
     const ALLOWED_PREFIXES: &[&str] = &[
         "raw_material:",         // peer's environmental ingestion (P2)
         "sporocarp:",            // peer's fruiting events (causal-only, no state mutation)
         "mutation:",             // peer's mutation audit trail (operator-supplied opaque content)
         "immune:",               // peer's immune sporocarps (observation across substrates)
         "federation_received:",  // Phase β: wrapped peer events from chained federation
-                                 // ("I heard A heard B say X" — propagated attestation)
-        // **L2/FEDERATION §6.5 + §9.6** — population-consensus votes + quorum
+                                 // ("I heard A heard B say X", propagated attestation)
+        // **L2/FEDERATION §6.5 + §9.6**, population-consensus votes + quorum
         // certificates ride FED_EVENT_BATCH. These are SAFE to ingest because
         // their authority is the EMBEDDED Ed25519 signatures (§9.6), not the
         // federation wrapping: the wrapper still strips direct-insert
@@ -491,12 +493,12 @@ pub struct EventForFederation {
 /// or hold the connection open for too long.
 pub const FED_EVENT_BATCH_MAX_EVENTS: u64 = 100;
 
-/// **v3.1.1 Sprint 6.B (T1.8)** — Max content_canonical_bytes size for any
+/// **v3.1.1 Sprint 6.B (T1.8)**, Max content_canonical_bytes size for any
 /// SINGLE event inside a FED_EVENT_BATCH. Defense-in-depth against
 /// peer-driven DAG growth attacks: even though MAX_FRAME_BODY_SIZE (1 MiB)
 /// bounds the per-frame total, a long sequence of "max-size events" would
 /// still grow the local DAG by hundreds of KiB per batch. Cap each
-/// individual event at 256 KiB — large enough for compression witnesses
+/// individual event at 256 KiB, large enough for compression witnesses
 /// + serialized cosign envelopes, small enough that 100-event batches
 /// can't deliver more than 25 MiB of content per pull.
 ///
@@ -504,7 +506,7 @@ pub const FED_EVENT_BATCH_MAX_EVENTS: u64 = 100;
 /// the entire batch to be rejected with `C62_federation_event_oversized`
 /// immune sporocarp. Rejecting the batch (not just the one event) is
 /// strictly stronger because the peer was already willing to send
-/// outsize content — signaling malicious or buggy behavior worth flagging
+/// outsize content, signaling malicious or buggy behavior worth flagging
 /// at the connection level.
 pub const FED_EVENT_MAX_CONTENT_BYTES: usize = 256 * 1024;
 
@@ -661,7 +663,7 @@ pub fn parse_event_batch_payload(
         };
         let content_canonical_bytes = match em.get("content_canonical_bytes") {
             Some(Value::Bytes(b)) => {
-                // **v3.1.1 Sprint 6.B (T1.8)** — enforce per-event content
+                // **v3.1.1 Sprint 6.B (T1.8)**, enforce per-event content
                 // size cap. The entire batch is rejected as soon as any
                 // single event exceeds the cap (a peer willing to send
                 // outsize content is signaling intent worth refusing
@@ -857,7 +859,7 @@ mod tests {
     #[test]
     fn m25_4_fed_hello_without_signature_legacy_compat() {
         // Pre-M25 peer: hello carries no signature fields. Both signer_pubkey
-        // and hello_signature parse to None — receiver downgrades to TOFU.
+        // and hello_signature parse to None, receiver downgrades to TOFU.
         let id = [0x88; 32];
         let payload = build_fed_hello_payload(&id, None, None, None);
         let parsed = parse_fed_hello_payload(&payload).expect("legacy hello parses");
@@ -904,7 +906,7 @@ mod tests {
     #[test]
     fn m25_4_verify_fed_hello_signature_legacy_returns_ok_false() {
         // Defensive: a freshly-built ParsedFedHello with neither pubkey nor
-        // signature returns Ok(false) — duplicates m25_4_fed_hello_without_*
+        // signature returns Ok(false), duplicates m25_4_fed_hello_without_*
         // above but exercises the verify_fed_hello_signature path directly.
         let parsed = ParsedFedHello {
             peer_substrate_id: [0xEE; 32],
@@ -920,7 +922,7 @@ mod tests {
     #[test]
     fn m25_4_parse_rejects_half_signed_hello() {
         // A payload with signer_pubkey but no hello_signature (or vice versa)
-        // is malformed — parse_fed_hello_payload must reject it.
+        // is malformed, parse_fed_hello_payload must reject it.
         let id = [0xFF; 32];
         let mut payload = build_fed_hello_payload(&id, None, None, None);
         payload.insert(

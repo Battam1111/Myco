@@ -25,5 +25,8 @@ L3 Module Dependency Graph (acyclic)
               -> hard_rules (citation-only over all)
 
   Parallel non-kernel:
-    anchor-client + operator_runtime depend only on kernel/shared serializer
-    spec; built independently once shared stable.
+    operator_runtime (operators/<host>) depends only on the kernel/shared
+    serializer spec; built independently once shared stable.
+    (Keyless v3.1.5: the anchor-client node + its kernel/shared dependency edge
+     are removed; the @myco/anchor-client package was deleted with the
+     owner-key surface.)

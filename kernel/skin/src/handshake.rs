@@ -1,10 +1,21 @@
-//! Operator handshake protocol — bidirectional validation (L1/SKIN §4).
+//! Operator handshake protocol: bidirectional validation (L1/SKIN §4).
 //!
 //! ## Doctrine
 //!
 //! Per L1/SKIN §4 the handshake is **bidirectional**: the operator validates
 //! the substrate (anti-impostor / wrong-substrate-ID detection) AND the
 //! substrate validates the operator (single-operator gate + token derivation).
+//!
+//! ### v0.9 keyless
+//!
+//! The owner Ed25519 key + the anchor surface were removed in v0.9. The
+//! handshake no longer models an owner-birth-attestation signature, an owner
+//! public key, or an anchor-surface endpoint key: the substrate-ID is
+//! self-derived (P01c) and the trust root at runtime is the bonded pilot-agent
+//! over the operator-session channel (single-human Venom shared-fate). The
+//! handshake SHAPE is unchanged: the operator pins + validates the substrate-ID,
+//! the substrate mints a non-deterministic `operator_token`, and the
+//! continuity claim selects the post-handshake quarantine-window length.
 //!
 //! ### Per-handshake operator signing keypair (L1/SKIN §4.1, pass-3)
 //!
@@ -40,11 +51,10 @@
 //! ## M1 implementation
 //!
 //! In-memory state machine. Persistence of [`SkinState`] across cold-resume is
-//! deferred to M2 via `kernel/continuity` WAL. Continuity-attestation
-//! cryptographic verification is deferred to M2 via `kernel/governance`
-//! owner_key_history active prefix — M1 honors the claim *shape* (i.e.,
-//! `OwnerAttestedContinuity` shortens quarantine) but does NOT verify the
-//! signature bytes.
+//! deferred to M2 via `kernel/continuity` WAL. The continuity claim honors the
+//! claim *shape* (i.e., [`ContinuityClaim::AttestedContinuity`] shortens
+//! quarantine); v0.9 keyless: the attestation is a substrate/DAG-tip-derived
+//! continuity proof, not an owner signature.
 
 use myco_kernel_shared::sealed_derive::{OperatorToken, SealedDerive, SealedDeriveError};
 use thiserror::Error;
@@ -72,7 +82,7 @@ pub enum HandshakeError {
     InvalidOperatorPubKey(String),
 
     /// Continuity claim is invalid (e.g., empty attestation bytes when
-    /// `OwnerAttestedContinuity` is claimed).
+    /// `AttestedContinuity` is claimed).
     #[error("continuity_claim invalid: {0}")]
     InvalidContinuityClaim(String),
 
@@ -85,7 +95,7 @@ pub enum HandshakeError {
     WrongState(String),
 }
 
-/// Substrate identity (immutable post-genesis — L1/HARD_RULES F2 fixed-point).
+/// Substrate identity (immutable post-genesis; L1/HARD_RULES F2 fixed-point).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SubstrateId(pub String);
 
@@ -95,31 +105,19 @@ pub struct SubstrateId(pub String);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OperatorSigningKeyPublic(pub Vec<u8>);
 
-/// Owner's signature on the substrate-birth attestation (from the substrate's
-/// identity record). Bytes are L4-platform-specific.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OwnerBirthAttestationSignature(pub Vec<u8>);
-
-/// Owner public key from owner_key_history active prefix at handshake time.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OwnerPublicKey(pub Vec<u8>);
-
-/// Anchor-surface endpoint public key (L1/HARD_RULES F4 fixed-point).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AnchorSurfaceEndpointPublicKey(pub Vec<u8>);
-
 /// Continuity claim from the operator (L1/SKIN §4.3).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ContinuityClaim {
     /// Fresh handshake; no continuity attestation. Substrate enters full
     /// post-handshake quarantine window (default 100 cycles).
     Fresh,
-    /// Owner-attested continuity. Envelope includes an anchor-surface-produced
-    /// signed continuity_attestation naming this specific reconnection.
-    /// Substrate honors the shorter quarantine window (default 10 cycles)
-    /// once signature verifies (signature verification is M2-deferred).
-    OwnerAttestedContinuity {
-        /// Anchor-surface-signed continuity attestation bytes.
+    /// Attested continuity. v0.9 keyless: the envelope carries a
+    /// substrate/DAG-tip-derived continuity proof naming this specific
+    /// reconnection (NOT an owner signature; the owner key + anchor surface
+    /// were removed). Substrate honors the shorter quarantine window
+    /// (default 10 cycles) once the proof shape validates.
+    AttestedContinuity {
+        /// Substrate/DAG-tip-derived continuity-attestation bytes.
         continuity_attestation: Vec<u8>,
     },
 }
@@ -128,19 +126,14 @@ pub enum ContinuityClaim {
 ///
 /// In production this is read from the substrate's persisted identity record
 /// (tier-1 SSoT via `kernel/schema`). M1 keeps it in-memory.
+///
+/// v0.9 keyless: the record carries only the self-derived substrate-ID. The
+/// owner-birth-attestation signature, the active owner public key, and the
+/// anchor-surface endpoint key were dropped with the owner-key + anchor surface.
 #[derive(Debug, Clone)]
 pub struct SubstrateIdentityRecord {
     /// Immutable substrate-ID (F2).
     pub substrate_id: SubstrateId,
-
-    /// Owner's signature on the substrate's birth attestation.
-    pub owner_birth_attestation_signature: OwnerBirthAttestationSignature,
-
-    /// Currently-active owner public key from owner_key_history active prefix.
-    pub owner_public_key_active: OwnerPublicKey,
-
-    /// Anchor-surface endpoint public key (F4).
-    pub anchor_surface_endpoint_public_key: AnchorSurfaceEndpointPublicKey,
 }
 
 /// Handshake-initiate envelope from operator → substrate (L1/SKIN §4.1).
@@ -155,7 +148,7 @@ pub struct HandshakeInitiate {
     /// Operator's freshly-generated per-handshake signing public key.
     pub operator_signing_key_public: OperatorSigningKeyPublic,
 
-    /// Continuity claim (`Fresh` or `OwnerAttestedContinuity`).
+    /// Continuity claim (`Fresh` or `AttestedContinuity`).
     pub continuity_claim: ContinuityClaim,
 
     /// Wall-clock timestamp from operator side (advisory; used as part of
@@ -165,29 +158,18 @@ pub struct HandshakeInitiate {
 
 /// Handshake-complete envelope from substrate → operator (L1/SKIN §4.2).
 ///
-/// The operator independently fetches the canonical owner public key from
-/// the anchor surface (using the bootstrap-pinned anchor-surface-endpoint-public-key)
-/// and verifies `owner_birth_attestation_signature` against that fresh fetch.
-/// If `owner_public_key_active_at_handshake` differs from the anchor-surface
-/// authoritative record, operator rejects substrate as compromised.
+/// The operator validates the substrate by pinning + comparing the returned
+/// `substrate_id` against the bootstrap-pinned target. v0.9 keyless: there is
+/// no owner public key to cross-check and no anchor-surface fetch: the
+/// substrate-ID is self-derived (P01c) and the runtime trust root is the bonded
+/// pilot-agent over the operator-session channel.
 #[derive(Debug, Clone)]
 pub struct HandshakeComplete {
     /// Newly-minted operator-token (non-deterministic; derived via sealed_derive).
     pub operator_token: OperatorToken,
 
-    /// Substrate-ID.
+    /// Substrate-ID (operator cross-checks against its bootstrap-pinned target).
     pub substrate_id: SubstrateId,
-
-    /// Owner's birth-attestation signature (from identity record).
-    pub owner_birth_attestation_signature: OwnerBirthAttestationSignature,
-
-    /// Owner public key active at this handshake (operator cross-checks against
-    /// anchor-surface authoritative record).
-    pub owner_public_key_active_at_handshake: OwnerPublicKey,
-
-    /// Anchor-surface endpoint public key (operator cross-checks against
-    /// bootstrap-pinned value).
-    pub anchor_surface_endpoint_public_key: AnchorSurfaceEndpointPublicKey,
 
     /// Substrate's metabolic cycle counter at handshake-complete emission.
     pub handshake_timestamp: u64,
@@ -226,7 +208,7 @@ pub struct ActiveSession {
     pub operator_token: OperatorToken,
 
     /// Operator's per-handshake signing pubkey (for `operator_witness`
-    /// signature verification on CI attestation envelopes — that path lives in
+    /// signature verification on CI attestation envelopes; that path lives in
     /// `kernel/governance`).
     pub operator_signing_key_public: OperatorSigningKeyPublic,
 
@@ -237,8 +219,8 @@ pub struct ActiveSession {
     pub continuity_claim: ContinuityClaim,
 
     /// Whether the post-handshake quarantine window is still active. When
-    /// `true`, CI-level operations require fresh owner attestation regardless
-    /// of governance classification (per L1/SKIN §4.3 + L1/HARD_RULES C3).
+    /// `true`, CI-level operations are gated regardless of governance
+    /// classification (per L1/SKIN §4.3 + L1/HARD_RULES C3).
     pub in_post_handshake_quarantine: bool,
 }
 
@@ -248,7 +230,7 @@ pub struct HandshakeConfig {
     /// Post-handshake quarantine window in cycles (default 100 per L1/SKIN §7).
     pub post_handshake_quarantine_cycles: u64,
 
-    /// Reduced quarantine window when `owner_attested_continuity` is honored
+    /// Reduced quarantine window when `AttestedContinuity` is honored
     /// (default 10 per L1/SKIN §4.3).
     pub quarantine_with_continuity: u64,
 
@@ -280,11 +262,11 @@ impl Default for HandshakeConfig {
 ///
 /// ## Order of checks
 ///
-/// 1. `SkinBusy` — already active.
-/// 2. `SubstrateIdMismatch` — wrong substrate target.
-/// 3. `InvalidOperatorPubKey` — empty / malformed.
-/// 4. `InvalidContinuityClaim` — claim shape malformed.
-/// 5. `SealedDerive` — kernel-mediated derivation error.
+/// 1. `SkinBusy`: already active.
+/// 2. `SubstrateIdMismatch`: wrong substrate target.
+/// 3. `InvalidOperatorPubKey`: empty / malformed.
+/// 4. `InvalidContinuityClaim`: claim shape malformed.
+/// 5. `SealedDerive`: kernel-mediated derivation error.
 pub fn process_initiate<S: SealedDerive>(
     state: &mut SkinState,
     initiate: HandshakeInitiate,
@@ -314,13 +296,13 @@ pub fn process_initiate<S: SealedDerive>(
     }
 
     // §4.3: continuity-claim shape check.
-    if let ContinuityClaim::OwnerAttestedContinuity {
+    if let ContinuityClaim::AttestedContinuity {
         continuity_attestation,
     } = &initiate.continuity_claim
     {
         if continuity_attestation.is_empty() {
             return Err(HandshakeError::InvalidContinuityClaim(
-                "OwnerAttestedContinuity requires non-empty continuity_attestation".to_string(),
+                "AttestedContinuity requires non-empty continuity_attestation".to_string(),
             ));
         }
     }
@@ -337,21 +319,18 @@ pub fn process_initiate<S: SealedDerive>(
     let complete = HandshakeComplete {
         operator_token: operator_token.clone(),
         substrate_id: identity.substrate_id.clone(),
-        owner_birth_attestation_signature: identity.owner_birth_attestation_signature.clone(),
-        owner_public_key_active_at_handshake: identity.owner_public_key_active.clone(),
-        anchor_surface_endpoint_public_key: identity.anchor_surface_endpoint_public_key.clone(),
         handshake_timestamp: current_cycle,
     };
 
-    // §4.3 quarantine: full window for Fresh, shorter for OwnerAttestedContinuity.
+    // §4.3 quarantine: full window for Fresh, shorter for AttestedContinuity.
     // In BOTH cases the substrate enters post-handshake quarantine; the only
     // difference is window length (handled in `advance_quarantine_window` below).
-    // Per L1/SKIN §4.3: even OwnerAttestedContinuity shortens to default 10
+    // Per L1/SKIN §4.3: even AttestedContinuity shortens to default 10
     // cycles, not zero.
     //
-    // M1: signature verification of continuity_attestation is M2-deferred; M1
-    // honors the claim shape (chooses window length). M2 enforces signature
-    // before honoring the reduction.
+    // v0.9 keyless: the continuity attestation is a substrate/DAG-tip-derived
+    // continuity proof; M1 honors the claim shape (chooses window length).
+    // Cryptographic verification of the proof bytes is deferred to M2.
     *state = SkinState::Active(ActiveSession {
         operator_token,
         operator_signing_key_public: initiate.operator_signing_key_public,
@@ -361,7 +340,7 @@ pub fn process_initiate<S: SealedDerive>(
     });
 
     // §4.2 step 4: substrate records the handshake event as a sporocarp.
-    // M1 defers sporocarp recording to M2 — sporocarp construction lives in
+    // M1 defers sporocarp recording to M2: sporocarp construction lives in
     // `kernel/schema` + `kernel/tropism`, which is post-M1 step 2 in the
     // dependency graph. The caller of `process_initiate` is responsible for
     // emitting the sporocarp once those crates land.
@@ -405,7 +384,7 @@ pub fn advance_quarantine_window(
         let cycles_elapsed = current_cycle.saturating_sub(session.handshake_at_cycle);
         let window = if matches!(
             session.continuity_claim,
-            ContinuityClaim::OwnerAttestedContinuity { .. }
+            ContinuityClaim::AttestedContinuity { .. }
         ) {
             config.quarantine_with_continuity
         } else {
@@ -463,9 +442,6 @@ mod tests {
     fn make_identity() -> SubstrateIdentityRecord {
         SubstrateIdentityRecord {
             substrate_id: SubstrateId("test_substrate_001".to_string()),
-            owner_birth_attestation_signature: OwnerBirthAttestationSignature(vec![0xaa; 64]),
-            owner_public_key_active: OwnerPublicKey(vec![0xbb; 32]),
-            anchor_surface_endpoint_public_key: AnchorSurfaceEndpointPublicKey(vec![0xcc; 32]),
         }
     }
 
@@ -530,7 +506,7 @@ mod tests {
     fn test_process_initiate_empty_continuity_attestation_rejected() {
         let identity = make_identity();
         let mut initiate = make_initiate(&identity.substrate_id.0);
-        initiate.continuity_claim = ContinuityClaim::OwnerAttestedContinuity {
+        initiate.continuity_claim = ContinuityClaim::AttestedContinuity {
             continuity_attestation: vec![],
         };
         let sealed = SoftwareStub::new_for_test();
@@ -579,13 +555,13 @@ mod tests {
 
     #[test]
     fn test_process_initiate_attested_continuity_still_enters_quarantine() {
-        // Per L1/SKIN §4.3: OwnerAttestedContinuity shortens window to
-        // default 10 cycles — NOT skip entirely. The substrate still enters
+        // Per L1/SKIN §4.3: AttestedContinuity shortens window to
+        // default 10 cycles, NOT skip entirely. The substrate still enters
         // quarantine; advance_quarantine_window clears it after the short
         // window.
         let identity = make_identity();
         let mut initiate = make_initiate(&identity.substrate_id.0);
-        initiate.continuity_claim = ContinuityClaim::OwnerAttestedContinuity {
+        initiate.continuity_claim = ContinuityClaim::AttestedContinuity {
             continuity_attestation: vec![0xff; 64],
         };
         let sealed = SoftwareStub::new_for_test();
@@ -599,7 +575,7 @@ mod tests {
                 assert!(s.in_post_handshake_quarantine);
                 assert!(matches!(
                     s.continuity_claim,
-                    ContinuityClaim::OwnerAttestedContinuity { .. }
+                    ContinuityClaim::AttestedContinuity { .. }
                 ));
             }
             _ => panic!("expected Active state"),
@@ -707,7 +683,7 @@ mod tests {
     fn test_advance_quarantine_window_attested_continuity_uses_short_window() {
         let identity = make_identity();
         let mut initiate = make_initiate(&identity.substrate_id.0);
-        initiate.continuity_claim = ContinuityClaim::OwnerAttestedContinuity {
+        initiate.continuity_claim = ContinuityClaim::AttestedContinuity {
             continuity_attestation: vec![0xab; 32],
         };
         let sealed = SoftwareStub::new_for_test();
@@ -801,7 +777,7 @@ mod tests {
     }
 
     #[test]
-    fn test_handshake_complete_carries_identity_fields() {
+    fn test_handshake_complete_carries_substrate_id() {
         let identity = make_identity();
         let initiate = make_initiate(&identity.substrate_id.0);
         let sealed = SoftwareStub::new_for_test();
@@ -810,19 +786,9 @@ mod tests {
         let complete =
             process_initiate(&mut state, initiate, &sealed, &identity, 100, b"rng").unwrap();
 
-        // Per L1/SKIN §4.2 step 3: handshake_complete carries identity-record fields
-        // for operator's bidirectional validation.
-        assert_eq!(
-            complete.owner_birth_attestation_signature,
-            identity.owner_birth_attestation_signature
-        );
-        assert_eq!(
-            complete.owner_public_key_active_at_handshake,
-            identity.owner_public_key_active
-        );
-        assert_eq!(
-            complete.anchor_surface_endpoint_public_key,
-            identity.anchor_surface_endpoint_public_key
-        );
+        // Per L1/SKIN §4.2 step 3 (v0.9 keyless): handshake_complete carries the
+        // self-derived substrate-ID for the operator's bidirectional validation
+        // (no owner pubkey / birth-attestation / anchor-endpoint fields remain).
+        assert_eq!(complete.substrate_id, identity.substrate_id);
     }
 }

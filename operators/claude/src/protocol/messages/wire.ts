@@ -115,10 +115,12 @@ export const MSG_TYPE = {
   FEDERATION_SUBMIT_PEER_VOTE_RESPONSE: "federation_submit_peer_vote_response",
   FEDERATION_QUERY_CONSENSUS: "federation_query_consensus",
   FEDERATION_QUERY_CONSENSUS_RESPONSE: "federation_query_consensus_response",
-  // M22.5 P8 birth-period quarantine — operator owner-signed override.
+  // M22.5 P8 birth-period quarantine override (v0.9 keyless: reads nothing
+  // from the payload; the owner-signed override was removed).
   LIFT_BIRTH_PERIOD_QUARANTINE: "lift_birth_period_quarantine",
   LIFT_BIRTH_PERIOD_QUARANTINE_RESPONSE: "lift_birth_period_quarantine_response",
-  // M23.2 P7 必朽 — self-euthanasia owner-co-attestation.
+  // M23.2 P7 必朽 self-euthanasia (v0.9 keyless: the owner co-attestation
+  // was removed; whole-death is keyless).
   ACCEPT_SELF_EUTHANASIA_PROPOSAL: "accept_self_euthanasia_proposal",
   ACCEPT_SELF_EUTHANASIA_PROPOSAL_RESPONSE: "accept_self_euthanasia_proposal_response",
   // Phase α / M24.5 — Living Bets observatory primitive.

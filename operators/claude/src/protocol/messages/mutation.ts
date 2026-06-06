@@ -1,11 +1,14 @@
-// Mutation + attestation family — schema_diff builders, attestation-nonce
-// request/response, REVEAL-key binding, DAG-tip co-sign + L0-revision
-// envelopes, and the submit_mutation payload builder.
+// Mutation family — schema_diff builders, the spawn-cosign envelope builder,
+// and the submit_mutation payload builder.
 //
-// Split out of the former monolithic `protocol/messages.ts`. Every
-// canonical-bytes Map here is owner/operator-signed or substrate-verified;
-// field name/type/order is the security + wire contract and must not drift
-// (drift = C18 canonical_bytes_render_drift / C5 attestation_invalid).
+// Split out of the former monolithic `protocol/messages.ts`. **v0.9 owner-key
+// removal**: the attestation-nonce request/response, the M14 REVEAL-key
+// binding, and the DAG-tip-cosign + L0-revision envelope builders were removed
+// with the anchor surface; nothing here is owner-signed. The canonical-bytes
+// Maps that remain are still the substrate's wire contract (e.g. the
+// spawn-cosign envelope the substrate verifies for I7(a) + replay-guard);
+// field name/type/order must not drift (drift = C18 canonical_bytes_render_drift
+// / C68 reproduction_unattested_spawn).
 
 import { encode, type Value } from "../../canonical/canonical_bytes.ts";
 import { BridgeProtocolError, type Message, MSG_TYPE } from "./wire.ts";
@@ -136,10 +139,12 @@ export function buildOwnerObjectiveCanonicalBytes(args: {
  *  Mirrors the Rust `SPAWN_COSIGN_DOMAIN`. */
 export const SPAWN_COSIGN_DOMAIN = "myco-spawn-cosign-v1";
 
-/** **P08 §3.5 / §5.1** — build the canonical-bytes Map the cultivator signs to
- *  co-attest a child substrate spawn. Rust-parity with
+/** **P08 §3.5 / §5.1** — build the canonical-bytes spawn-cosign envelope for a
+ *  child substrate spawn. v0.9 keyless: the substrate decodes this STRUCTURE
+ *  (parent replay-guard + I7(a) spore-schema binding + §16.B rate throttle) but
+ *  no longer verifies a cultivator signature over it. Rust-parity with
  *  `substrate::events::build_spawn_cosign_canonical_bytes`; field
- *  name/type/order is the security + wire contract and must not drift.
+ *  name/type/order is the wire contract and must not drift.
  *
  *  Shape:
  *  ```
@@ -157,9 +162,11 @@ export const SPAWN_COSIGN_DOMAIN = "myco-spawn-cosign-v1";
  *  - `parentSubstrateId` binds the spawn to THIS parent (replay guard);
  *  - `sporeSchemaHash` = blake3(spore_schema_canonical_bytes) — pins the
  *    child's static schema (I7(a));
- *  - `childGenesisTimestampUnixNs` feeds the §5.6 owner-minted child-id;
- *  - `anchorTimestampUnixNs` + `anchorNonce` are the anchor-surface wall-clock
- *    + unbiasable nonce (the §16.B rate throttle reads the timestamp);
+ *  - `childGenesisTimestampUnixNs` feeds the §5.6 deterministically-minted child-id;
+ *  - `anchorTimestampUnixNs` + `anchorNonce` keep their wire-contract names but
+ *    are v0.9-keyless: the operator stamps a local wall-clock timestamp + a
+ *    fresh random nonce (no anchor process; the §16.B rate throttle only needs
+ *    the timestamp to be strictly increasing vs the prior spawn);
  *  - `depthOverride` is the cultivator's explicit, signed override of the
  *    §16.A lineage-depth cap for THIS spawn (default false). */
 export function buildSpawnCosignCanonicalBytes(args: {
@@ -222,9 +229,11 @@ export function submitMutationPayload(args: {
   expiryUnixNs?: bigint;
   revealPubkey?: Uint8Array;
   identitySignatureOverRevealPubkey?: Uint8Array;
-  /** M15: operator's anchor-clock "now" at submit time (unix nanoseconds).
-   *  Required iff the nonce was issued WITH `anchorClockUnixNs` (dual-clock
-   *  mode). Substrate verifies `anchor_issued ≤ this ≤ anchor_expiry`. */
+  /** **v0.9 owner-key removal**: vestigial optional passthrough. This was the
+   *  M15 dual-clock submit-time stamp the anchor surface verified against an
+   *  issued nonce window; the anchor surface + nonce issuance are gone, so the
+   *  substrate ignores it. Retained only so callers holding a legacy value can
+   *  still pass it without a type error. */
   anchorClockSubmittedAtUnixNs?: bigint;
   /** v3.1.1 Sprint 8.G (P03 §10.4): opt into the multi-cycle two-phase schema
    *  migration path for a `schema_evolution` mutation. When true (and the

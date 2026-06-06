@@ -1,10 +1,10 @@
-//! M21 P5 万物互联 — DerivedState: full substrate state from DAG events.
+//! M21 P5 万物互联, DerivedState: full substrate state from DAG events.
 //!
 //! ## Doctrine alignment
 //!
 //! Per L0/cards/P01-P14 (principles).1 P5 ("Universal Interconnection"): the substrate is a connected
 //! graph; orphans are dead tissue. Prior to M21, ~5 substrate state files
-//! lived OUTSIDE the DAG — making the corresponding state pieces orphans.
+//! lived OUTSIDE the DAG, making the corresponding state pieces orphans.
 //!
 //! M21.1 introduces `DerivedState`, a Rust struct that can be **fully
 //! rebuilt** from the DAG event log via `DerivedState::from_dag(&dag)`.
@@ -18,12 +18,14 @@
 //! - genesis_time_unix_ns
 //! - cycle_counter (from cycle_advanced + absorption_event progressions)
 //! - last_absorbed_cycle (from absorption_event events)
-//! - pinned_operator_identity (from operator_pinned events)
-//! - nonce_log (from nonce_issued / consumed / expired events)
+//!
+//! **v0.9 keyless removal**: the `pinned_operator_identity` (from operator_pinned
+//! events) and the attestation-nonce ledger (`nonce_log`, from
+//! nonce_issued / consumed / expired events) were removed with the owner-key +
+//! anchor surface, there is no pinned operator identity and no nonce issuance.
 //!
 //! Deferred to M21.3 (Python autonomy refactor):
 //! - gradient configuration (axis schemas + current values)
-//! - owner_keys history
 //!
 //! The deferred items currently live in Python; M21.3 makes Python a
 //! view-only consumer of the Rust event stream.
@@ -34,7 +36,7 @@
 //! All float values are stored as repr-strings inside DAG nodes; replay
 //! produces identical bytewise state regardless of platform.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 use myco_kernel_schema::dag::{Dag, DagNode};
 use myco_kernel_shared::crypto::NodeHash;
@@ -90,8 +92,8 @@ pub struct ObservatorySnapshot {
     /// **M26.2 P11.b signal #7**: wall-clock nanoseconds spent in the cycle
     /// that produced this snapshot. Measured from previous `cycle_advanced`
     /// to current `cycle_advanced` via `Instant::elapsed`. Substrate-process
-    /// wall-clock per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics) (M-anchor-3 will promote to anchor-stamped
-    /// timing for tamper-evident cost evidence).
+    /// wall-clock per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics). Keyless v3.1.5: the prior
+    /// anchor-stamped-timing promotion is retired with the anchor surface (acknowledged-debt: no external trusted clock).
     pub signal_7_compute_ns: u64,
     /// **M26.2 P11.b signal #8**: cumulative federation-egress wire bytes
     /// (length prefix + body) since the previous `cycle_advanced`. Drained
@@ -106,7 +108,7 @@ pub struct ObservatorySnapshot {
     /// string for cross-language determinism. Range `[-1, +1]` after L2-norm
     /// cosine computation; empty string when no telos signal is computable
     /// (e.g. birth-period, or no sporocarps in window, or no owner objective +
-    /// no fallback feedback trajectory). NOT a Living Bet signal — P14.c
+    /// no fallback feedback trajectory). NOT a Living Bet signal, P14.c
     /// telos is orthogonal to L0/cards/LB_living_bets Living Bets (per L1/TROPISM §F.5).
     pub signal_telos_alignment_repr: String,
     /// **v3.1.1 P07** rolling-window count of `internal_mortality_event:*`
@@ -118,16 +120,16 @@ pub struct ObservatorySnapshot {
     pub signal_internal_mortality_event_density: u64,
     /// **v3.1.1 P07 / L1/HARD_RULES §1.4 C54** hoarding indicator: `true`
     /// iff over the recent window the substrate ingested non-trivially but
-    /// emitted < `HOARDING_INDICATOR_MORTALITY_FLOOR` tombstones — i.e.,
+    /// emitted < `HOARDING_INDICATOR_MORTALITY_FLOOR` tombstones, i.e.,
     /// P07 §3.1 is not firing despite live ingestion. Default `false`.
     /// Pre-v3.1.1 snapshots default `false`.
     pub signal_hoarding_indicator: bool,
-    /// **Signal #4a** — cumulative count of `spore_emission:*` (fork) events
+    /// **Signal #4a**, cumulative count of `spore_emission:*` (fork) events
     /// at snapshot time. Monotone-healthy (L2/OBSERVABILITY §2.1); surfaced for
     /// trend visibility but NOT counted in the bet-weakening quorum. Default 0
     /// in pre-OBSERVATORY-gap snapshots.
     pub signal_4a_cumulative_fork_count: u64,
-    /// **CHAR07 §8.4 `honest_disagreement_density`** — the ONE genuinely
+    /// **CHAR07 §8.4 `honest_disagreement_density`**, the ONE genuinely
     /// substrate-observable CHAR07 signal. A rolling-window count of the
     /// substrate's "did NOT just comply" DAG footprints: immune sporocarps
     /// fired against operator/cultivator-submitted content (C5/C14/C56/C69),
@@ -135,7 +137,7 @@ pub struct ObservatorySnapshot {
     /// events. Window = `CHAR07_DISAGREEMENT_WINDOW_CYCLES`. A non-trivial
     /// floor is expected in a real partnership (§8.4); sustained zero while
     /// interaction is non-trivial drives the C71 sycophancy proxy. NOT a
-    /// fabricated character number — it counts real refusal/dissent footprints
+    /// fabricated character number, it counts real refusal/dissent footprints
     /// the substrate already records. Default 0 in pre-OBSERVATORY-gap snapshots.
     pub signal_char07_honest_disagreement_density: u64,
 }
@@ -191,7 +193,7 @@ impl ObservatorySnapshot {
             "signal_9_storage_bytes".to_string(),
             Value::Uint(self.signal_9_storage_bytes),
         );
-        // M26.4 P14.c telos_alignment — empty string when not computable.
+        // M26.4 P14.c telos_alignment, empty string when not computable.
         m.insert(
             "signal_telos_alignment_repr".to_string(),
             Value::String(self.signal_telos_alignment_repr.clone()),
@@ -262,7 +264,7 @@ impl ObservatorySnapshot {
             // tolerate absent for forward-compat
             _ => String::new(),
         };
-        // M26.2 cost signals — tolerate absent for backward-compat with
+        // M26.2 cost signals, tolerate absent for backward-compat with
         // pre-M26.2 snapshot.cb files (default to 0 = "no cost recorded").
         let signal_7_compute_ns = match m.get("signal_7_compute_ns") {
             Some(Value::Uint(n)) => *n,
@@ -276,13 +278,13 @@ impl ObservatorySnapshot {
             Some(Value::Uint(n)) => *n,
             _ => 0,
         };
-        // M26.4 P14.c telos_alignment — tolerate absent for backward-compat
+        // M26.4 P14.c telos_alignment, tolerate absent for backward-compat
         // with pre-M26.4 snapshot.cb files.
         let signal_telos_alignment_repr = match m.get("signal_telos_alignment_repr") {
             Some(Value::String(s)) => s.clone(),
             _ => String::new(),
         };
-        // v3.1.1 P07 internal-mortality observability — tolerate absent for
+        // v3.1.1 P07 internal-mortality observability, tolerate absent for
         // backward-compat with pre-v3.1.1 snapshot.cb files (default 0/false).
         let signal_internal_mortality_event_density =
             match m.get("signal_internal_mortality_event_density") {
@@ -293,7 +295,7 @@ impl ObservatorySnapshot {
             Some(Value::Bool(b)) => *b,
             _ => false,
         };
-        // OBSERVATORY-gap additive fields — tolerate absent for backward-compat
+        // OBSERVATORY-gap additive fields, tolerate absent for backward-compat
         // with pre-gap snapshot.cb files (default 0).
         let signal_4a_cumulative_fork_count = match m.get("signal_4a_cumulative_fork_count") {
             Some(Value::Uint(n)) => *n,
@@ -326,35 +328,17 @@ impl ObservatorySnapshot {
 }
 
 use crate::events::{
-    NODE_TYPE_CYCLE_ADVANCED, NODE_TYPE_GENESIS_PREFIX, NODE_TYPE_NONCE_CONSUMED_PREFIX,
-    NODE_TYPE_NONCE_EXPIRED_PREFIX, NODE_TYPE_NONCE_ISSUED_PREFIX,
+    NODE_TYPE_CYCLE_ADVANCED, NODE_TYPE_GENESIS_PREFIX,
     NODE_TYPE_SCHEMA_MIGRATION_COMMITTED_PREFIX, NODE_TYPE_SCHEMA_MIGRATION_ROLLED_BACK_PREFIX,
     NODE_TYPE_SCHEMA_MIGRATION_STARTED_PREFIX,
 };
 
-/// One persisted attestation nonce as derivable from DAG events. Mirrors the
-/// in-memory `AttestationNonce` in `server.rs`; M21.2+ may consolidate.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DerivedNonce {
-    /// 32-byte nonce.
-    pub nonce: [u8; 32],
-    /// Hash of content the operator intends to submit.
-    pub bound_content_hash: [u8; 32],
-    /// DAG tip at issuance.
-    pub bound_dag_tip: [u8; 32],
-    /// Substrate-clock issuance time.
-    pub substrate_issued_at_unix_ns: i64,
-    /// Substrate-clock expiry.
-    pub expiry_unix_ns: i64,
-    /// Operator-supplied anchor-clock issuance time (M15 optional).
-    pub anchor_clock_issued_at_unix_ns: Option<i64>,
-    /// Anchor-clock expiry (M15 optional, paired with above).
-    pub anchor_clock_expiry_unix_ns: Option<i64>,
-    /// Whether this nonce has been consumed.
-    pub consumed: bool,
-}
+// **v0.9 keyless removal**: `DerivedNonce` (the DAG-derived attestation-nonce
+// ledger entry) was removed with the owner-key + anchor surface. There is no
+// nonce_issued / nonce_consumed / nonce_expired event family in the keyless
+// build, so nothing derives a nonce log.
 
-/// **v3.1.1 Sprint 8.G** — an in-flight schema migration candidate, as
+/// **v3.1.1 Sprint 8.G**, an in-flight schema migration candidate, as
 /// derivable from DAG events + persisted in snapshot.cb.
 ///
 /// Mirrors the relevant fields of `myco_kernel_schema::migration::CandidateState`
@@ -376,7 +360,7 @@ pub struct DerivedMigrationCandidate {
     pub started_at_unix_ns: i64,
 }
 
-/// **COV06 §3.2.A (F21)** — one entry of the cultivation_successor_chain, as
+/// **COV06 §3.2.A (F21)**, one entry of the cultivation_successor_chain, as
 /// derived from a `successor_chain_updated:{pk}` DAG event.
 ///
 /// Mirrors the L1/GOVERNANCE §3.2.A `SuccessorEntry` shape. The chain is
@@ -395,7 +379,7 @@ pub struct DerivedSuccessorEntry {
     pub valid_until_unix_ns: Option<i64>,
 }
 
-/// **COV06 §3.2.C** — the cultivation cadence + windows + terminal choice, as
+/// **COV06 §3.2.C**, the cultivation cadence + windows + terminal choice, as
 /// derived from the latest `cultivation_succession_config_declared` DAG event.
 /// All durations are in **anchor-days**. `None` for the whole struct → built-in
 /// defaults are used (cadence 30d, legacy 365d, terminal 730d, choice
@@ -438,12 +422,6 @@ pub enum DerivedStateError {
     /// genesis_event seen more than once. The substrate has at most one.
     #[error("genesis_event seen multiple times in DAG")]
     MultipleGenesis,
-    /// nonce_consumed/expired references a nonce never issued.
-    #[error("nonce event references unknown nonce: prefix={prefix}")]
-    NonceUnknown {
-        /// First 16 hex chars of the nonce.
-        prefix: String,
-    },
 }
 
 /// Full substrate state derivable from DAG event log.
@@ -469,9 +447,6 @@ pub struct DerivedState {
     pub cycle_counter: u64,
     /// Highest cycle whose raw_material has been absorbed (M18).
     pub last_absorbed_cycle: Option<u64>,
-    /// Live nonce log: derived from nonce_issued events, with nonce_consumed /
-    /// nonce_expired events updating per-entry `consumed` flag or removing.
-    pub nonce_log: HashMap<[u8; 32], DerivedNonce>,
     /// M25.2 P5 万物互联: rolling history of per-cycle observatory snapshots.
     /// Populated by the live server on every `cycle_advanced` emission. The
     /// snapshot.cb persistence layer round-trips this so the trend window
@@ -484,24 +459,24 @@ pub struct DerivedState {
     /// migration candidate, if any. `Some` between a
     /// `schema_migration_started:*` event and its terminal
     /// `schema_migration_committed:*` / `schema_migration_rolled_back:*`
-    /// event. `None` otherwise (the common case — migrations are rare + the
+    /// event. `None` otherwise (the common case, migrations are rare + the
     /// MVP allows only ONE in flight at a time). Snapshot.cb round-trips this
     /// so a substrate restarted mid-window resumes the migration; pre-Sprint-8.G
     /// snapshots that lack the field decode to `None` (back-compat).
     pub migration_candidate: Option<DerivedMigrationCandidate>,
-    /// **COV06 §3.2.A (F21)** — the cultivation_successor_chain, derived from
+    /// **COV06 §3.2.A (F21)**, the cultivation_successor_chain, derived from
     /// `successor_chain_updated:{pk}` DAG events in insertion order. **NOT
-    /// persisted in snapshot.cb** — re-derived from the DAG at boot, so the
+    /// persisted in snapshot.cb**, re-derived from the DAG at boot, so the
     /// snapshot format_version + bytes are unchanged (byte-compat additive).
     pub successor_chain: Vec<DerivedSuccessorEntry>,
-    /// **COV06 §3.2.C** — the active succession config (cadence + windows +
+    /// **COV06 §3.2.C**, the active succession config (cadence + windows +
     /// terminal choice), from the latest `cultivation_succession_config_declared`
     /// event. `None` → built-in defaults. NOT persisted in snapshot.cb.
     pub succession_config: Option<DerivedSuccessionConfig>,
 }
 
 impl DerivedState {
-    /// Empty initial state — corresponds to pre-genesis substrate.
+    /// Empty initial state, corresponds to pre-genesis substrate.
     pub fn empty() -> Self {
         DerivedState {
             substrate_id: None,
@@ -509,7 +484,6 @@ impl DerivedState {
             generation_depth: 0,
             cycle_counter: 0,
             last_absorbed_cycle: None,
-            nonce_log: HashMap::new(),
             observatory_history: VecDeque::new(),
             migration_candidate: None,
             successor_chain: Vec::new(),
@@ -520,13 +494,13 @@ impl DerivedState {
     /// M21.2: True iff this DerivedState contains a `genesis_event` (i.e., the
     /// DAG event log was constructed on a post-M21.1 substrate that emitted
     /// the genesis_event). This is the signal that DAG is the authoritative
-    /// source — boot path uses derived state instead of legacy state files.
+    /// source, boot path uses derived state instead of legacy state files.
     pub fn is_post_m21_substrate(&self) -> bool {
         self.substrate_id.is_some()
     }
 
     /// M21.5 P5 万物互联: encode the snapshot as canonical bytes.
-    /// Stored alongside `dag.cb` as `snapshot.cb` to accelerate boot —
+    /// Stored alongside `dag.cb` as `snapshot.cb` to accelerate boot,
     /// avoids full DAG replay every restart on large substrates.
     ///
     /// Schema (canonical-bytes Map):
@@ -538,12 +512,15 @@ impl DerivedState {
     ///   "genesis_time_unix_ns": Timestamp, // optional
     ///   "cycle_counter": Uint,
     ///   "last_absorbed_cycle": Uint,       // optional
-    ///   "pinned_operator_identity": Map,   // optional
-    ///   "nonce_log": Array<Map>,
     ///   "observatory_history": Array<Map>, // optional; absent in pre-M25.2 snapshots
     ///   "migration_candidate": Map,        // optional; absent when no migration in flight
     /// })
     /// ```
+    ///
+    /// **v0.9 keyless**: the `pinned_operator_identity` Map and the `nonce_log`
+    /// Array were removed with the owner-key + anchor surface. The writer omits
+    /// both; the decoder simply ignores either key if a pre-removal snapshot
+    /// still carries it.
     ///
     /// **8.G back-compat**: `format_version` bumped 1→2 to carry the optional
     /// `migration_candidate` field. The decoder accepts BOTH v1 and v2 (a v1
@@ -584,49 +561,10 @@ impl DerivedState {
         if let Some(c) = self.last_absorbed_cycle {
             root.insert("last_absorbed_cycle".to_string(), Value::Uint(c));
         }
-        // (v0.9 owner-key removal: `pinned_operator_identity` is no longer
-        // serialized into snapshot.cb — the field was removed from DerivedState.
-        // The optional key is simply omitted; the decoder ignores it if a
-        // pre-removal snapshot still carries it.)
-        let nonces: Vec<Value> = self
-            .nonce_log
-            .values()
-            .map(|n| {
-                let mut nm = BTreeMap::new();
-                nm.insert("nonce".to_string(), Value::Bytes(n.nonce.to_vec()));
-                nm.insert(
-                    "bound_content_hash".to_string(),
-                    Value::Bytes(n.bound_content_hash.to_vec()),
-                );
-                nm.insert(
-                    "bound_dag_tip".to_string(),
-                    Value::Bytes(n.bound_dag_tip.to_vec()),
-                );
-                nm.insert(
-                    "substrate_issued_at_unix_ns".to_string(),
-                    Value::Timestamp(n.substrate_issued_at_unix_ns),
-                );
-                nm.insert(
-                    "expiry_unix_ns".to_string(),
-                    Value::Timestamp(n.expiry_unix_ns),
-                );
-                if let Some(t) = n.anchor_clock_issued_at_unix_ns {
-                    nm.insert(
-                        "anchor_clock_issued_at_unix_ns".to_string(),
-                        Value::Timestamp(t),
-                    );
-                }
-                if let Some(t) = n.anchor_clock_expiry_unix_ns {
-                    nm.insert(
-                        "anchor_clock_expiry_unix_ns".to_string(),
-                        Value::Timestamp(t),
-                    );
-                }
-                nm.insert("consumed".to_string(), Value::Bool(n.consumed));
-                Value::Map(nm)
-            })
-            .collect();
-        root.insert("nonce_log".to_string(), Value::Array(nonces));
+        // (v0.9 keyless removal: `pinned_operator_identity` and the attestation
+        // `nonce_log` are no longer serialized into snapshot.cb, both fields
+        // were removed from DerivedState. The optional keys are simply omitted;
+        // the decoder ignores either if a pre-removal snapshot still carries it.)
 
         // M25.2: persist the observatory history. Omitted entirely when
         // empty (back-compat with pre-M25.2 snapshot decoders).
@@ -640,7 +578,7 @@ impl DerivedState {
         }
 
         // 8.G: persist the in-flight migration candidate. Omitted entirely
-        // when None (the common case) — so a substrate that never opts into
+        // when None (the common case), so a substrate that never opts into
         // migration produces a snapshot byte-identical (modulo format_version)
         // to the pre-8.G encoding for this field.
         if let Some(mc) = &self.migration_candidate {
@@ -675,7 +613,7 @@ impl DerivedState {
         bytes: &[u8],
     ) -> Result<Option<(Self, Option<[u8; 32]>)>, DerivedStateError> {
         use myco_kernel_shared::canonical_bytes::{
-            decode, map_get_array, map_get_bytes, map_get_string, map_get_uint, Value,
+            decode, map_get_string, map_get_uint, Value,
         };
         let decoded = decode(bytes).map_err(|e| DerivedStateError::EventDecode {
             node_type: "snapshot.cb".to_string(),
@@ -722,7 +660,7 @@ impl DerivedState {
             Some(Value::Timestamp(t)) => Some(*t),
             _ => None,
         };
-        // 8f / §16.A: optional in snapshot.cb — absent in pre-8f snapshots and
+        // 8f / §16.A: optional in snapshot.cb, absent in pre-8f snapshots and
         // in every root substrate → 0 (root lineage depth).
         let generation_depth = match map.get("generation_depth") {
             Some(Value::Uint(n)) => *n,
@@ -738,81 +676,11 @@ impl DerivedState {
             Some(Value::Uint(u)) => Some(*u),
             _ => None,
         };
-        // (v0.9 owner-key removal: `pinned_operator_identity` is no longer a
-        // DerivedState field. A pre-removal snapshot carrying the key is simply
-        // ignored here.)
-        let nonce_log_array =
-            map_get_array(&map, "nonce_log").map_err(|e| DerivedStateError::EventField {
-                node_type: "snapshot.cb".to_string(),
-                field: "nonce_log".to_string(),
-                reason: e.to_string(),
-            })?;
-        let mut nonce_log = HashMap::new();
-        for v in nonce_log_array {
-            let nm = match v {
-                Value::Map(m) => m,
-                other => {
-                    return Err(DerivedStateError::EventField {
-                        node_type: "snapshot.cb".to_string(),
-                        field: "nonce_log_entry".to_string(),
-                        reason: format!("not a Map: {other:?}"),
-                    })
-                }
-            };
-            let read_32 = |field: &str| -> Result<[u8; 32], DerivedStateError> {
-                let b = map_get_bytes(nm, field).map_err(|e| DerivedStateError::EventField {
-                    node_type: "snapshot.cb".to_string(),
-                    field: field.to_string(),
-                    reason: e.to_string(),
-                })?;
-                if b.len() != 32 {
-                    return Err(DerivedStateError::EventField {
-                        node_type: "snapshot.cb".to_string(),
-                        field: field.to_string(),
-                        reason: format!("not 32 bytes: {}", b.len()),
-                    });
-                }
-                let mut arr = [0u8; 32];
-                arr.copy_from_slice(b);
-                Ok(arr)
-            };
-            let nonce = read_32("nonce")?;
-            let bound_content_hash = read_32("bound_content_hash")?;
-            let bound_dag_tip = read_32("bound_dag_tip")?;
-            let substrate_issued_at_unix_ns = match nm.get("substrate_issued_at_unix_ns") {
-                Some(Value::Timestamp(t)) => *t,
-                _ => 0,
-            };
-            let expiry_unix_ns = match nm.get("expiry_unix_ns") {
-                Some(Value::Timestamp(t)) => *t,
-                _ => 0,
-            };
-            let anchor_clock_issued_at_unix_ns = match nm.get("anchor_clock_issued_at_unix_ns") {
-                Some(Value::Timestamp(t)) => Some(*t),
-                _ => None,
-            };
-            let anchor_clock_expiry_unix_ns = match nm.get("anchor_clock_expiry_unix_ns") {
-                Some(Value::Timestamp(t)) => Some(*t),
-                _ => None,
-            };
-            let consumed = match nm.get("consumed") {
-                Some(Value::Bool(b)) => *b,
-                _ => false,
-            };
-            nonce_log.insert(
-                nonce,
-                DerivedNonce {
-                    nonce,
-                    bound_content_hash,
-                    bound_dag_tip,
-                    substrate_issued_at_unix_ns,
-                    expiry_unix_ns,
-                    anchor_clock_issued_at_unix_ns,
-                    anchor_clock_expiry_unix_ns,
-                    consumed,
-                },
-            );
-        }
+        // (v0.9 keyless removal: `pinned_operator_identity` and the attestation
+        // `nonce_log` are no longer DerivedState fields. A pre-removal snapshot
+        // that still carries either key is simply ignored here, the keys are
+        // not read.)
+
         // M25.2: optional observatory_history. Absent → empty.
         let observatory_history: VecDeque<ObservatorySnapshot> = match map.get("observatory_history")
         {
@@ -890,7 +758,6 @@ impl DerivedState {
                 generation_depth,
                 cycle_counter,
                 last_absorbed_cycle,
-                nonce_log,
                 observatory_history,
                 migration_candidate,
                 // **COV06**: these two are NOT persisted in snapshot.cb (no
@@ -905,12 +772,12 @@ impl DerivedState {
         )))
     }
 
-    /// **COV06** — re-derive the cultivation FSM state (successor_chain +
+    /// **COV06**, re-derive the cultivation FSM state (successor_chain +
     /// succession_config + latest_heartbeat) from a full DAG walk, overwriting
     /// whatever the tail-replay / snapshot path produced. These three fields are
     /// deliberately NOT persisted in snapshot.cb (additive byte-compat: no
-    /// format_version bump), so a snapshot-accelerated boot — which replays only
-    /// the tail after the snapshot tip — would otherwise miss cultivation events
+    /// format_version bump), so a snapshot-accelerated boot, which replays only
+    /// the tail after the snapshot tip, would otherwise miss cultivation events
     /// older than the snapshot. This pass restores them authoritatively. The
     /// cultivation event family is tiny (heartbeats + chain updates + one config),
     /// so the full walk is cheap. Called from the boot path after `derived` is
@@ -973,12 +840,6 @@ impl DerivedState {
             self.apply_genesis(node)
         } else if nt == NODE_TYPE_CYCLE_ADVANCED {
             self.apply_cycle_advanced(node)
-        } else if nt.starts_with(NODE_TYPE_NONCE_ISSUED_PREFIX) {
-            self.apply_nonce_issued(node)
-        } else if nt.starts_with(NODE_TYPE_NONCE_CONSUMED_PREFIX) {
-            self.apply_nonce_consumed(node)
-        } else if nt.starts_with(NODE_TYPE_NONCE_EXPIRED_PREFIX) {
-            self.apply_nonce_expired(node)
         } else if nt.starts_with("absorption_event:cycle_") {
             self.apply_absorption_event(node, dag)
         } else if nt.starts_with(NODE_TYPE_SCHEMA_MIGRATION_STARTED_PREFIX) {
@@ -992,10 +853,10 @@ impl DerivedState {
             self.migration_candidate = None;
             Ok(())
         } else if nt.starts_with(crate::events::NODE_TYPE_SUCCESSOR_CHAIN_UPDATED_PREFIX) {
-            // **COV06 §3.2.A (F21)** — append a SuccessorEntry to the chain.
+            // **COV06 §3.2.A (F21)**, append a SuccessorEntry to the chain.
             self.apply_successor_chain_updated(node)
         } else if nt == crate::events::NODE_TYPE_CULTIVATION_SUCCESSION_CONFIG_DECLARED {
-            // **COV06 §3.2.C** — latest config declaration wins.
+            // **COV06 §3.2.C**, latest config declaration wins.
             self.apply_succession_config_declared(node)
         } else {
             // Pure-record events (M8-M20) that don't impact Rust-side
@@ -1003,12 +864,12 @@ impl DerivedState {
             // perturb_from_raw:*, mutation:*, evolution_succeeded/failed:*,
             // self_euthanasia_proposal:*, spore_emission:*,
             // schema_migration_cycle_validated:* (sampled progress only), and
-            // the M21.1 axis_* + owner_key_* events (which feed Python's view).
+            // the M21.1 axis_* events (which feed Python's view).
             Ok(())
         }
     }
 
-    /// **Sprint 8.G** — a `schema_migration_started:{op}` event opens the
+    /// **Sprint 8.G**, a `schema_migration_started:{op}` event opens the
     /// in-flight migration window. Per the MVP single-in-flight rule, the
     /// substrate rejects a second concurrent migration at the skin
     /// (attestation.rs), so derivation simply overwrites: the LAST started
@@ -1061,7 +922,7 @@ impl DerivedState {
         Ok(())
     }
 
-    /// **COV06 §3.2.A (F21)** — a `successor_chain_updated:{pk}` event appends a
+    /// **COV06 §3.2.A (F21)**, a `successor_chain_updated:{pk}` event appends a
     /// SuccessorEntry (KEYLESS v0.9). Non-overlap + monotone-`valid_from`
     /// validation happens at the skin (`handle_update_successor_chain`);
     /// derivation is append-only so a well-formed DAG reconstructs the chain in
@@ -1082,7 +943,7 @@ impl DerivedState {
         Ok(())
     }
 
-    /// **COV06 §3.2.C** — a `cultivation_succession_config_declared` event sets
+    /// **COV06 §3.2.C**, a `cultivation_succession_config_declared` event sets
     /// the active config; the latest declaration wins (overwrite).
     fn apply_succession_config_declared(
         &mut self,
@@ -1176,60 +1037,9 @@ impl DerivedState {
         Ok(())
     }
 
-    fn apply_nonce_issued(&mut self, node: &DagNode) -> Result<(), DerivedStateError> {
-        let map = decode_event_map(node)?;
-        let nonce = bytes_32_field(node, &map, "nonce")?;
-        let bound_content_hash = bytes_32_field(node, &map, "bound_content_hash")?;
-        let bound_dag_tip = bytes_32_field(node, &map, "bound_dag_tip")?;
-        let substrate_issued_at_unix_ns =
-            timestamp_field(node, &map, "substrate_issued_at_unix_ns")?;
-        let expiry_unix_ns = timestamp_field(node, &map, "expiry_unix_ns")?;
-        let anchor_clock_issued_at_unix_ns = match map.get("anchor_clock_issued_at_unix_ns") {
-            Some(Value::Timestamp(t)) => Some(*t),
-            _ => None,
-        };
-        let anchor_clock_expiry_unix_ns = match map.get("anchor_clock_expiry_unix_ns") {
-            Some(Value::Timestamp(t)) => Some(*t),
-            _ => None,
-        };
-        self.nonce_log.insert(
-            nonce,
-            DerivedNonce {
-                nonce,
-                bound_content_hash,
-                bound_dag_tip,
-                substrate_issued_at_unix_ns,
-                expiry_unix_ns,
-                anchor_clock_issued_at_unix_ns,
-                anchor_clock_expiry_unix_ns,
-                consumed: false,
-            },
-        );
-        Ok(())
-    }
-
-    fn apply_nonce_consumed(&mut self, node: &DagNode) -> Result<(), DerivedStateError> {
-        let map = decode_event_map(node)?;
-        let nonce = bytes_32_field(node, &map, "nonce")?;
-        match self.nonce_log.get_mut(&nonce) {
-            Some(entry) => {
-                entry.consumed = true;
-                Ok(())
-            }
-            None => Err(DerivedStateError::NonceUnknown {
-                prefix: hex_first_8(&nonce),
-            }),
-        }
-    }
-
-    fn apply_nonce_expired(&mut self, node: &DagNode) -> Result<(), DerivedStateError> {
-        let map = decode_event_map(node)?;
-        let nonce = bytes_32_field(node, &map, "nonce")?;
-        // Expired nonces are removed from the live log. If we never had it
-        // (unlikely with proper event emission), treat as no-op.
-        self.nonce_log.remove(&nonce);
-        Ok(())
-    }
+    // (v0.9 keyless removal: `apply_nonce_issued` / `apply_nonce_consumed` /
+    // `apply_nonce_expired` were removed with the attestation-nonce ledger.
+    // There is no nonce event family in the keyless build.)
 
     fn apply_absorption_event(
         &mut self,
@@ -1243,12 +1053,12 @@ impl DerivedState {
             reason: e.to_string(),
         })?;
         // last_absorbed_cycle must equal the HIGHEST `created_at_cycle` of the
-        // raw_material nodes this event absorbed — mirroring the live update in
+        // raw_material nodes this event absorbed, mirroring the live update in
         // `handle_advance` (`set_last_absorbed_cycle(max_absorbed_created_at)`).
         //
         // Using the event's own emission `cycle` (= post_cycle) diverges
         // whenever material is ingested in one cycle and absorbed in a later
-        // one — the NORMAL feed path (ingest, then advance to absorb). That
+        // one, the NORMAL feed path (ingest, then advance to absorb). That
         // divergence trips the C32 live↔derived reconciler. First surfaced by
         // the 2026-06-03 self-referential inhabitation: feeding the production
         // cultivar its first meal produced live=Some(0) vs derived=Some(1).
@@ -1267,7 +1077,7 @@ impl DerivedState {
 
 /// Highest `created_at_cycle` among the raw_material nodes named in an
 /// `absorption_event`'s `absorbed_hashes`, resolved against `dag`. Returns
-/// `None` when no DAG is available or no listed hash resolves — callers then
+/// `None` when no DAG is available or no listed hash resolves, callers then
 /// fall back to the event's own emission cycle. This mirrors the live
 /// computation in `ingest.rs` (`pending_absorption_hashes … created_at_cycle …
 /// max`) so live and derived `last_absorbed_cycle` agree byte-for-byte.
@@ -1357,18 +1167,12 @@ fn bytes_32_field(
     Ok(arr)
 }
 
-fn hex_first_8(bytes: &[u8; 32]) -> String {
-    bytes[..8].iter().map(|b| format!("{b:02x}")).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::events::{
         axis_perturbed_node_type, encode_axis_perturbed, encode_cycle_advanced,
-        encode_genesis_event, encode_nonce_consumed, encode_nonce_expired, encode_nonce_issued,
-        genesis_event_node_type, nonce_consumed_node_type, nonce_expired_node_type,
-        nonce_issued_node_type,
+        encode_genesis_event, genesis_event_node_type,
     };
     use myco_kernel_shared::canonical_bytes::CanonicalBytes;
     use myco_kernel_shared::canonical_bytes::{encode, Value};
@@ -1390,7 +1194,7 @@ mod tests {
         let s = DerivedState::empty();
         assert_eq!(s.substrate_id, None);
         assert_eq!(s.cycle_counter, 0);
-        assert!(s.nonce_log.is_empty());
+        assert_eq!(s.last_absorbed_cycle, None);
     }
 
     #[test]
@@ -1453,100 +1257,10 @@ mod tests {
         assert_eq!(s.cycle_counter, 7);
     }
 
-    #[test]
-    fn nonce_issued_creates_log_entry_with_consumed_false() {
-        let mut s = DerivedState::empty();
-        let nonce = [0x11; 32];
-        let node = make_node(
-            nonce_issued_node_type(&nonce),
-            0,
-            encode_nonce_issued(&nonce, &[0x22; 32], &[0x33; 32], 1000, 1300, None, None),
-        );
-        s.apply_event(&node).unwrap();
-        let entry = s.nonce_log.get(&nonce).unwrap();
-        assert!(!entry.consumed);
-        assert_eq!(entry.substrate_issued_at_unix_ns, 1000);
-        assert_eq!(entry.expiry_unix_ns, 1300);
-        assert_eq!(entry.anchor_clock_issued_at_unix_ns, None);
-    }
-
-    #[test]
-    fn nonce_issued_with_dual_clock_records_anchor_fields() {
-        let mut s = DerivedState::empty();
-        let nonce = [0x11; 32];
-        let node = make_node(
-            nonce_issued_node_type(&nonce),
-            0,
-            encode_nonce_issued(
-                &nonce,
-                &[0x22; 32],
-                &[0x33; 32],
-                1000,
-                1300,
-                Some(2000),
-                Some(2300),
-            ),
-        );
-        s.apply_event(&node).unwrap();
-        let entry = s.nonce_log.get(&nonce).unwrap();
-        assert_eq!(entry.anchor_clock_issued_at_unix_ns, Some(2000));
-        assert_eq!(entry.anchor_clock_expiry_unix_ns, Some(2300));
-    }
-
-    #[test]
-    fn nonce_consumed_flips_flag() {
-        let mut s = DerivedState::empty();
-        let nonce = [0x11; 32];
-        s.apply_event(&make_node(
-            nonce_issued_node_type(&nonce),
-            0,
-            encode_nonce_issued(&nonce, &[0; 32], &[0; 32], 1, 100, None, None),
-        ))
-        .unwrap();
-        assert!(!s.nonce_log[&nonce].consumed);
-        s.apply_event(&make_node(
-            nonce_consumed_node_type(&nonce),
-            0,
-            encode_nonce_consumed(&nonce, 50),
-        ))
-        .unwrap();
-        assert!(s.nonce_log[&nonce].consumed);
-    }
-
-    #[test]
-    fn nonce_consumed_unknown_returns_error() {
-        let mut s = DerivedState::empty();
-        let nonce = [0xff; 32];
-        let result = s.apply_event(&make_node(
-            nonce_consumed_node_type(&nonce),
-            0,
-            encode_nonce_consumed(&nonce, 50),
-        ));
-        assert!(matches!(
-            result,
-            Err(DerivedStateError::NonceUnknown { .. })
-        ));
-    }
-
-    #[test]
-    fn nonce_expired_removes_entry() {
-        let mut s = DerivedState::empty();
-        let nonce = [0x11; 32];
-        s.apply_event(&make_node(
-            nonce_issued_node_type(&nonce),
-            0,
-            encode_nonce_issued(&nonce, &[0; 32], &[0; 32], 1, 100, None, None),
-        ))
-        .unwrap();
-        assert!(s.nonce_log.contains_key(&nonce));
-        s.apply_event(&make_node(
-            nonce_expired_node_type(&nonce),
-            0,
-            encode_nonce_expired(&nonce, 100, 200),
-        ))
-        .unwrap();
-        assert!(!s.nonce_log.contains_key(&nonce));
-    }
+    // (v0.9 keyless removal: the five nonce-ledger derivation tests
+    // [nonce_issued_creates_log_entry / _with_dual_clock / nonce_consumed_flips /
+    // _unknown_returns_error / nonce_expired_removes_entry] were removed with the
+    // attestation-nonce event family.)
 
     #[test]
     fn pure_record_events_are_ignored_for_rust_derived_state() {
@@ -1575,7 +1289,7 @@ mod tests {
     #[test]
     fn axis_perturbed_does_not_panic_on_decode() {
         // We need to make sure axis_perturbed events (rich Map content) don't
-        // cause apply_event to err — they are pure-record from Rust's perspective.
+        // cause apply_event to err, they are pure-record from Rust's perspective.
         let mut s = DerivedState::empty();
         let event = encode_axis_perturbed("x", 1.5);
         let node = make_node(axis_perturbed_node_type("x"), 1, event);
@@ -1641,13 +1355,14 @@ mod tests {
                 encode_cycle_advanced(0, 1),
             )
             .unwrap();
-            let nonce = [0xab; 32];
+            // A pure-record axis_perturbed event: exercises a third node that
+            // DerivedState ignores, so replay must still be deterministic.
             let tip = dag.tip().unwrap();
             dag.insert_node(
                 vec![tip],
-                nonce_issued_node_type(&nonce),
+                axis_perturbed_node_type("hunger"),
                 1,
-                encode_nonce_issued(&nonce, &[0; 32], &[0; 32], 100, 400, None, None),
+                encode_axis_perturbed("hunger", 1.5),
             )
             .unwrap();
             dag
@@ -1690,8 +1405,8 @@ mod tests {
     #[test]
     fn absorption_event_uses_absorbed_material_created_at_not_emission_cycle() {
         // Inhabitation finding (2026-06-03): the production cultivar's first
-        // self-referential meal tripped the C32 reconciler — live=Some(0) vs
-        // derived=Some(1) — because the live update records the absorbed
+        // self-referential meal tripped the C32 reconciler, live=Some(0) vs
+        // derived=Some(1), because the live update records the absorbed
         // material's created_at_cycle while the derived replay used the
         // absorption_event's emission cycle. They diverge on the normal feed
         // path (ingest at cycle N, absorb at a later cycle M). The derived side
@@ -1789,7 +1504,7 @@ mod tests {
         // **Byte-compat (OBSERVATORY gap)**: a snapshot written BEFORE the
         // #4a-fork-count + CHAR07-disagreement-density fields existed has a Map
         // with NEITHER new key. `from_canonical_value` MUST tolerate that and
-        // default both new fields to 0 (no snapshot format_version bump —
+        // default both new fields to 0 (no snapshot format_version bump,
         // M26.2/v3.1.1 additive idiom). We synthesize the legacy Map by taking
         // a current snapshot's canonical Value and REMOVING the two new keys.
         let snap = make_observatory_snapshot(5);
@@ -1926,7 +1641,7 @@ mod tests {
     #[test]
     fn schema_migration_cycle_validated_is_pure_record() {
         // The sampled cycle_validated event must NOT touch the candidate (it
-        // is observability only — decide_cycle drives the actual transition).
+        // is observability only, decide_cycle drives the actual transition).
         use crate::events::{
             encode_schema_migration_cycle_validated,
             schema_migration_cycle_validated_node_type,
@@ -2003,11 +1718,14 @@ mod tests {
     #[test]
     fn v1_snapshot_decodes_with_none_migration_candidate() {
         // A hand-built v1 snapshot (no migration_candidate field, format_version=1)
-        // must still decode — proving pre-8.G snapshot.cb files keep loading.
+        // must still decode, proving pre-8.G snapshot.cb files keep loading.
         use std::collections::BTreeMap;
         let mut root = BTreeMap::new();
         root.insert("format_version".to_string(), Value::Uint(1));
         root.insert("cycle_counter".to_string(), Value::Uint(9));
+        // A pre-keyless v1 snapshot carried a `nonce_log` array; the keyless
+        // decoder must IGNORE it (not choke), so include it here as a
+        // tolerated-legacy-key witness.
         root.insert("nonce_log".to_string(), Value::Array(vec![]));
         let bytes = myco_kernel_shared::canonical_bytes::encode(&Value::Map(root)).unwrap();
         let (decoded_state, tip) = DerivedState::from_canonical_bytes(bytes.as_ref())

@@ -15,15 +15,17 @@
 //   reproduction.ts — sprout_child (M20 永恒繁衍).
 //   federation.ts   — federation_* builders + parsers (M22/M25.5 万物互联).
 //   mortality.ts    — lift_birth_period_quarantine + accept_self_euthanasia
-//                     (M22.5 / M23.2; owner-signed signing inputs).
+//                     (M22.5 / M23.2; v0.9 keyless, no owner-signed inputs).
 //   cultivation.ts  — COV06 cultivator-mortality + succession FSM
-//                     (record_cultivator_heartbeat / update_successor_chain /
-//                     accept_succession / accept_bet_retired_proposal).
+//                     (update_successor_chain / accept_succession /
+//                     accept_bet_retired_proposal). v0.9 keyless: the
+//                     record_cultivator_heartbeat builder was removed.
 //   observatory.ts  — query_substrate_observatory + Observatory* signal types.
 //   ingest.ts       — ingest_raw_material + perturb_axis_from_raw_material (M16).
-//   mutation.ts     — schema_diff builders, attestation-nonce, REVEAL-key
-//                     binding, DAG-tip co-sign + L0-revision envelopes,
-//                     submit_mutation payload.
+//   mutation.ts     — schema_diff builders, the spawn-cosign envelope builder,
+//                     submit_mutation payload (v0.9 keyless: the attestation-
+//                     nonce / REVEAL-key / DAG-tip-cosign / L0-revision builders
+//                     were removed with the anchor surface).
 //   responses.ts    — enumerate_dag_since + advance/snapshot/hello_ack/
 //                     compute_intent/immune/submit_mutation/recent_nodes parsers.
 

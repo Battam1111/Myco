@@ -14,7 +14,7 @@ default:
 # Build
 # ---------------------------------------------------------------------------
 
-# Rust workspace (substrate + anchor-host + kernel/* crates).
+# Rust workspace (substrate + kernel/* crates).
 build-rust:
     cargo build --workspace
 
@@ -22,10 +22,9 @@ build-rust:
 build-python:
     pip install -e kernel/governance -e kernel/tropism -e kernel/trajectory -e kernel/hard_rules -e kernel/bridge/python
 
-# TypeScript packages (operator + anchor client).
+# TypeScript package (the operator).
 build-ts:
     cd operators/claude && npm install
-    cd anchor/client && npm install
 
 # Everything.
 build-all: build-rust build-python build-ts
@@ -34,7 +33,7 @@ build-all: build-rust build-python build-ts
 # Test
 # ---------------------------------------------------------------------------
 
-# Rust: substrate + anchor unit + e2e + Layer-C witnesses.
+# Rust: substrate + kernel unit + e2e + Layer-C witnesses.
 test-rust:
     cargo test --workspace
 
@@ -43,11 +42,10 @@ test-python:
     python -m pytest kernel/governance kernel/tropism kernel/trajectory kernel/hard_rules kernel/bridge/python
 
 # TypeScript: operator (typecheck + tests, incl. the active ceremony
-# verify_hashes drift gate) + anchor client. The operator e2e spawns the
+# verify_hashes drift gate). The operator e2e spawns the
 # real substrate + Python bridge, so build those first.
 test-ts: build-rust build-python
     cd operators/claude && npm run test:all
-    cd anchor/client && npm test
 
 # Everything (matches CI).
 test-all: test-rust test-python test-ts
@@ -59,4 +57,4 @@ test-all: test-rust test-python test-ts
 # Verify the active L0 doctrine seal still reproduces from the bundle
 # (the drift gate; fails if any L0 file changed without re-sealing).
 ceremony-verify:
-    cd operators/claude && node --experimental-strip-types --no-warnings --test ceremonies/v3_1_1_1_p03_descriptive_amendment/verify_hashes.test.ts
+    cd operators/claude && node --experimental-strip-types --no-warnings --test ceremonies/v3_1_5_keyless_anchor_retirement/verify_hashes.test.ts

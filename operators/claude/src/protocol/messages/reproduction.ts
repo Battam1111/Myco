@@ -46,9 +46,10 @@ export function buildSporeSchemaCanonicalBytes(fields: {
 /** Build the payload for a `sprout_child` request (M20 + P08 §3.5 / §5.1).
  *
  *  The substrate creates a child state_dir containing the parent's
- *  spore-schema (gradient axes + values + operator identity + the
- *  OWNER-MINTED deterministic child substrate_id). Operator can then spawn a
- *  new substrate process at `childStateDir` via the MYCO_STATE_DIR env var.
+ *  spore-schema (gradient axes + values + the deterministically-minted child
+ *  substrate_id; v0.9 keyless: self-derived, not owner-minted). Operator can
+ *  then spawn a new substrate process at `childStateDir` via the MYCO_STATE_DIR
+ *  env var.
  *
  *  The parent emits a `spore_emission:{child_id_prefix}` DAG node recording
  *  the reproduction. The parent's causal DAG is NOT transferred to the child
@@ -123,11 +124,12 @@ export interface SproutChildResult {
   /** DAG node hash of the spore_emission:{prefix} node in the parent's DAG. */
   sporeEmissionHash: Uint8Array;
   /** **P08 §3.5 I7-closure**: DAG node hash of the
-   *  `genesis_attested:{child_prefix}` node in the PARENT's DAG (the
-   *  cultivator-attested birth record). */
+   *  `genesis_attested:{child_prefix}` node in the PARENT's DAG (the substrate's
+   *  own I7-closure birth record; v0.9 keyless: no cultivator signature). */
   genesisAttestedHash: Uint8Array;
-  /** **P08 §5.6**: the cultivator-signed child genesis timestamp (unix ns) —
-   *  one of the inputs to the owner-minted child-id derivation. */
+  /** **P08 §5.6**: the child genesis timestamp (unix ns) the operator stamped,
+   *  one of the inputs to the deterministically-minted child-id derivation
+   *  (v0.9 keyless: not cultivator-signed / owner-minted). */
   childGenesisTimestampUnixNs: bigint;
 }
 

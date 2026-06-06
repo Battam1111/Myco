@@ -1,4 +1,4 @@
-//! **v3.1.1 Sprint 5.I (T1.3)** — substrate backup export mechanism.
+//! **v3.1.1 Sprint 5.I (T1.3)**, substrate backup export mechanism.
 //!
 //! Closes the COV01 fiduciary-duty gap identified in the v3.1.1 audit:
 //! prior to Sprint 5.I, substrate state was a single point of failure.
@@ -35,9 +35,8 @@
 //!   - manifest.cb
 //!   - dag.cb
 //!   - gradient.cb
-//!   - owner_keys.cb
+//!   - owner_keys.cb (legacy; tolerated for migrating a pre-keyless state_dir)
 //!   - operator_identity_pubkey.cb (deprecated post-M21.4 but tolerated)
-//!   - nonces.cb
 //!   - snapshot.cb
 //!   - substrate_signing_key.cb
 //!
@@ -57,7 +56,7 @@ use myco_kernel_bridge::protocol::{msg_type, Message};
 use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
 
 use crate::persistence::{
-    DAG_FILENAME, GRADIENT_FILENAME, MANIFEST_FILENAME, NONCE_LOG_FILENAME, SNAPSHOT_FILENAME,
+    DAG_FILENAME, GRADIENT_FILENAME, MANIFEST_FILENAME, SNAPSHOT_FILENAME,
     SUBSTRATE_SIGNING_KEY_FILENAME,
 };
 use crate::server::{emit_substrate_event, save_dag_state, ServerState};
@@ -68,14 +67,13 @@ use crate::SubstrateError;
 const OWNER_KEYS_FILENAME: &str = "owner_keys.cb";
 
 /// The fixed set of state files that comprise a full substrate backup. Each
-/// file is OPTIONAL — missing files are silently skipped (legitimate for
+/// file is OPTIONAL, missing files are silently skipped (legitimate for
 /// substrates that haven't reached the milestone that creates each).
 pub const BACKUP_FILE_NAMES: &[&str] = &[
     MANIFEST_FILENAME,
     DAG_FILENAME,
     GRADIENT_FILENAME,
     OWNER_KEYS_FILENAME,
-    NONCE_LOG_FILENAME,
     SNAPSHOT_FILENAME,
     SUBSTRATE_SIGNING_KEY_FILENAME,
 ];
@@ -105,7 +103,7 @@ pub(crate) fn handle_export_backup_to_dir(
     };
     let backup_dir = Path::new(&backup_dir_str);
 
-    // Refuse to backup into the state_dir itself — that's a self-overwrite trap.
+    // Refuse to backup into the state_dir itself, that's a self-overwrite trap.
     if backup_dir == state.state_dir.as_path() {
         return Err(SubstrateError::Protocol(
             "export_backup_to_dir: backup_dir MUST NOT equal state_dir \

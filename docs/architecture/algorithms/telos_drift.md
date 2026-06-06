@@ -1,4 +1,4 @@
-> **L0 doctrine reference (v3.1 transition note)**: this document was written against the prior monolithic L0 (DRAFT 9 SEALED, 2026-05-17). The canonical L0 doctrine is now `docs/architecture/L0/` (v3.1-stratigraphy, 2026-05-18). References in this document using the old `L0 §x.y` / `P2.a` / `I3` notation resolve to v3.1 cards via `docs/architecture/L0/PROVENANCE.md` §2 mapping table. Surgical update of these references to v3.1 citation form is deferred to a v0.9.x housekeeping pass (coupled with Layer C witness corpus implementation per META §5.4) — see `docs/architecture/OUTLINE.md` §3 for details.
+> **L0 doctrine reference (v3.1 transition note)**: this document was written against the prior monolithic L0 (DRAFT 9 SEALED, 2026-05-17). The canonical L0 doctrine is now `docs/architecture/L0/` (v3.1-stratigraphy, 2026-05-18). References in this document using the old `L0 §x.y` / `P2.a` / `I3` notation resolve to v3.1 cards via `docs/architecture/L0/PROVENANCE.md` §2 mapping table. Surgical update of these references to v3.1 citation form is deferred to a v0.9.x housekeeping pass (coupled with Layer C witness corpus implementation per META §5.4). See `docs/architecture/OUTLINE.md` §3 for details.
 
 ---
 
@@ -20,7 +20,7 @@ telos_alignment(cycle) = cos_sim(
   - Owner objective declared (P14.b): `embed(owner_stated_objective_text)`. Tier-1 SSoT.
   - No objective: `embed(agent_feedback_trajectory_recent)` (L1/TRAJECTORY-derived).
 
-Per-substrate at genesis, CI; switching branches requires owner CI attestation.
+Per-substrate at genesis, CI; switching branches requires CI approval at the live human-in-the-loop gate (keyless v3.1.5; was "owner CI attestation").
 
 ## Window + cadence
 
@@ -46,7 +46,7 @@ Per-substrate at genesis, CI; switching branches requires owner CI attestation.
 
 - `embedding_model_identity = (model_name, model_version, model_canonical_bytes_hash)`.
 - External API: hash of service-identity + service-attested version.
-- Mutation: owner attestation per L1/GOVERNANCE §2.2.
+- Mutation: CI approval at the live human-in-the-loop gate per L1/GOVERNANCE §2.2 (keyless v3.1.5; was "owner attestation").
 - Spore-inheritable; CI-mutable post-genesis.
 - Storage: parameters NOT in spore-schema; hash + reference (URI / OCI digest / local-path+checksum).
 - Verification: substrate verifies bytes match hash each cycle (mismatch → I3 fail → quarantine).

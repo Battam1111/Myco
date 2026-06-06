@@ -1,11 +1,11 @@
-//! E2E: Attestation & ceremony — M-anchor-4 invariant witnesses + schema-evolution
+//! E2E: Attestation & ceremony, M-anchor-4 invariant witnesses + schema-evolution
 //! mutation defenses.
 //!
 //! **v0.9 owner-key removal**: the M-anchor-2 birth-attestation + C20 boot
 //! verifier, the M-anchor-5 dag-tip-cosign / L0-revision envelopes + their
 //! `l0_revision_attest` mutation, the attestation-nonce issuance + C44
 //! consumption path, and the seed-based operator-pubkey TOFU ceremony were all
-//! removed with the anchor surface — the tests exercising them are deleted. What
+//! removed with the anchor surface, the tests exercising them are deleted. What
 //! remains: the keyless invariant-witness layer + the schema-evolution CI
 //! defense (which still routes through Python's classifier).
 //!
@@ -71,11 +71,11 @@ fn m_anchor_4_invariant_witnesses_emitted_at_boot_for_each_tier_1_check() {
         "boot must emit invariant_witness:* events"
     );
 
-    // Collect all witness node_types — expect at least the five with
+    // Collect all witness node_types, expect at least the five with
     // structured inputs (substrate_id, cycle_monotonic, dag_verify,
-    // canonical_bytes_drift, orphan_detected). owner_keys is a placeholder
-    // (no inputs → no witness emission). (v0.9: pinned_pubkey_well_formed was
-    // removed with the owner-key layer, so it is no longer expected either.)
+    // canonical_bytes_drift, orphan_detected). (v0.9 keyless: the
+    // pinned_pubkey_well_formed + owner_keys_consistency checks were removed with
+    // the owner-key + anchor surface, so they are no longer expected.)
     let mut emitted_check_ids: Vec<String> = Vec::new();
     for n in &nodes {
         if let CbValue::Map(m) = n {
@@ -171,68 +171,40 @@ fn m_anchor_4_invariant_witness_inputs_decode_and_carry_substrate_id() {
     client.shutdown().expect("shutdown");
 }
 
-#[test]
-fn m_anchor_4_anchor_nonce_derived_sampling_is_deterministic() {
-    use substrate::events::anchor_nonce_derived_sample_indices;
-    let nonce = [0xa5u8; 32];
-    let leaf_count: u64 = 100;
-    let k = 10;
-    let s1 = anchor_nonce_derived_sample_indices(&nonce, leaf_count, k);
-    let s2 = anchor_nonce_derived_sample_indices(&nonce, leaf_count, k);
-    assert_eq!(s1, s2, "same inputs must yield identical sample indices");
-    assert_eq!(s1.len(), k, "k samples returned");
-    // All indices in [0, leaf_count).
-    for idx in &s1 {
-        assert!(*idx < leaf_count, "index {idx} >= leaf_count {leaf_count}");
-    }
-    // Different nonce → different indices (overwhelmingly).
-    let other_nonce = [0x5au8; 32];
-    let s3 = anchor_nonce_derived_sample_indices(&other_nonce, leaf_count, k);
-    assert_ne!(s1, s3, "different nonce must produce different sample set");
-    // leaf_count=0 → empty
-    let s_empty = anchor_nonce_derived_sample_indices(&nonce, 0, k);
-    assert!(s_empty.is_empty());
-    // k=0 → empty
-    let s_zero_k = anchor_nonce_derived_sample_indices(&nonce, leaf_count, 0);
-    assert!(s_zero_k.is_empty());
-    // k > 1024 → clamps to 1024
-    let s_clamp = anchor_nonce_derived_sample_indices(&nonce, leaf_count, 5000);
-    assert_eq!(s_clamp.len(), 1024, "k clamped to 1024");
-}
+// (v0.9 keyless: `m_anchor_4_anchor_nonce_derived_sampling_is_deterministic`
+// was removed with the `anchor_nonce_derived_sample_indices` helper, the
+// anchor-nonce leaf-sampling layer is gone.)
 
 #[test]
 fn m_anchor_4_witness_decode_helper_roundtrip() {
+    // **v0.9 keyless**: the witness envelope no longer carries the
+    // `anchor_nonce` + `anchor_nonce_signature` fields, so `encode_invariant_witness`
+    // takes 5 args and `decode_invariant_witness` returns a 5-tuple.
     use substrate::events::{
         decode_invariant_witness, encode_invariant_witness,
     };
     let inputs_bytes = vec![1u8, 2, 3, 4, 5];
-    let nonce = vec![0xa1u8; 32];
-    let sig = vec![0x77u8; 64];
     let encoded = encode_invariant_witness(
         "dag_verify_all",
         "tier_1",
         42,
         1_700_000_000_000_000_000,
         &inputs_bytes,
-        &nonce,
-        &sig,
     );
-    let (cid, tier, at_cycle, at_unix_ns, inputs_out, nonce_out, sig_out) =
+    let (cid, tier, at_cycle, at_unix_ns, inputs_out) =
         decode_invariant_witness(encoded.as_ref()).expect("decodes");
     assert_eq!(cid, "dag_verify_all");
     assert_eq!(tier, "tier_1");
     assert_eq!(at_cycle, 42);
     assert_eq!(at_unix_ns, 1_700_000_000_000_000_000);
     assert_eq!(inputs_out, inputs_bytes);
-    assert_eq!(nonce_out, nonce);
-    assert_eq!(sig_out, sig);
 }
 
 #[test]
 fn sprint_5b_schema_diff_canonical_bytes_modify_axis_threshold_roundtrips() {
     // The schema_diff format MUST stay stable so operator-side (TypeScript)
     // and substrate Python-side decode the same bytes. Round-trip is the
-    // foundation property — if it breaks, no schema evolution works.
+    // foundation property, if it breaks, no schema evolution works.
     use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value};
     let bytes = build_schema_diff_modify_axis_threshold("hunger", "7.5");
     let decoded = cb_decode(&bytes).expect("decode");
@@ -278,13 +250,13 @@ fn sprint_5b_schema_diff_canonical_bytes_add_axis_roundtrips() {
 #[test]
 fn sprint_5b_schema_evolution_accepted_keyless_and_applies() {
     // **v0.9 owner-key removal**: schema_evolution is still CI-CLASSIFIED, but
-    // the owner-attestation signature gate is gone — Python's classifier accepts
+    // the owner-attestation signature gate is gone, Python's classifier accepts
     // a CI mutation KEYLESS (no attestation_signature). With a registered target
     // axis, the apply succeeds → substrate emits evolution_succeeded:{op}.
     //
     // (This replaces the former `rejected_without_owner_attestation` defense
-    // test, whose premise — "anyone could mutate schema without cultivator
-    // consent" — described the removed owner-key trust model. Mutation authority
+    // test, whose premise, "anyone could mutate schema without cultivator
+    // consent", described the removed owner-key trust model. Mutation authority
     // in v0.9 is the operator-session HMAC channel, not an owner signature.)
     let (mut client, _dir) = spawn_substrate();
     client
@@ -300,7 +272,7 @@ fn sprint_5b_schema_evolution_accepted_keyless_and_applies() {
                 ("touched_fields", CbValue::Array(vec![])),
                 ("touched_files", CbValue::Array(vec![])),
                 ("touched_meta_structures", CbValue::Array(vec![])),
-                // No attestation_signature — accepted keyless in v0.9.
+                // No attestation_signature, accepted keyless in v0.9.
             ]),
         )
         .expect("submit");
@@ -373,7 +345,7 @@ fn sprint_5b_schema_evolution_malformed_diff_accepted_keyless_but_apply_fails() 
         matches!(resp.payload.get("schema_apply_succeeded"), Some(CbValue::Bool(false))),
         "a malformed schema_diff must fail the apply stage"
     );
-    // No evolution_succeeded:* — the apply failed.
+    // No evolution_succeeded:*, the apply failed.
     let q = client
         .call(
             proto::QUERY_RECENT_NODES,

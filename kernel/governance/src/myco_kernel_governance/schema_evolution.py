@@ -21,11 +21,12 @@ recorded to the DAG but did not actually modify substrate schema).
 
 1. **schema_diff format**: canonical-bytes Map serialized as the content of
    a `mutation_type="schema_evolution"` submit_mutation.
-2. **Owner attestation gate**: classifier rule promotes schema_evolution to
-   CI (M10 owner-signature path).
-3. **Apply path**: after signature verification, the dispatcher snapshots the
-   current GradientConfiguration, applies the diff, validates invariants;
-   on failure restores the snapshot.
+2. **CI gate**: classifier rule promotes schema_evolution to CI. v0.9 keyless:
+   there is no owner-signature path; the CI authority is the doctrine-repo PR
+   review + the BLAKE3 drift gate (the substrate accepts the mutation via the
+   operator-session channel).
+3. **Apply path**: the dispatcher snapshots the current GradientConfiguration,
+   applies the diff, validates invariants; on failure restores the snapshot.
 4. **DAG audit trail**: substrate emits `evolution_succeeded:{op}` (success)
    or `evolution_failed:{op}` (rollback) as an additional DAG node beyond
    the mutation:schema_evolution record. Causal chain preserved.

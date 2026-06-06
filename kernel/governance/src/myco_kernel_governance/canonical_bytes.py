@@ -3,7 +3,7 @@
 MUST produce byte-identical output to:
 
 - ``kernel/shared/src/canonical_bytes.rs`` (Rust reference)
-- ``anchor/client/src/canonical_bytes.ts`` (TypeScript)
+- ``operators/claude/src/canonical/canonical_bytes.ts`` (TypeScript)
 
 Cross-language test vectors at ``test_vectors/canonical_bytes_v1.json``.
 
@@ -12,8 +12,10 @@ Drift from spec = L1/HARD_RULES C18 ``canonical_bytes_render_drift`` (CRITICAL).
 Doctrine traceability
 ---------------------
 
-- L0/cards/AS_anchor_surface §3: canonical-bytes doctrine. Substrate emits canonical bytes; the
-  anchor-surface client renders deterministically for owner review.
+- L0/cards/AS_anchor_surface §3: canonical-bytes doctrine. The substrate emits
+  canonical bytes; a downstream renderer reconstructs them deterministically.
+  (v0.9 keyless: the owner-controlled anchor-surface client this card describes
+  is removed; the canonical-bytes discipline survives.)
 - L1/SCHEMA §3.1 + §4.1: the serializer spec is itself part of the spore-schema
   (spore-inheritable) AND a tier-1 SSoT field.
 - L1/HARD_RULES C18: any render drift between implementations is a CRITICAL

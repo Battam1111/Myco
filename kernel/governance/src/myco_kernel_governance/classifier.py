@@ -3,7 +3,13 @@
 Per L0 I2: every substrate mutation is classified into one of three buckets:
 
 - ``daily`` — autonomously committed by the substrate per its own update rules.
-- ``contract_identity_level`` — requires owner-attested CI envelope before commit.
+- ``contract_identity_level``: a doctrine-class change. v0.9 keyless: there is
+  no owner key and no runtime attestation envelope; CI mutations submitted at
+  runtime auto-accept under the operator-session HMAC channel (single-human
+  Venom shared-fate). The CI *gate* lives in the doctrine repo: the git/PR
+  review on the L-layer, enforced by the BLAKE3 drift gate in CI. This
+  classifier still grades a mutation CI so the substrate records + treats it as
+  doctrine-class (audit, birth-period elevation, immune signalling).
 - ``untyped`` — no classifier rule matches; rejected at the skin as breach.
 
 The classifier function itself + the dimension table are **unconditional
@@ -56,7 +62,7 @@ class MutationEnvelope:
         ``{"classifier_dimension_table"}``, ``{"appetite_axis_schema"}``).
     mutation_type:
         Free-form tag describing the mutation kind (e.g., ``"delta_absorb"``,
-        ``"sporocarp_fruit"``, ``"key_rotation"``).
+        ``"sporocarp_fruit"``, ``"schema_evolution"``).
     source_event_id:
         Optional ID of the sporocarp/event that triggered this mutation
         (for causal tracking).
@@ -136,13 +142,12 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
         field_name="substrate_id",
     ),
-    # **v0.9 owner-key removal**: the ``owner_key_history`` field classifier
-    # rule was removed — owner_key_history is gone (the substrate is keyless).
-    ClassifierRule(
-        name="anchor_surface_endpoint_field",
-        classification=Classification.CONTRACT_IDENTITY_LEVEL,
-        field_name="anchor_surface_endpoint_public_key",
-    ),
+    # **v0.9 owner-key removal**: the ``owner_key_history`` and
+    # ``anchor_surface_endpoint_field`` (keyed to the retired F4
+    # ``anchor_surface_endpoint_public_key``) classifier rules were both
+    # removed — owner_key_history and the anchor surface are gone (the
+    # substrate is keyless). Identity is self-derived (P01c); substrate_id
+    # above remains the identity-critical CI-protected SSoT field.
     ClassifierRule(
         name="dag_tip_hash_field",
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
@@ -200,17 +205,18 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
         meta_structure_name="federation_peer_attestation_list",
     ),
     # **C13 (2026-06-02) — local federation peer revocation** (L1/GOVERNANCE
-    # §5.2 + L2/FEDERATION §6.5.b per-peer OWNER revocation; L1/HARD_RULES C13
-    # peer_attestation_revoked_egress). Revoking a peer is an owner-authority
+    # §5.2 + L2/FEDERATION §6.5.b per-peer revocation; L1/HARD_RULES C13
+    # peer_attestation_revoked_egress). Revoking a peer is a cultivation-authority
     # decision (it changes WHICH peers the substrate will egress to / ingest
     # from), so it is unconditionally CI — same gate family as the peer
-    # attestation list itself. The substrate verifies the owner signature over
-    # the revocation body (mutation_type="revoke_federation_peer"), emits a
-    # federation_peer_revoked:{prefix} DAG event, and refuses egress to /
-    # ingest from the revoked peer thereafter. An unattested revoke is rejected
-    # contract_identity_level → C5 (no new HARD_RULES row).
+    # attestation list itself. v0.9 keyless: there is no owner signature over the
+    # revocation body; the substrate accepts the revoke (mutation_type=
+    # "revoke_federation_peer") via the operator-session channel, emits a
+    # federation_peer_revoked:{prefix} DAG event, and refuses egress to / ingest
+    # from the revoked peer thereafter. The CI authority for the change is the
+    # doctrine-repo PR review + the BLAKE3 drift gate (no new HARD_RULES row).
     #
-    # SCOPE: this is the LOCAL owner-revocation half. The quorum-revocation half
+    # SCOPE: this is the LOCAL revocation half. The quorum-revocation half
     # (§6.5.b ≥2/3 Byzantine consensus at ≥3 peers) is DEFERRED — it needs the
     # absent PBFT consensus layer.
     ClassifierRule(
@@ -220,8 +226,10 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
     ),
     # M17 P3 永恒进化: schema_evolution mutation type is unconditionally CI.
     # The content is a schema_diff (canonical-bytes Map) that the dispatcher
-    # applies AFTER owner-signature verification. Apply success → DAG node
-    # evolution_succeeded:{op}; apply failure → rollback + evolution_failed:{op}.
+    # applies directly (v0.9 keyless: no owner-signature verification step;
+    # the CI authority is the doctrine-repo PR review + the BLAKE3 drift gate).
+    # Apply success → DAG node evolution_succeeded:{op}; apply failure →
+    # rollback + evolution_failed:{op}.
     ClassifierRule(
         name="schema_evolution_mutation",
         classification=Classification.CONTRACT_IDENTITY_LEVEL,
@@ -229,9 +237,9 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
     ),
     # v3.1.1 Sprint 8.G (P03 §10.4): operator-initiated abort of an in-flight
     # two-phase schema migration. Aborting a migration is a schema-affecting
-    # decision (it cancels a candidate the owner attested to start), so it is
-    # unconditionally CI — same gate as the schema_evolution that opened the
-    # migration. The substrate forces the rollback path on an accepted
+    # decision (it cancels a candidate a schema_evolution opened), so it is
+    # unconditionally CI — same gate family as the schema_evolution that opened
+    # the migration. The substrate forces the rollback path on an accepted
     # abort_migration mutation.
     ClassifierRule(
         name="abort_migration_mutation",
@@ -336,15 +344,15 @@ SEED_DIMENSION_TABLE: tuple[ClassifierRule, ...] = (
     # COV06 不弃不孤 — cultivator-mortality + succession FSM
     # (L0/cards/COV06_no_abandonment_succession.md + L1/GOVERNANCE §3.2).
     #
-    # The F21 cultivation_successor_chain, succession activation, and the
-    # cultivator liveness heartbeat are all CONTRACT-IDENTITY-LEVEL: they govern
-    # WHO holds the cultivation relation (owner_key_history is itself CI/F3) and
-    # WHO can succeed. L1/GOVERNANCE §3.2.A: successor_chain mutation "requires §2
-    # attestation; without → untyped (C14)". These rows ensure that — should a
-    # cultivation mutation ever flow through the classifier path (the substrate's
-    # primary handlers verify the anchor/successor signature directly) — it is
-    # classified CI, never daily/untyped. F21 is listed in L1/HARD_RULES §2 (F21
-    # cultivation_successor_chain).
+    # The F21 cultivation_successor_chain and succession activation are
+    # CONTRACT-IDENTITY-LEVEL: they govern WHO holds the cultivation relation and
+    # WHO can succeed (doctrine-class decisions). v0.9 keyless: the §3.2.A
+    # "requires §2 attestation; without → untyped (C14)" gate is no longer an
+    # owner/anchor signature check (the owner-key + anchor surface are gone);
+    # the CI authority is the doctrine-repo PR review + the BLAKE3 drift gate.
+    # These rows ensure that — should a cultivation mutation flow through the
+    # classifier path — it is classified CI, never daily/untyped. F21 is listed
+    # in L1/HARD_RULES §2 (F21 cultivation_successor_chain).
     ClassifierRule(
         name="update_successor_chain_mutation",
         classification=Classification.CONTRACT_IDENTITY_LEVEL,

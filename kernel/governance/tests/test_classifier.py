@@ -99,12 +99,10 @@ def test_ci_substrate_id_field() -> None:
     assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
 
 
-def test_ci_anchor_surface_endpoint_field() -> None:
-    env = MutationEnvelope(
-        touched_fields=frozenset({"anchor_surface_endpoint_public_key"}),
-        mutation_type="field_update",
-    )
-    assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
+# **v0.9 owner-key removal**: ``test_ci_anchor_surface_endpoint_field`` was
+# removed — the ``anchor_surface_endpoint_field`` classifier rule (keyed to the
+# retired F4 ``anchor_surface_endpoint_public_key``) is gone, so that field now
+# classifies UNTYPED. Symmetric with the already-removed owner_key_history rule.
 
 
 def test_ci_dag_tip_hash_field() -> None:
@@ -162,7 +160,7 @@ def test_ci_federation_peer_attestation_list_meta() -> None:
 
 
 def test_ci_revoke_federation_peer_mutation() -> None:
-    # C13 — revoking a federation peer is an owner-authority decision; the
+    # C13 — revoking a federation peer is a cultivation-authority decision; the
     # mutation_type rule classifies it CI regardless of touched scope.
     env = MutationEnvelope(mutation_type="revoke_federation_peer")
     assert classify(env) is Classification.CONTRACT_IDENTITY_LEVEL
@@ -274,13 +272,13 @@ def test_seed_table_size() -> None:
     """Pins the current seed-table size so future edits are intentional (any
     add/remove of a seed rule requires updating this test — a tripwire).
 
-    **v0.9 owner-key removal**: 6 rules dropped (40 → 34) — owner_key_history_field,
-    dag_tip_cosign_mutation, l0_revision_attest_mutation,
-    record_cultivator_heartbeat_mutation, duress_keypair_registration_mutation,
-    out_of_band_safety_reattestation_mutation.
+    **v0.9 owner-key removal**: 7 rules dropped (40 → 33) — owner_key_history_field,
+    anchor_surface_endpoint_field, dag_tip_cosign_mutation,
+    l0_revision_attest_mutation, record_cultivator_heartbeat_mutation,
+    duress_keypair_registration_mutation, out_of_band_safety_reattestation_mutation.
     """
-    # 2 file-prefix + 3 identity-fields (substrate_id + anchor_surface_endpoint +
-    #   dag_tip_hash; owner_key_history removed) +
+    # 2 file-prefix + 2 identity-fields (substrate_id + dag_tip_hash;
+    #   owner_key_history + anchor_surface_endpoint removed) +
     # 10 meta-structures + 4 daily +
     # 1 mortality-detail + 1 schema_evolution (M17) +
     # 3 M26.3 compression rules (compression_mutation + compression_rule_registry_meta + compression_invariant_set_meta) +
@@ -288,15 +286,12 @@ def test_seed_table_size() -> None:
     # (M-anchor-5 dag_tip_cosign + l0_revision_attest rules REMOVED — owner-signed) +
     # 1 v3.1.1 Sprint 2.C rule (set_backup_encryption_status) +
     # 1 v3.1.1 Sprint 8.G rule (abort_migration_mutation, P03 §10.4 two-phase migration) +
-    # 2 COV06 rules (update_successor_chain + accept_succession +
-    #   cultivation_successor_chain_meta — that's 3; record_cultivator_heartbeat REMOVED) +
-    #   [note: cultivation_successor_chain_meta is counted under meta-structures? no —
-    #    it is a distinct rule] →
-    # 3 COV06 rules (update_successor_chain + accept_succession + cultivation_successor_chain_meta) +
+    # 3 COV06 rules (update_successor_chain + accept_succession +
+    #   cultivation_successor_chain_meta; record_cultivator_heartbeat REMOVED) +
     # 1 C13 rule (revoke_federation_peer_mutation; local federation peer
     #   revocation, L1/GOVERNANCE §5.2 + L2/FEDERATION §6.5.b)
     # (F23/C50 duress rules REMOVED — owner-key verification).
-    assert len(SEED_DIMENSION_TABLE) == 34
+    assert len(SEED_DIMENSION_TABLE) == 33
 
 
 def test_classifier_rule_predicate_or_logic() -> None:

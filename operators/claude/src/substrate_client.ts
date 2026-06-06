@@ -590,14 +590,15 @@ export class SubstrateClient {
     return parseDepositForgedUnderstandingResponse(response);
   }
 
-  /** M24.2: query the substrate's substrate_id by inspecting its genesis_event.
+  /** Query the substrate's substrate_id by inspecting its genesis_event.
    *
    *  Returns the 32-byte substrate_id stored in the genesis_event DAG node's
    *  content_canonical_bytes Map. Throws if the substrate has no genesis_event
    *  (pre-M21 legacy substrate or fresh-state-dir before first hello).
    *
-   *  Used by M24.2 REVEAL substrate_id binding: TS-side reveal_key_binding
-   *  signing input includes substrate_id to prevent cross-substrate replay.
+   *  Used by the keyless spawn path (`sproutChild`) to bind the spawn-cosign
+   *  envelope's `parent_substrate_id` to THIS parent — the substrate's replay
+   *  guard rejects an envelope whose parent_substrate_id does not match.
    */
   async querySubstrateId(): Promise<Uint8Array> {
     const recent = await this.queryRecentNodes(50n, "genesis_event:");
@@ -747,18 +748,20 @@ export class SubstrateClient {
     return parseComputeIntentResponse(response);
   }
 
-  /** M10/M13/M14/M15: Submit a classified mutation.
+  /** Submit a classified mutation (v0.9 keyless).
    *
-   *  Layers:
-   *  - M10: Daily mutations omit signature; CI mutations include an Ed25519
-   *    signature over `contentCanonicalBytes`.
-   *  - M13: optional `nonce` + `expiryUnixNs` for anchor-surface envelope.
-   *  - M14: optional `revealPubkey` + `identitySignatureOverRevealPubkey` for
-   *    per-handshake REVEAL keypair (limits credential exposure per mutation).
-   *    When REVEAL is present, `attestationSignature` is REVEAL-signed-content
-   *    (not IDENTITY-signed); IDENTITY signs the REVEAL pubkey separately.
-   *  - M15: optional `anchorClockSubmittedAtUnixNs` for dual-clock expiry.
-   *    Required iff the nonce was issued with `anchorClockUnixNs`.
+   *  The substrate classifies the mutation by `mutationType` + touched scope
+   *  via the Python classifier (daily auto-commits; contract-identity-level is
+   *  gated by the doctrine-repo PR review + the BLAKE3 drift gate, NOT by any
+   *  runtime owner signature). There is no owner key: the substrate does not
+   *  verify an Ed25519 attestation signature on CI mutations.
+   *
+   *  The owner-key removal deleted the anchor-surface attestation surface; the
+   *  signature/nonce/REVEAL/dual-clock fields below (`attestationSignature`,
+   *  `nonce`, `expiryUnixNs`, `revealPubkey`,
+   *  `identitySignatureOverRevealPubkey`, `anchorClockSubmittedAtUnixNs`) are
+   *  retained ONLY as optional passthroughs for callers that still hold legacy
+   *  values; the substrate ignores them. New callers omit them.
    */
   async submitMutation(args: {
     mutationType: string;
@@ -883,9 +886,9 @@ export class SubstrateClient {
   }
 
   /** M12: Trigger an ad-hoc integrity scan. The substrate runs its
-   *  C9-family checks (substrate_id well-formedness, DAG hash chain integrity,
-   *  cycle counter monotonicity, pinned-pubkey well-formedness, owner_keys
-   *  consistency) and emits a C9 immune sporocarp for each failure. */
+   *  C9-family checks (substrate_id well-formedness, DAG hash-chain integrity,
+   *  cycle-counter monotonicity, canonical-bytes drift detection, orphan-node
+   *  detection) and emits a C9 immune sporocarp for each failure. */
   async runImmuneCheck(): Promise<ImmuneCheckReport> {
     const response = await this._sendRequest(
       MSG_TYPE.RUN_IMMUNE_CHECK,
@@ -999,10 +1002,11 @@ export class SubstrateClient {
     return parseFederationLinkToParentFromHintResponse(response);
   }
 
-  /** L2/FEDERATION §6.5: Propose a population-level claim — the substrate mints
-   *  its OWN vote (signed with its signing seed) and opens a consensus round.
-   *  Returns the round_id + tally. Only fires consequence at ≥3 peers (the
-   *  consensus floor); below that, pairwise-trust + owner-attestation governs.
+  /** L2/FEDERATION §6.5: Propose a population-level claim. The substrate mints
+   *  its OWN vote (signed with its own F24 signing seed) and opens a consensus
+   *  round. Returns the round_id + tally. Only fires consequence at ≥3 peers
+   *  (the consensus floor); below that, pairwise peer-trust governs (v0.9
+   *  keyless: no owner-attestation).
    *
    *  `claimType` must be one of: "peer_revocation",
    *  "universal_junk_classification", "cross_substrate_aggregate_metric". */

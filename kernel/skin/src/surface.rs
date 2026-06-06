@@ -7,15 +7,16 @@
 //!
 //! - **Intake endpoints** — where deltas enter (e.g., Unix socket, named pipe,
 //!   TCP port).
-//! - **Output endpoints** — where outputs exit (federation peers, anchor-surface
-//!   endpoint, optional summary export).
+//! - **Output endpoints** — where outputs exit (federation peers, the
+//!   canonical-bytes output channel, optional summary export).
 //! - **Forbidden surfaces** — implicit "everything else is breach"; enforced by
 //!   the [`crate::egress_enforce`] module + the [`crate::output_gate`] routing
 //!   check.
 //!
 //! Skin surface is a **contract-identity-level fixed point** (L1/HARD_RULES F11):
-//! mutating the declared endpoint set requires owner-attested CI envelope.
-//! Substrate cannot silently add an endpoint.
+//! mutating the declared endpoint set is a CI-class change. v0.9 keyless: there
+//! is no owner-attested envelope; the CI authority is the doctrine-repo PR
+//! review + the BLAKE3 drift gate. Substrate cannot silently add an endpoint.
 //!
 //! ## M1 implementation
 //!
@@ -41,18 +42,21 @@ pub enum SurfaceError {
 /// Endpoint kind tag.
 ///
 /// L1/SKIN §1 enumerates intake vs output; output further split into federation
-/// vs anchor-surface vs optional summary-export. The kind tag drives routing
-/// in [`crate::output_gate`] and enforcement in [`crate::egress_enforce`].
+/// vs the canonical-bytes output channel vs optional summary-export. The kind
+/// tag drives routing in [`crate::output_gate`] and enforcement in
+/// [`crate::egress_enforce`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EndpointKind {
     /// Delta intake — receives [`crate::envelope::Envelope`] from an operator.
     Intake,
     /// Federation egress — outbound to a peer substrate.
     FederationOut,
-    /// Anchor-surface output — canonical-bytes-discipline-mandated outputs to
-    /// the owner-controlled anchor surface (per L0/cards/AS_anchor_surface §3 + L1/SKIN §3).
+    /// Canonical-bytes output — the canonical-bytes-discipline-mandated external
+    /// output channel (per L1/SKIN §3). v0.9 keyless: the owner-controlled
+    /// anchor surface this once targeted is removed; the variant name persists
+    /// as the endpoint-kind label for a self-published canonical output.
     AnchorSurfaceOut,
-    /// Optional summary export — outbound to owner-readable summary log
+    /// Optional summary export — outbound to a human-readable summary log
     /// (canonical-bytes still required; renderer-readable derivative).
     SummaryExportOut,
 }
@@ -73,8 +77,9 @@ pub struct Endpoint {
 
 /// The declared skin surface — tier-1 SSoT, F11 fixed-point.
 ///
-/// Substrate cannot mutate this except via owner-attested CI envelope (enforced
-/// at the classifier in `kernel/governance`).
+/// Substrate cannot mutate this except via a CI-class change (v0.9 keyless:
+/// gated by the doctrine-repo PR review + the BLAKE3 drift gate, classified at
+/// the `kernel/governance` classifier — not an owner-attested envelope).
 #[derive(Debug, Clone, Default)]
 pub struct SkinSurface {
     intake: Vec<Endpoint>,
@@ -86,7 +91,8 @@ impl SkinSurface {
     ///
     /// An empty surface has no intake (substrate cannot receive deltas) and
     /// no output (substrate cannot emit). Used only as a starting state in
-    /// substrate genesis; the owner-attested genesis envelope populates it.
+    /// substrate genesis; the genesis declaration populates it (v0.9 keyless:
+    /// no owner-attested envelope).
     pub fn new() -> Self {
         SkinSurface {
             intake: Vec::new(),

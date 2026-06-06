@@ -1,8 +1,8 @@
-> **L0 doctrine reference (v3.1 transition note)**: this document was written against the prior monolithic L0 (DRAFT 9 SEALED, 2026-05-17). The canonical L0 doctrine is now `docs/architecture/L0/` (v3.1-stratigraphy, 2026-05-18). References in this document using the old `L0 §x.y` / `P2.a` / `I3` notation resolve to v3.1 cards via `docs/architecture/L0/PROVENANCE.md` §2 mapping table. Surgical update of these references to v3.1 citation form is deferred to a v0.9.x housekeeping pass (coupled with Layer C witness corpus implementation per META §5.4) — see `docs/architecture/OUTLINE.md` §3 for details.
+> **L0 doctrine reference (v3.1 transition note)**: this document was written against the prior monolithic L0 (DRAFT 9 SEALED, 2026-05-17). The canonical L0 doctrine is now `docs/architecture/L0/` (v3.1-stratigraphy, 2026-05-18). References in this document using the old `L0 §x.y` / `P2.a` / `I3` notation resolve to v3.1 cards via `docs/architecture/L0/PROVENANCE.md` §2 mapping table. Surgical update of these references to v3.1 citation form is deferred to a v0.9.x housekeeping pass (coupled with Layer C witness corpus implementation per META §5.4). See `docs/architecture/OUTLINE.md` §3 for details.
 
 ---
 
-# Federation — Recursive Injection Defense
+# Federation: Recursive Injection Defense
 
 Canonical algorithm reference for **L2/FEDERATION §11** (SECURITY-CRITICAL).
 
@@ -48,7 +48,7 @@ Emit:
 - C35 (banned inner at depth N: `cascade_flag=true, depth=N, inner_node_type=T, peer_substrate_id`).
 - OR C43 (depth-exceeded: `attempted_depth=N+1, peer_substrate_id`).
 
-Per-peer rate-limit (seed 3 rejections / 24 wall-clock hours) → `federation_peer_recursive_attack_burst` + propose peer revocation (below floor: owner-attested; above: P15 §6.5.b.1).
+Per-peer rate-limit (seed 3 rejections / 24 hours on the substrate's own clock; keyless v3.1.5, acknowledged-debt: no external trusted clock) → `federation_peer_recursive_attack_burst` + propose peer revocation (below the P15 consensus floor: CI approval at the live human-in-the-loop gate, keyless v3.1.5, was "owner-attested"; at or above the floor: P15 §6.5.b.1 Byzantine consensus).
 
 ## C43 row
 
@@ -62,4 +62,4 @@ C43 vs C35: C35 = banned-type-at-some-depth; C43 = depth-exhaustion.
 
 - §11 extends §9.4 to every depth.
 - §10 transport-auth irrelevant (content validation; a valid-FED_HELLO peer is still subject to §11).
-- §6.5 quorum cert at depth-1 has allowlist-validated content + embedded `peer_votes` §10 Ed25519-verified — depth-bypass still fails signature verification.
+- §6.5 quorum cert at depth-1 has allowlist-validated content + embedded `peer_votes` §10 Ed25519-verified; depth-bypass still fails signature verification.

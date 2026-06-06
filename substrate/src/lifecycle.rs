@@ -1,15 +1,20 @@
-//! Substrate lifecycle primitives — extracted from `server.rs` (Phase B Step 3).
+//! Substrate lifecycle primitives, extracted from `server.rs` (Phase B Step 3).
 //!
-//! Owns the two P7-必朽 (mortality) lifecycle entry points — owner-attested
-//! self-euthanasia execution + birth-period quarantine lifting — plus the
+//! Owns the two P7-必朽 (mortality) lifecycle entry points, keyless
+//! self-euthanasia execution + birth-period quarantine lifting, plus the
 //! M22.5 quarantine-state helpers used by `dispatch()` to gate
 //! `register_axis`/`perturb` while the substrate is in inherited quarantine.
 //!
+//! **v0.9 keyless**: the owner Ed25519 gates (on both self-euthanasia execution
+//! and quarantine lifting) were removed with the owner-key + anchor surface.
+//! Whole-death / lift are now authorized by a DELIBERATE call referencing a real
+//! DAG proposal node (the non-arbitrary structural gate); the authorization root
+//! is the live human-in-the-loop, not an owner signature.
+//!
 //! Doctrine traceability:
-//! - L0 P7 必朽 — owner-co-attested self-euthanasia execution path.
-//! - L0 P8 集体免疫 — birth-period quarantine on child sprouting.
-//! - L1/HARD_RULES §1 — C34 birth_period_violation_during_quarantine.
-//! - Phase β SECURITY FIX (2026-05-15): lift requires owner Ed25519 signature.
+//! - L0 P7 必朽, keyless self-euthanasia execution path (proposal-referenced).
+//! - L0 P8 集体免疫, birth-period quarantine on child sprouting.
+//! - L1/HARD_RULES §1, C34 birth_period_violation_during_quarantine.
 
 use std::collections::BTreeMap;
 
@@ -23,9 +28,9 @@ use crate::SubstrateError;
 
 /// M23.2 P7 必朽: handle `accept_self_euthanasia_proposal`.
 ///
-/// Keyless deliberate-action gate (v3.1.5 — owner-key/anchor layer removed):
+/// Keyless deliberate-action gate (v3.1.5, owner-key/anchor layer removed):
 /// 1. The `proposal_hash` MUST point to a real `self_euthanasia_proposal:*`
-///    event in the substrate's DAG — the non-arbitrary, deliberate gate that
+///    event in the substrate's DAG, the non-arbitrary, deliberate gate that
 ///    replaces the (removed) owner Ed25519 signature. Whole-death cannot happen
 ///    by accident or on an arbitrary value; the authorization root is the live
 ///    human-in-the-loop, with this proposal-reference as the structural gate.
@@ -53,7 +58,7 @@ pub(crate) fn handle_accept_self_euthanasia_proposal(
     use std::time::{SystemTime, UNIX_EPOCH};
 
     // Keyless (v3.1.5): whole-death is authorized by a DELIBERATE call that
-    // references a real `self_euthanasia_proposal:*` node (verified below) —
+    // references a real `self_euthanasia_proposal:*` node (verified below),
     // NOT an owner signature. The owner-key/anchor layer was removed; the
     // authorization root is re-grounded in the live human-in-the-loop, with the
     // proposal-reference as the non-arbitrary structural gate.
@@ -208,7 +213,7 @@ pub(crate) fn quarantine_block(
 /// quarantine itself remains structurally enforced via `dispatch`'s
 /// register_axis/perturb gating until lifted or expired).
 ///
-/// Idempotent — calling when not in quarantine returns `was_in_quarantine=false`.
+/// Idempotent, calling when not in quarantine returns `was_in_quarantine=false`.
 pub(crate) fn handle_lift_birth_period_quarantine(
     state: &mut ServerState,
     request: &Message,

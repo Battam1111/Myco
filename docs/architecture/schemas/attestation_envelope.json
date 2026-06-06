@@ -1,71 +1,67 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "myco.l1.governance.attestation_envelope.v1",
-  "title": "contract_identity_attestation_request",
-  "description": "CI attestation envelope (L1/GOVERNANCE §2.2; per L0/cards/AS_anchor_surface §3.8 canonical-bytes). Substrate emits; Cultivator verifies + co-signs per L1/GOVERNANCE §2.3. Anchor-nonce bound to (mutation_hash, dag_tip_hash); TTL default 5 anchor-min.",
+  "$id": "myco.l1.governance.attestation_envelope.v2",
+  "title": "ci_approval_content_envelope",
+  "note": "KEYLESS v3.1.5 REWRITE. The v1 schema (myco.l1.governance.attestation_envelope.v1, 'contract_identity_attestation_request') modeled the REMOVED owner-attestation envelope: owner_signature (operator_witness), anchor_surface_nonce, and anchor wall-clock expiry. With the owner key + anchor surface retired (see docs/architecture/L0/cards/AS_anchor_surface.md), that signature-bearing envelope no longer exists and had no live producer or consumer. What survives is the KEPT C5 attestation, which validates the CONTENT of a CI-class mutation (NOT a signature): the substrate emits the proposed mutation as canonical-bytes, and the cultivator renders + re-derives the hash at the live human-in-the-loop CI gate, then approves or rejects in the loop. Trust root is the live human at the gate + the substrate's causal DAG (P06) + the BLAKE3-sealed doctrine bundle; there is no nonce, owner signature, or trusted wall-clock stamp. This minimal v2 schema documents that surviving content envelope. The live producer/validator is substrate/src/attestation.rs (handle_submit_mutation + the C5_attestation_invalid local content checks); C5 is rowed at L1/HARD_RULES §1 and the flow at L1/GOVERNANCE §2.2-§2.3.",
   "type": "object",
   "required": [
     "type",
     "substrate_id",
     "dag_tip_hash",
     "enumerated_dag_nodes_since_last_co_sign",
+    "mutation_type",
     "proposed_mutation_canonical_bytes",
     "proposed_mutation_hash",
-    "operator_witness",
-    "operator_signing_key_public",
-    "request_timestamp_substrate_cycles",
-    "anchor_surface_nonce",
-    "expiry_constraints"
+    "request_timestamp_substrate_cycles"
   ],
   "properties": {
     "type": {
       "type": "string",
-      "const": "contract_identity_attestation_request"
+      "const": "ci_approval_content_envelope",
+      "description": "Keyless v3.1.5; was 'contract_identity_attestation_request' (the owner-signature request envelope, retired)."
     },
     "substrate_id": {
       "type": "string",
-      "description": "Per L0/cards/AS_anchor_surface §3.1; substrate-ID fixed post-genesis."
+      "description": "Substrate-ID fixed post-genesis (keyless v3.1.5: derived without owner-pubkey / anchor-endpoint inputs)."
     },
     "dag_tip_hash": {
       "type": "string",
-      "description": "Current Merkle DAG tip (per L1/SCHEMA §2.2)."
+      "description": "Current Merkle DAG tip (per L1/SCHEMA §2.2). The cultivator confirms tip currency at the live CI gate using substrate-cycle ordering (P06), not an anchor wall-clock."
     },
     "enumerated_dag_nodes_since_last_co_sign": {
       "type": "array",
       "items": {"type": "string"},
-      "description": "All DAG node hashes added since prior co-sign (not summary diff); enables Merkle-chain closure check per L0/cards/AS_anchor_surface §3.13 + §9.2.2."
+      "description": "All DAG node hashes added since the prior CI approval (not a summary diff); enables Merkle-chain closure check so the substrate cannot hide a parallel-branch forgery. Re-derived by the cultivator at the live human-in-the-loop CI gate."
+    },
+    "mutation_type": {
+      "type": "string",
+      "description": "The CI-class mutation whose CONTENT the kept C5 attestation validates. The live keyless validators (substrate/src/attestation.rs) cover: owner_objective_declaration (F20 telos objective content), the compression-witness (compression-rule content), and set_backup_encryption_status (backup-status content); plus schema-evolution. Malformed content for any of these emits C5_attestation_invalid and is rejected with no DAG churn.",
+      "examples": [
+        "owner_objective_declaration",
+        "compression_witness",
+        "set_backup_encryption_status",
+        "schema_evolution"
+      ]
     },
     "proposed_mutation_canonical_bytes": {
       "type": "string",
-      "description": "Canonical-bytes per §9.3.1; substrate emits, Cultivator renders (substrate does not render)."
+      "description": "Canonical-bytes (F16) of the proposed mutation content; the substrate emits, the cultivator renders deterministically at the live CI gate (the substrate does not render or self-assert 'pass')."
     },
     "proposed_mutation_hash": {
       "type": "string",
-      "description": "Hash over canonical-bytes."
-    },
-    "operator_witness": {
-      "type": "string",
-      "description": "Signature using operator_signing_key_private per L1/SKIN §4.1."
-    },
-    "operator_signing_key_public": {
-      "type": "string",
-      "description": "From current handshake; cross-checked vs anchor-logged handshake by Cultivator."
+      "description": "Hash over the canonical-bytes; re-derived by the cultivator at the live CI gate and compared (keyless v3.1.5: this is the integrity check that replaces the retired owner signature)."
     },
     "request_timestamp_substrate_cycles": {
       "type": "integer",
-      "description": "Per L0/cards/P06_eternal_causality + L1/CONTINUITY (time semantics) substrate-cycle authority for within-substrate ordering."
-    },
-    "anchor_surface_nonce": {
-      "type": "string",
-      "description": "Single-use nonce bound at step 1 of L1/GOVERNANCE §2.2 to (mutation_hash, dag_tip_hash); minted by anchor not substrate."
-    },
-    "expiry_constraints": {
-      "type": "object",
-      "required": ["cycles_max", "wall_clock_seconds_max"],
-      "properties": {
-        "cycles_max": {"type": "integer", "description": "Substrate-cycle expiry (L1-tunable)."},
-        "wall_clock_seconds_max": {"type": "integer", "description": "Anchor wall-clock expiry (L1-tunable). Whichever first invalidates wins (substrate cannot extend wall-clock via cycle throttle)."}
-      }
+      "description": "Substrate-cycle counter for within-substrate ordering (P06 + L1/CONTINUITY time semantics). Keyless v3.1.5: this is the only time field; the prior anchor wall-clock expiry is retired (acknowledged-debt: no external trusted clock, so CI approval is a live-human act with no security-bearing expiry timer)."
     }
+  },
+  "additionalProperties": false,
+  "x-retired-v1-fields": {
+    "note": "Removed with the owner key + anchor surface (keyless v3.1.5); listed here for provenance only, not part of the keyless envelope.",
+    "operator_witness": "owner/operator signature over the canonical-bytes hash; retired (no owner key gates CI).",
+    "operator_signing_key_public": "owner-side verifying key cross-checked against an anchor-logged handshake; retired.",
+    "anchor_surface_nonce": "single-use anchor-minted nonce bound to (mutation_hash, dag_tip_hash); retired (sampling/derivation is now substrate/DAG-tip-derived).",
+    "expiry_constraints.wall_clock_seconds_max": "anchor wall-clock expiry; retired (no external trusted clock)."
   }
 }

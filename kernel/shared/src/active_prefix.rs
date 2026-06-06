@@ -2,10 +2,11 @@
 //!
 //! ## Purpose
 //!
-//! Per pass-3 saprotroph-1, monotone tier-1 fields (owner_key_history,
-//! template_version_registry, federation aggregate-reattestation chain) grow
-//! unbounded over a substrate's lifetime. Without discipline, per-cycle tier-1
-//! validation cost grows with substrate age.
+//! Per pass-3 saprotroph-1, monotone tier-1 fields (template_version_registry,
+//! the federation aggregate-reattestation chain) grow unbounded over a
+//! substrate's lifetime. Without discipline, per-cycle tier-1 validation cost
+//! grows with substrate age. (v0.9 keyless: owner_key_history, the original
+//! lead example, was removed with the owner key.)
 //!
 //! The active-prefix + archived-tail discipline splits each monotone field:
 //!
@@ -16,8 +17,9 @@
 //!
 //! ## API
 //!
-//! [`ActivePrefix<T>`] is a generic container. Each user (owner_key_history,
-//! template_version_registry, etc.) instantiates with its own entry type.
+//! [`ActivePrefix<T>`] is a generic container. Each user
+//! (template_version_registry, the federation aggregate-reattestation chain,
+//! etc.) instantiates with its own entry type.
 //!
 //! ## M1 implementation status
 //!
@@ -32,9 +34,9 @@ pub trait PrefixEntry: Clone {
     /// Chronological timestamp for sorting. Higher = newer.
     fn timestamp(&self) -> i64;
 
-    /// Whether this entry is still "currently valid" (e.g., owner_key with
-    /// no valid_until set yet). Always-valid entries stay in the active prefix
-    /// regardless of K.
+    /// Whether this entry is still "currently valid" (e.g., a template-version
+    /// registry entry with no valid_until set yet). Always-valid entries stay
+    /// in the active prefix regardless of K.
     fn is_currently_valid(&self) -> bool;
 }
 

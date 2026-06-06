@@ -1,4 +1,4 @@
-//! Substrate-side server loop — handles operator-facing M5 protocol.
+//! Substrate-side server loop, handles operator-facing M5 protocol.
 //!
 //! ## Lifecycle
 //!
@@ -35,7 +35,7 @@ use myco_kernel_shared::canonical_bytes::{
 };
 
 use crate::persistence::{
-    default_state_dir, ensure_state_dir, load_dag, load_nonce_log, Manifest,
+    default_state_dir, ensure_state_dir, load_dag, Manifest,
 };
 use crate::SubstrateError;
 
@@ -80,21 +80,21 @@ pub(crate) mod manifest_failure_evidence {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// M23.1 P4 永恒迭代 — autonomous tick infrastructure.
+// M23.1 P4 永恒迭代, autonomous tick infrastructure.
 // ---------------------------------------------------------------------------
 
 /// Frame messages shipped from the stdin reader thread to the main loop.
 ///
 /// The reader sends `Frame(bytes)` per successful frame read. On clean EOF
-/// (read_frame returns `Ok(None)`), the reader exits — dropping its `Sender`
-/// — and the main loop's next `recv_timeout` returns `Disconnected`. On I/O
+/// (read_frame returns `Ok(None)`), the reader exits, dropping its `Sender`
+///, and the main loop's next `recv_timeout` returns `Disconnected`. On I/O
 /// error, the reader sends `ReadError(msg)` so the main loop can surface the
 /// actual cause before terminating.
 #[derive(Debug)]
 enum FrameMsg {
     /// A complete length-prefixed frame body (HMAC + canonical-bytes).
     Frame(Vec<u8>),
-    /// A read error encountered before reaching EOF — surfaced for diagnostics.
+    /// A read error encountered before reaching EOF, surfaced for diagnostics.
     ReadError(String),
 }
 
@@ -113,7 +113,7 @@ fn parse_tick_interval() -> Duration {
 }
 
 // ---------------------------------------------------------------------------
-// M23.1 P4 永恒迭代 — autonomous tick implementation moved to
+// M23.1 P4 永恒迭代, autonomous tick implementation moved to
 // `crate::server::autonomous` (`do_autonomous_tick` + the self-driven cycle
 // helpers). `run_loop` invokes `do_autonomous_tick` (re-imported below) from
 // its `recv_timeout` Timeout branch; behavior is unchanged.
@@ -159,17 +159,17 @@ pub(crate) struct ServerState {
     pub(crate) state_dir: PathBuf,
     /// Persistent causal DAG of substrate events (sporocarps etc.) (M8).
     pub(crate) dag: Dag,
-    /// M13: Attestation nonce log (in-process; not persisted at M13 minimum).
-    /// Keyed by nonce bytes for O(1) lookup on submit.
-    pub(crate) nonce_log: std::collections::HashMap<[u8; 32], crate::attestation::AttestationNonce>,
+    // (v0.9 keyless removal: the in-process attestation `nonce_log` field, and
+    // its on-disk + DAG-derived backing, were removed with the owner-key +
+    // anchor surface. No code path issues nonces in the keyless build.)
     /// M22 P5 万物互联: inter-substrate federation state (listener + peers).
     /// Always present; the listener field stays `None` until the operator
     /// invokes `federation_open_listener`.
     pub(crate) federation: crate::federation::FederationState,
-    /// **C13 — local federation peer revocation** (L1/GOVERNANCE §5.2 +
+    /// **C13, local federation peer revocation** (L1/GOVERNANCE §5.2 +
     /// L2/FEDERATION §6.5.b per-peer OWNER revocation). Set of
     /// `substrate_id`s the owner has revoked via an attested
-    /// `revoke_federation_peer` CI mutation. The DAG is canonical — each
+    /// `revoke_federation_peer` CI mutation. The DAG is canonical, each
     /// revocation is a `federation_peer_revoked:{prefix}` event; this in-memory
     /// set is a projection re-derived at boot via
     /// [`crate::events::derive_revoked_federation_peers_from_dag`] and kept
@@ -201,7 +201,7 @@ pub(crate) struct ServerState {
     /// `operator_attested_context_window_bytes`. Used at cycle-advance time
     /// to populate `signal_6_ratio_repr` on each new ObservatorySnapshot.
     /// `None` until the operator first attests a window. The substrate
-    /// cannot derive this autonomously — it is an operator-environment fact.
+    /// cannot derive this autonomously, it is an operator-environment fact.
     pub(crate) last_operator_context_window_bytes: Option<u64>,
     /// M25.1: tracks the most recent doctrine-burst sporocarp emission to
     /// prevent burst spam on every observatory query. Stores
@@ -234,21 +234,21 @@ pub(crate) struct ServerState {
     /// in `Saturated`. When this crosses `cost_budgets
     /// .sustained_saturation_mortality_cycle_threshold`, the substrate
     /// escalates to a `self_euthanasia_proposal:metabolic_saturation` (a
-    /// PROPOSAL the existing accept_self_euthanasia path executes — NOT
+    /// PROPOSAL the existing accept_self_euthanasia path executes, NOT
     /// auto-death). In-memory only; re-derived/reset to 0 at boot (the boot
     /// path restarts saturation tracking at Normal), so zero byte-format risk.
     pub(crate) saturated_consecutive_cycles: u64,
-    /// **P11.c P02-refusal debounce** — consecutive cycles in which ANY cost
+    /// **P11.c P02-refusal debounce**, consecutive cycles in which ANY cost
     /// axis exceeded its budget (incremented every exhausted cycle regardless of
     /// saturation stage; reset to 0 on the first within-budget cycle). The
     /// pre-eligibility P02 refusal gates on this being ≥
     /// `P02_REFUSAL_SUSTAINED_CYCLES` so a single transient compute SPIKE (one
     /// slow Python cycle can exceed the 100ms seed compute budget) does NOT
-    /// refuse intake — only genuinely SUSTAINED exhaustion does (L2/OBSERVABILITY
+    /// refuse intake, only genuinely SUSTAINED exhaustion does (L2/OBSERVABILITY
     /// §3 "spikes DAG-recorded but do not fire"). In-memory only (zero byte risk).
     pub(crate) consecutive_budget_exhausted_cycles: u64,
     /// **P11.c**: cooldown for the metabolic-saturation self-euthanasia
-    /// proposal — `Some(cycle)` of the last emission, reset to `None` on
+    /// proposal, `Some(cycle)` of the last emission, reset to `None` on
     /// return to `Normal` so a fresh saturation episode can re-propose.
     /// In-memory only (zero byte-format risk).
     pub(crate) last_saturation_mortality_proposal_at_cycle: Option<u64>,
@@ -290,26 +290,26 @@ pub(crate) struct ServerState {
     /// the same hoarding episode. Same 100-cycle cooldown discipline as
     /// other M25 / M26 detectors. `None` = never emitted.
     pub(crate) last_hoarding_indicator_emitted_at_cycle: Option<u64>,
-    /// **Phase ① (CHAR01 §4.3 / P02 §4.4)** — debounce for the proactive
+    /// **Phase ① (CHAR01 §4.3 / P02 §4.4)**, debounce for the proactive
     /// `cultivar_initiated_ingestion_request` event. Stores the cycle at which
     /// the substrate last emitted the hunger request; re-emission is suppressed
     /// for `HUNGER_REQUEST_DEBOUNCE_CYCLES` so a sustained-hungry stretch reaches
     /// out at most once per debounce interval rather than every cycle. In-memory
-    /// only (re-derived at boot — the DAG carries the canonical request events).
+    /// only (re-derived at boot, the DAG carries the canonical request events).
     pub(crate) last_cultivar_initiated_ingestion_request_at_cycle: Option<u64>,
-    /// **Phase ① (P02 §8.1)** — debounce for the `C74_p02_ingestion_starvation`
+    /// **Phase ① (P02 §8.1)**, debounce for the `C74_p02_ingestion_starvation`
     /// severe-hunger immune sporocarp. Stores the cycle of the last C74 emission;
     /// suppresses re-alarming within `STARVATION_DEBOUNCE_CYCLES` (same sustained-
     /// debounce discipline as C54). The 1s/detector wall-clock rate-limit in
     /// `emit_immune_sporocarp` is a second, finer guard.
     pub(crate) last_ingestion_starvation_emitted_at_cycle: Option<u64>,
-    /// **v3.1.1 Sprint 2.C — L1/SKIN §8**: cached projection of the latest
+    /// **v3.1.1 Sprint 2.C, L1/SKIN §8**: cached projection of the latest
     /// `backup_encryption_status_declared:{status}` DAG event's status
     /// field. `None` = "unspecified" per L1/SKIN §8 → triggers
     /// `backup_encryption_undeclared` Daily sporocarp on boot. Valid
     /// non-None values: "encrypted_externally" / "cultivator_declined_explicit"
     /// (per `events::BACKUP_ENCRYPTION_STATUS_VALID_VALUES`). Re-derived
-    /// from DAG on every boot — DAG is canonical, this field is cache.
+    /// from DAG on every boot, DAG is canonical, this field is cache.
     pub(crate) backup_encryption_status: Option<String>,
     /// **v3.1.1 Sprint 5.E (T2.3)**: at-most-once-per-boot flag for the
     /// `C60_python_worker_unexpected_exit` immune sporocarp. Set to true
@@ -332,7 +332,7 @@ pub(crate) struct ServerState {
     /// **v3.1.1 Sprint 8.G (P03 §10.4)**: the single in-flight schema
     /// migration candidate, if any. `Some` between a `schema_migration_started`
     /// emission and the terminal commit/rollback. The MVP allows exactly ONE
-    /// in flight at a time — `attestation::handle_submit_mutation` rejects a
+    /// in flight at a time, `attestation::handle_submit_mutation` rejects a
     /// second migration while this is `Some`. Hydrated at boot from
     /// `DerivedState::migration_candidate` (which round-trips via snapshot.cb +
     /// is re-derivable from the schema_migration_started/terminal DAG events),
@@ -345,19 +345,19 @@ pub(crate) struct ServerState {
     /// `C66_WINDOW_EXCEEDED_COOLDOWN_CYCLES`. Same per-detector cooldown
     /// discipline as the C54/C63/C64/C65 detectors. `None` = never emitted.
     pub(crate) last_migration_window_exceeded_emitted_at_cycle: Option<u64>,
-    /// **COV06 §3.2.A (F21)** — the cultivation_successor_chain, mirrored from
+    /// **COV06 §3.2.A (F21)**, the cultivation_successor_chain, mirrored from
     /// `DerivedState::successor_chain`. Hydrated at boot from a full DAG
-    /// re-derivation (NOT snapshot.cb — byte-compat additive). The succession
+    /// re-derivation (NOT snapshot.cb, byte-compat additive). The succession
     /// FSM derivation (`crate::cultivation::current_cultivation_state`) reads the
     /// DAG directly; this mirror lets handlers validate non-overlap / monotone
     /// `valid_from` without re-walking the DAG on every append.
     pub(crate) successor_chain: Vec<crate::derived_state::DerivedSuccessorEntry>,
-    /// **COV06 §3.2.C** — active succession config (cadence + windows + terminal
+    /// **COV06 §3.2.C**, active succession config (cadence + windows + terminal
     /// choice), mirrored from `DerivedState::succession_config`. `None` → the
     /// built-in defaults (cadence 30d, legacy 365d, terminal 730d, choice
     /// `indefinite_orphan`) overlaid with `MYCO_TEST_*` env overrides.
     pub(crate) succession_config: Option<crate::derived_state::DerivedSuccessionConfig>,
-    /// **COV06 (efficiency)** — memoized cultivation-succession FSM state. The
+    /// **COV06 (efficiency)**, memoized cultivation-succession FSM state. The
     /// derivation (`crate::cultivation::current_cultivation_state`) is an
     /// unbounded full-DAG walk; reads happen on every ADVANCE (the `is_archived`
     /// metabolism guard). It is recomputed (one walk) at the centralized emit
@@ -368,13 +368,13 @@ pub(crate) struct ServerState {
 }
 
 impl ServerState {
-    // `pub(crate)` (was private): lets same-crate unit tests — e.g.
-    // `prune::tests` exercising `count_prune_resurrections` — construct an
+    // `pub(crate)` (was private): lets same-crate unit tests, e.g.
+    // `prune::tests` exercising `count_prune_resurrections`, construct an
     // in-memory `ServerState` from discrete identity fields + a `Dag`.
     //
     // **Task #8i**: takes the five discrete substrate-identity / metabolic-
     // position values directly (no `Manifest`). `substrate_id` / `genesis_time`
-    // are `Option` — `None` is the pre-genesis sentinel that the accessors map
+    // are `Option`, `None` is the pre-genesis sentinel that the accessors map
     // back to `[0u8;32]` / `0`. The DAG-first boot arm passes `derived`'s
     // already-`Option` fields verbatim; the legacy arm passes the inverse
     // sentinel mapping of a loaded/genesis `Manifest`.
@@ -394,8 +394,8 @@ impl ServerState {
         // within THIS process only. handle_advance() uses this field as the
         // cross-process source-of-truth.
         // M8: dag carries the substrate's causal history (sporocarps + future event types).
-        // M9: pinned_operator_identity is the TOFU-pinned operator pubkey;
-        //     None pre-first-hello.
+        // (v0.9 keyless: the M9 pinned_operator_identity TOFU pin was removed
+        //     with the owner-key + anchor surface; there is no pinned operator.)
         // M25.0: substrate_signing_seed is the substrate-private Ed25519 seed,
         //     loaded or genesis-generated by `boot_or_genesis_substrate_signing_key`.
         // M26.2 P11.b: seed CostAccumulator with current on-disk file sizes
@@ -417,7 +417,6 @@ impl ServerState {
             generation_depth,
             state_dir,
             dag,
-            nonce_log: std::collections::HashMap::new(),
             // M26.1 C5 SECURITY FIX: read `MYCO_ACCEPT_LEGACY_PEERS` env var at
             // construction. Default policy (env unset) rejects legacy FED_HELLOs;
             // override is for transition-period compatibility with pre-M25 peers.
@@ -425,7 +424,7 @@ impl ServerState {
             federation: crate::federation::FederationState::new_with_env_policy(),
             // C13: empty at construction; the boot path re-derives it from the
             // full DAG AFTER `new()` (mirrors backup_encryption_status +
-            // cultivation mirrors). NOT persisted separately — DAG is canonical.
+            // cultivation mirrors). NOT persisted separately, DAG is canonical.
             revoked_federation_peers: std::collections::HashSet::new(),
             substrate_signing_seed,
             observatory_history: std::collections::VecDeque::new(),
@@ -433,7 +432,7 @@ impl ServerState {
             last_doctrine_burst_emitted_at_cycle: None,
             last_bet_weakening_quorum_emitted_at_cycle: None,
             cost_accumulator,
-            // M26.4 seed defaults — F19 budgets + F20 objective + P11.c
+            // M26.4 seed defaults, F19 budgets + F20 objective + P11.c
             // state machine. Boot path will later replay
             // `substrate_saturated`/`substrate_normal_restored` events to
             // restore the runtime saturation_stage (M26.4 minimum: start at
@@ -509,7 +508,7 @@ impl ServerState {
             // COV06: cultivation FSM mirrors start empty; the boot path
             // re-derives them from the full DAG AFTER `new()` (mirrors
             // observatory_history + migration_candidate). NOT persisted in
-            // snapshot.cb (byte-compat additive — no format bump).
+            // snapshot.cb (byte-compat additive, no format bump).
             successor_chain: Vec::new(),
             succession_config: None,
             // Genesis default; boot hydrates this from the full-DAG re-derivation
@@ -519,7 +518,7 @@ impl ServerState {
     }
 
     // ----------------------------------------------------------------------
-    // Task #8i — discrete substrate-identity / metabolic-position accessors.
+    // Task #8i, discrete substrate-identity / metabolic-position accessors.
     //
     // These replace the former live `manifest: Manifest` in-memory mirror.
     // The five CONSUMED manifest fields now live as discrete fields directly
@@ -539,7 +538,7 @@ impl ServerState {
         self.substrate_id.unwrap_or([0u8; 32])
     }
 
-    /// **COV06 (efficiency)** — O(1) read of the memoized cultivation-succession
+    /// **COV06 (efficiency)**, O(1) read of the memoized cultivation-succession
     /// FSM state. Equivalent to `crate::cultivation::current_cultivation_state(self)`
     /// but without the full-DAG walk; the value is maintained at the centralized
     /// `emit_substrate_event` point + hydrated at boot. Use this on hot paths
@@ -633,8 +632,8 @@ impl ServerState {
 /// M23.1 P4 永恒迭代: the loop is now **autonomous**. A dedicated stdin reader
 /// thread reads operator frames in the background and ships them to the main
 /// loop via an `mpsc::Sender<FrameMsg>`. The main loop uses
-/// `recv_timeout(MYCO_TICK_INTERVAL_MS)` so that — when no operator frame is
-/// pending — the substrate uses the idle slice to do federation work
+/// `recv_timeout(MYCO_TICK_INTERVAL_MS)` so that, when no operator frame is
+/// pending, the substrate uses the idle slice to do federation work
 /// (`do_autonomous_tick`) without operator intervention. This is the moment
 /// the substrate stops being purely reactive: it ticks under its own clock.
 pub fn run_loop() -> Result<u8, SubstrateError> {
@@ -657,7 +656,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // This is the moment the DAG becomes Rust-side authoritative. State files
     // are still written (M21.4 will remove them); they're no longer read.
 
-    // M11: C7 dag_retro_edit_detected — quarantine corrupted dag.cb.
+    // M11: C7 dag_retro_edit_detected, quarantine corrupted dag.cb.
     let (dag, dag_load_failure_evidence): (Dag, Option<String>) = match load_dag(&state_dir) {
         Ok(Some(d)) => (d, None),
         Ok(None) => (Dag::default(), None),
@@ -683,7 +682,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
 
     // M25.0: load (or genesis) the substrate's private signing seed BEFORE
     // attempting to load snapshot.cb. The seed lets us verify that the
-    // on-disk snapshot was signed by THIS substrate (not a forged one) — the
+    // on-disk snapshot was signed by THIS substrate (not a forged one), the
     // snapshot's embedded signer_pubkey must match the pubkey derived from
     // our own seed, AND the signature must verify over the payload bytes.
     //
@@ -697,7 +696,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
             &state_dir,
         )?;
     if !signing_key_was_restrictive {
-        // M26.1 C6: tighten in-place so the gap doesn't widen. Best-effort —
+        // M26.1 C6: tighten in-place so the gap doesn't widen. Best-effort,
         // a failure here is logged but does NOT abort boot (substrate remains
         // functional; the C4 sporocarp emitted below records the breach).
         let _ = crate::persistence::tighten_substrate_signing_key_permissions(&state_dir);
@@ -726,7 +725,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         let loaded = crate::persistence::load_snapshot(&state_dir).ok().flatten();
         let from_snapshot = match loaded {
             Some(snap) => {
-                // M25.0 step 1: signer pubkey must match our own — otherwise
+                // M25.0 step 1: signer pubkey must match our own, otherwise
                 // some other substrate wrote this snapshot (or it was forged).
                 if snap.signer_pubkey != substrate_signing_pubkey {
                     snapshot_rejection_evidence = Some(format!(
@@ -747,7 +746,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                     ));
                     None
                 } else {
-                    // Signature OK — decode payload and proceed with M21.5
+                    // Signature OK, decode payload and proceed with M21.5
                     // tip-in-DAG check.
                     match DerivedState::from_canonical_bytes(&snap.payload) {
                         Ok(Some((mut state_from_snap, snap_tip))) => {
@@ -803,7 +802,6 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         boot_cycle_counter,
         boot_last_absorbed_cycle,
         boot_generation_depth,
-        nonce_log_entries,
         is_fresh_genesis,
     ): (
         Option<[u8; 32]>,
@@ -811,36 +809,20 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         u64,
         Option<u64>,
         u64,
-        Vec<crate::persistence::PersistedNonceEntry>,
         bool,
     ) = if boot_from_dag {
         // M21.2 derived-first path: state comes from DAG events. Copy the
         // identity / metabolic fields straight off `derived` (already `Option`
-        // for substrate_id / genesis_time — no `to_legacy_manifest` needed).
-        // Convert DerivedNonce → PersistedNonceEntry for ServerState population.
-        let nonces: Vec<crate::persistence::PersistedNonceEntry> = derived
-            .nonce_log
-            .values()
-            .map(|n| crate::persistence::PersistedNonceEntry {
-                nonce: n.nonce,
-                bound_content_hash: n.bound_content_hash,
-                bound_dag_tip: n.bound_dag_tip,
-                substrate_issued_at_unix_ns: n.substrate_issued_at_unix_ns,
-                expiry_unix_ns: n.expiry_unix_ns,
-                anchor_clock_issued_at_unix_ns: n.anchor_clock_issued_at_unix_ns,
-                anchor_clock_expiry_unix_ns: n.anchor_clock_expiry_unix_ns,
-                consumed: n.consumed,
-            })
-            .collect();
+        // for substrate_id / genesis_time, no `to_legacy_manifest` needed).
+        // (v0.9 keyless: no nonce ledger to convert.)
         (
-            // substrate_id / genesis_time are already Option on DerivedState —
+            // substrate_id / genesis_time are already Option on DerivedState,
             // copy verbatim (None iff no genesis_event seen yet).
             derived.substrate_id,
             derived.genesis_time_unix_ns,
             derived.cycle_counter,
             derived.last_absorbed_cycle,
             derived.generation_depth,
-            nonces,
             false,
         )
     } else {
@@ -879,24 +861,13 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         // Push the evidence into a static path via a side-effect free way:
         // we re-derive on the way out by reading back the existence of the
         // quarantine file. Simpler: thread the Option<String> via a closure
-        // — but in this branch we don't have access to `state` yet, so we
+        //, but in this branch we don't have access to `state` yet, so we
         // emit the immune sporocarp AFTER state construction below by
         // re-reading the quarantine evidence from disk-listing.
         // To avoid threading complexity through the existing match arms,
         // we use a thread-local Cell to carry the evidence forward.
         crate::server::manifest_failure_evidence::set(manifest_load_failure_evidence);
-        let now_for_prune = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .ok()
-            .and_then(|d| i64::try_from(d.as_nanos()).ok())
-            .unwrap_or(0);
-        let entries = match load_nonce_log(&state_dir) {
-            Ok(Some(entries)) => entries
-                .into_iter()
-                .filter(|e| !(e.consumed && now_for_prune > e.expiry_unix_ns))
-                .collect::<Vec<_>>(),
-            _ => Vec::new(),
-        };
+        // (v0.9 keyless: no nonce log to load/prune at boot.)
         // **Task #8i**: decompose the loaded/genesis `Manifest` into the five
         // discrete identity / metabolic-position values via the INVERSE sentinel
         // mapping (exact inverse of the removed `to_legacy_manifest`):
@@ -922,7 +893,6 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
             m.cycle_counter,
             m.last_absorbed_cycle,
             m.generation_depth,
-            entries,
             fresh,
         )
     };
@@ -962,7 +932,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         candidate.enter_validating(mc.started_at_cycle);
         state.migration_candidate = Some(candidate);
     }
-    // **COV06** — re-derive the cultivation FSM state from the FULL DAG and
+    // **COV06**, re-derive the cultivation FSM state from the FULL DAG and
     // mirror it onto ServerState. These three fields are deliberately NOT in
     // snapshot.cb (byte-compat additive: no format_version bump), so a
     // snapshot-accelerated boot would otherwise miss cultivation events older
@@ -980,21 +950,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // Hydrate the memoized FSM cache once (one full-DAG walk at boot); thereafter
     // `emit_substrate_event` keeps it current on each cultivation-family emission.
     state.cultivation_state = crate::cultivation::current_cultivation_state(&state);
-    for entry in nonce_log_entries {
-        state.nonce_log.insert(
-            entry.nonce,
-            crate::attestation::AttestationNonce {
-                nonce: entry.nonce,
-                bound_content_hash: entry.bound_content_hash,
-                bound_dag_tip: entry.bound_dag_tip,
-                substrate_issued_at_unix_ns: entry.substrate_issued_at_unix_ns,
-                expiry_unix_ns: entry.expiry_unix_ns,
-                anchor_clock_issued_at_unix_ns: entry.anchor_clock_issued_at_unix_ns,
-                anchor_clock_expiry_unix_ns: entry.anchor_clock_expiry_unix_ns,
-                consumed: entry.consumed,
-            },
-        );
-    }
+    // (v0.9 keyless: no nonce log to hydrate onto ServerState.)
 
     // M25.0: if snapshot.cb was rejected for signature mismatch or invalid
     // signature, surface as a C38 immune sporocarp so the operator can
@@ -1010,14 +966,14 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         let _ = save_dag_state(&state);
     }
 
-    // **v3.1.1 Sprint 2.C** — derive backup_encryption_status from DAG.
+    // **v3.1.1 Sprint 2.C**, derive backup_encryption_status from DAG.
     //
     // L1/SKIN §8 puts backup-encryption-key custody outside the substrate
     // (cultivator generates locally; operator-runtime encrypts; substrate
     // only holds a public status pointer). The status SSoT lives in the DAG
     // as `backup_encryption_status_declared:{status}` events; we cache the
     // latest value on ServerState for fast access. Re-derived on every
-    // boot — DAG is canonical, the cached field is just a projection.
+    // boot, DAG is canonical, the cached field is just a projection.
     //
     // Daily-grade `backup_encryption_undeclared` signal emission is
     // DEFERRED to a later position in the boot sequence (after the M-anchor-2
@@ -1027,7 +983,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     state.backup_encryption_status =
         crate::events::derive_backup_encryption_status_from_dag(&state.dag);
 
-    // **C13** — re-derive the revoked-federation-peer set from the DAG. Each
+    // **C13**, re-derive the revoked-federation-peer set from the DAG. Each
     // owner-attested `revoke_federation_peer` CI mutation emitted a
     // `federation_peer_revoked:{prefix}` event; the in-memory set is a pure
     // projection of those events (DAG is canonical). A substrate restarted
@@ -1042,7 +998,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // those features.)
 
     // M26.1 C6 SECURITY FIX (Phase γ.2): substrate_signing_key.cb existed on
-    // disk with loose Unix permissions (group/world bits set) — emit a
+    // disk with loose Unix permissions (group/world bits set), emit a
     // `C4_substrate_secret_unsealed` immune sporocarp on the DAG so the
     // breach is observable. We already tightened the file in-place above;
     // the sporocarp is the audit-trail record. This path is a no-op on the
@@ -1067,10 +1023,10 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // If DAG load failed: emit BOTH C7 + **C41 (M26.3)** immune sporocarps
     // into the fresh DAG.
     //
-    // - C7 dag_retro_edit_detected (L1/HARD_RULES §1.1) — Merkle DAG node
+    // - C7 dag_retro_edit_detected (L1/HARD_RULES §1.1), Merkle DAG node
     //   hash mismatch on re-computation; covers the case where bytes parse
     //   but hashes don't reconstruct.
-    // - **C41 dag_cb_integrity_violation (M26.3 L1/HARD_RULES §1.2)** —
+    // - **C41 dag_cb_integrity_violation (M26.3 L1/HARD_RULES §1.2)**,
     //   broader `dag.cb` file-level integrity check per L1/SCHEMA §2.1 + L0
     //   §9.4. Covers raw bytes corruption / decode failure / canonical-bytes
     //   format invalidity. Strict-superset of C7 for boot-time integrity.
@@ -1116,7 +1072,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // canonical-bytes payload is the CompressionWitness). If a compression_event
     // exists without that immediate ancestry, the DAG has been tampered with
     // (or some other code path emitted compression_event without going through
-    // submit_mutation CI gate) — emit C52 per L1/HARD_RULES §1.2.
+    // submit_mutation CI gate), emit C52 per L1/HARD_RULES §1.2.
     //
     // Implementation: walk the DAG; for each compression_event, look at its
     // parent_hashes; pull the parent node; check its node_type. If not
@@ -1208,11 +1164,11 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         // genesis_event; no owner-signed birth/duress records are written.)
     }
 
-    // **v3.1.1 Sprint 2.C** — emit `backup_encryption_undeclared` Daily
+    // **v3.1.1 Sprint 2.C**, emit `backup_encryption_undeclared` Daily
     // signal NOW (post genesis_event) so the
     // fresh-genesis node-count guard above is not perturbed.
     //
-    // Per L1/SKIN §9 detection table this is a **Daily-grade** signal —
+    // Per L1/SKIN §9 detection table this is a **Daily-grade** signal,
     // visible but not breach-quarantine. Emit on a `daily_signal:*` prefix
     // so reproduction's quarantine scan (which keys on `immune:*`) does
     // NOT pull child substrates into birth-period quarantine for an
@@ -1275,9 +1231,9 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
 
     // (v0.9 owner-key removal: the M-anchor-2 §9.2.1 C20 boot-time
     // birth-attestation signature verification was removed with the anchor
-    // surface — there is no longer an owner-signed birth attestation to verify.)
+    // surface, there is no longer an owner-signed birth attestation to verify.)
 
-    // M12: C9 cold_resume_invariant_failure — run comprehensive integrity
+    // M12: C9 cold_resume_invariant_failure, run comprehensive integrity
     // checks at boot. For each failing check, emit a C9 immune sporocarp.
     // The substrate continues running regardless; the immune events are an
     // audit trail for the operator to inspect.
@@ -1316,12 +1272,12 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
         let _ = save_dag_state(&state);
     }
 
-    // **P08 §3.5 I7(c) — child-boot birth closure (I3-first).**
+    // **P08 §3.5 I7(c), child-boot birth closure (I3-first).**
     //
     // A child sprouted via `handle_sprout_child` carries a
     // `birth_closure_pending:*` marker in its DAG (written right after its
-    // genesis_event by the parent). On the child's FIRST boot — i.e. when a
-    // pending marker exists WITHOUT a later `birth_closure_complete:*` — the
+    // genesis_event by the parent). On the child's FIRST boot, i.e. when a
+    // pending marker exists WITHOUT a later `birth_closure_complete:*`, the
     // child must run its OWN I3 self-validation as its first metabolic cycle
     // (L1/SCHEMA §3.3 step 2) BEFORE any operator cycle. We reuse the boot
     // integrity self-check just computed above (`integrity_results`); its
@@ -1373,7 +1329,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // **M-anchor-4 §9.3.4**: emit invariant_witness:{check_id} DAG events
     // for each integrity check (regardless of pass/fail). The witnesses
     // give the owner raw inputs to re-derive each check's verdict
-    // independently — substrate "does NOT emit pass/fail" per doctrine.
+    // independently, substrate "does NOT emit pass/fail" per doctrine.
     let witnesses_emitted =
         crate::integrity::emit_invariant_witnesses(&mut state, &integrity_results);
     if witnesses_emitted > 0 {
@@ -1396,7 +1352,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                     }
                 }
                 Ok(None) => {
-                    // Clean EOF — drop tx; main loop sees Disconnected.
+                    // Clean EOF, drop tx; main loop sees Disconnected.
                     return;
                 }
                 Err(e) => {
@@ -1432,7 +1388,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                 ))));
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
-                // Autonomous tick — do federation work iff handshake done +
+                // Autonomous tick, do federation work iff handshake done +
                 // listener open. Other ticks are no-ops (preserves the
                 // pre-handshake / no-federation idle behavior of M22 and
                 // earlier).
@@ -1493,14 +1449,14 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                     return Ok(0);
                 }
                 // M23.2 P7 必朽: after a successful accept_self_euthanasia_proposal
-                // we MUST shut down — the substrate has been authorized to die.
+                // we MUST shut down, the substrate has been authorized to die.
                 // The response was just delivered (so the operator sees success).
                 if request.message_type == msg_type::ACCEPT_SELF_EUTHANASIA_PROPOSAL {
                     graceful_shutdown_python(&mut state);
                     return Ok(0);
                 }
                 // **COV06 T7 / LB §4**: after a successful accept_bet_retired_proposal
-                // the substrate is alive::archived — metabolism halts. The seal +
+                // the substrate is alive::archived, metabolism halts. The seal +
                 // state_dir are preserved (cold-readable forensic); we exit cleanly.
                 // A re-spawn re-derives Archived and the metabolism guard refuses
                 // any cycle advance, so the archived substrate stays dormant.
@@ -1516,7 +1472,7 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                 // M9: when a HELLO request fails (e.g., pubkey mismatch),
                 // key the error envelope with the operator-provided
                 // session_secret from the hello payload so the TS operator
-                // can decode our rejection. Then EXIT — a rejected hello
+                // can decode our rejection. Then EXIT, a rejected hello
                 // means the session is poisoned; no point continuing.
                 if request.message_type == msg_type::HELLO {
                     // M11: emit immune sporocarp for the rejected hello (C2 family).
@@ -1602,7 +1558,7 @@ pub(crate) fn hex_first_8_bytes(bytes: &[u8; 32]) -> String {
 /// evidence, and a wall-clock timestamp.
 ///
 /// Returns the DAG node hash (32 bytes). On failure to encode or insert,
-/// returns Err — but callers typically log + continue rather than escalating,
+/// returns Err, but callers typically log + continue rather than escalating,
 /// because immune emission failures should not mask the original breach.
 pub(crate) fn emit_immune_sporocarp(
     state: &mut ServerState,
@@ -1610,14 +1566,14 @@ pub(crate) fn emit_immune_sporocarp(
     detector_name: &str,
     evidence: &str,
 ) -> Result<myco_kernel_shared::crypto::NodeHash, SubstrateError> {
-    // **v3.1.1 Sprint 6.C (T1.7)** — use the monotonic wall-clock helper
+    // **v3.1.1 Sprint 6.C (T1.7)**, use the monotonic wall-clock helper
     // so Sprint 5.F immune rate-limit logic cannot be defeated by a
     // backward clock jump. If the OS clock jumps from year 2030 to 2026,
     // emit_immune_sporocarp continues to produce strictly-increasing
     // timestamps, keeping the rate-limit window stable.
     let timestamp_unix_ns = crate::wall_clock::monotonic_unix_ns();
 
-    // **v3.1.1 Sprint 5.F (T2.4)** — per-detector rate limit. Wall-clock
+    // **v3.1.1 Sprint 5.F (T2.4)**, per-detector rate limit. Wall-clock
     // window prevents DoS attacks where an attacker rapidly triggers a
     // detector (e.g., C56 cultivator_preserve_all, C5 attestation_invalid,
     // C2 handshake_mismatch) and fills the DAG with duplicate immune
@@ -1717,7 +1673,7 @@ pub(crate) fn emit_substrate_event(
         .dag
         .insert_node(parents, node_type, cycle, content)
         .map_err(|e| SubstrateError::Protocol(format!("substrate event DAG insert: {e}")))?;
-    // **COV06 (efficiency)** — keep the memoized FSM cache in sync. Every
+    // **COV06 (efficiency)**, keep the memoized FSM cache in sync. Every
     // cultivation-family event (heartbeats, stale, orphaned, recovered,
     // succession, bet_retired) flows through this single emit point, so one
     // recompute here covers all handlers AND the autonomous tick. The pure walk
@@ -1746,7 +1702,7 @@ pub(super) fn forward_to_python(
     // M6 minimum: re-issue via BridgeClient methods (which allocate fresh
     // IDs), then re-stamp the response with the operator's request_id.
     //
-    // **v3.1.1 Sprint 6.J (T2.8)** — track call duration so the autonomous
+    // **v3.1.1 Sprint 6.J (T2.8)**, track call duration so the autonomous
     // tick can emit C65 on slow Python calls (defense-in-depth observability
     // for Python worker deadlock-precursor states).
     let call_start = std::time::Instant::now();
@@ -1771,7 +1727,7 @@ pub(super) fn forward_to_python(
 /// verbatim (its payload passed through unchanged) under a per-op hard
 /// timeout, and returns the worker's response.
 ///
-/// **v3.1.1 Sprint 7.E.2** — this used to re-extract typed fields and call
+/// **v3.1.1 Sprint 7.E.2**, this used to re-extract typed fields and call
 /// `BridgeClient::register_axis()` / `perturb()` / `snapshot()` (the blocking
 /// API). It now uses [`BridgeClient::call_with_timeout`] so a hung Python
 /// worker surfaces [`BridgeError::Timeout`] instead of wedging the substrate
@@ -1833,7 +1789,7 @@ fn graceful_shutdown_python(state: &mut ServerState) {
     }
 }
 
-// **v3.1.1 Sprint 7.E.2** — the per-field extraction helpers
+// **v3.1.1 Sprint 7.E.2**, the per-field extraction helpers
 // (`expect_string_field` / `expect_bool_field` / `parse_float_field`) that
 // the old `forward_message` used to re-derive typed args were removed when
 // forwarding became a verbatim, timeout-bounded payload pass-through. Python
@@ -1845,7 +1801,7 @@ fn graceful_shutdown_python(state: &mut ServerState) {
 ///
 /// **Single source of truth**: delegates to
 /// [`myco_kernel_shared::canonical_bytes::float_repr`] (CPython `repr(float)`
-/// reproduced exactly — the canonical oracle). Re-exported here because
+/// reproduced exactly, the canonical oracle). Re-exported here because
 /// `ingest` / `observatory` import `crate::server::float_repr`. See the shared
 /// implementation for the algorithm and the L1/HARD_RULES C18 rationale.
 pub(crate) fn float_repr(f: f64) -> String {

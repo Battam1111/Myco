@@ -1,20 +1,19 @@
-//! Substrate persistence runtime — extracted from `server.rs` (Phase B Step 5).
+//! Substrate persistence runtime, extracted from `server.rs` (Phase B Step 5).
 //!
 //! Owns the runtime-side persistence operations (file writes, snapshot
 //! signing, DAG replay) that bridge `ServerState` with the lower-level
 //! [`crate::persistence`] module's on-disk format.
 //!
 //! Specifically, this module hosts:
-//! - `save_python_state` / `save_dag_state` / `save_nonce_state` — the three
-//!   in-process persistence checkpoints invoked after each state-mutating
-//!   message handler.
-//! - `save_snapshot_for_state` — opportunistic snapshot.cb writer used every
+//! - `save_python_state` / `save_dag_state`, the in-process persistence
+//!   checkpoints invoked after each state-mutating message handler.
+//! - `save_snapshot_for_state`, opportunistic snapshot.cb writer used every
 //!   K cycles + on shutdown (M21.5 + M25.0).
-//! - `replay_events_after_tip` — boot-time DAG replay helper that brings a
+//! - `replay_events_after_tip`, boot-time DAG replay helper that brings a
 //!   snapshot-loaded DerivedState forward to the DAG tip (M21.5).
-//! - `backfill_dag_from_python_state` — legacy → M21 migration: emits
+//! - `backfill_dag_from_python_state`, legacy → M21 migration: emits
 //!   DAG events for axes that exist in Python but not yet in the DAG.
-//! - `replay_python_events_from_dag` — boot-time DAG-to-Python replay
+//! - `replay_python_events_from_dag`, boot-time DAG-to-Python replay
 //!   that rebuilds the Python worker's gradient from event log.
 //!
 //! Doctrine traceability:
@@ -22,11 +21,12 @@
 //!   log; `save_dag_state` is the persistence boundary for that.
 //! - L0 P6 永恒因果: snapshot.cb is a content-hash-derived cache; the DAG
 //!   remains the authoritative source-of-truth.
-//! - L1/SCHEMA C38 snapshot_integrity_violation — `save_snapshot_for_state`
+//! - L1/SCHEMA C38 snapshot_integrity_violation, `save_snapshot_for_state`
 //!   produces the Ed25519-signed envelope that `load_snapshot` validates.
-//! - M21.3 / M21.4: state files (gradient.cb / owner_keys.cb / nonce_log.cb /
-//!   manifest.cb) are now derived-from-DAG; `save_python_state` and
-//!   `save_nonce_state` are intentionally no-ops to keep call sites stable.
+//! - M21.3 / M21.4: state files (gradient.cb / manifest.cb) are now
+//!   derived-from-DAG; `save_python_state` is intentionally a no-op to keep
+//!   call sites stable. (v0.9 keyless: the owner_keys.cb / nonce_log.cb state
+//!   files and their save paths were removed with the owner-key + anchor surface.)
 
 use myco_kernel_bridge::client::BridgeClient;
 use myco_kernel_schema::dag::Dag;
@@ -50,15 +50,15 @@ pub(crate) fn save_python_state(_state: &mut ServerState) -> Result<(), Substrat
 }
 
 /// M8/M21.4: Persist the substrate's DAG to `<state_dir>/dag.cb`.
-/// This remains the sole persistent operation in M21.4 — dag.cb is the
+/// This remains the sole persistent operation in M21.4, dag.cb is the
 /// authoritative substrate state.
 ///
 /// **M26.2 P11.b**: returns bytes-written for signal #9 (storage/cycle).
 /// Callers in the cycle-advance path forward this into
 /// `state.cost_accumulator.record_storage_write`. Pre-M26.2 callers that
-/// discard the count keep working — the value is just an extra useful return.
+/// discard the count keep working, the value is just an extra useful return.
 pub(crate) fn save_dag_state(state: &ServerState) -> Result<usize, SubstrateError> {
-    // **v3.1.1 Sprint 6.G (T2.12)** — track persistence health. Success
+    // **v3.1.1 Sprint 6.G (T2.12)**, track persistence health. Success
     // resets consecutive-failure counter + clears C64 emission-pending
     // flag. Failure increments counters; autonomous tick polls these to
     // emit C64_persistence_unavailable.
@@ -109,7 +109,7 @@ pub(crate) fn replay_events_after_tip(
 
 /// M21.5 P5 万物互联 + M25.0: save a snapshot of the current Rust-side derived
 /// state, wrapped in an Ed25519-signed envelope. Used opportunistically every
-/// K cycles to accelerate boot — boot can use the snapshot instead of full
+/// K cycles to accelerate boot, boot can use the snapshot instead of full
 /// DAG replay (replays only events after the snapshot's recorded tip).
 ///
 /// M25.0: the signing key is reconstructed from the substrate's own seed
@@ -118,11 +118,12 @@ pub(crate) fn replay_events_after_tip(
 ///
 /// **M26.2 P11.b**: returns bytes-written for signal #9 (storage/cycle).
 pub(crate) fn save_snapshot_for_state(state: &ServerState) -> Result<usize, SubstrateError> {
-    use crate::derived_state::{DerivedNonce, DerivedState};
+    use crate::derived_state::DerivedState;
     use crate::persistence::save_snapshot;
     use myco_kernel_shared::crypto::Ed25519PrivateKey;
 
     // Build a DerivedState from the current in-memory ServerState fields.
+    // (v0.9 keyless: no nonce ledger to mirror into the snapshot.)
     let derived = DerivedState {
         substrate_id: if state.substrate_id() == [0u8; 32] {
             None
@@ -138,25 +139,6 @@ pub(crate) fn save_snapshot_for_state(state: &ServerState) -> Result<usize, Subs
         generation_depth: state.generation_depth(),
         cycle_counter: state.cycle_counter(),
         last_absorbed_cycle: state.last_absorbed_cycle(),
-        nonce_log: state
-            .nonce_log
-            .iter()
-            .map(|(k, v)| {
-                (
-                    *k,
-                    DerivedNonce {
-                        nonce: v.nonce,
-                        bound_content_hash: v.bound_content_hash,
-                        bound_dag_tip: v.bound_dag_tip,
-                        substrate_issued_at_unix_ns: v.substrate_issued_at_unix_ns,
-                        expiry_unix_ns: v.expiry_unix_ns,
-                        anchor_clock_issued_at_unix_ns: v.anchor_clock_issued_at_unix_ns,
-                        anchor_clock_expiry_unix_ns: v.anchor_clock_expiry_unix_ns,
-                        consumed: v.consumed,
-                    },
-                )
-            })
-            .collect(),
         // M25.2: persist the observatory history so the trend window
         // survives reboots when a fresh snapshot lands on disk.
         observatory_history: state.observatory_history.clone(),
@@ -173,7 +155,7 @@ pub(crate) fn save_snapshot_for_state(state: &ServerState) -> Result<usize, Subs
             }
         }),
         // **COV06**: deliberately NOT persisted in snapshot.cb (byte-compat
-        // additive — no format_version bump). `to_canonical_bytes` omits these
+        // additive, no format_version bump). `to_canonical_bytes` omits these
         // entirely, so the snapshot bytes are identical to pre-COV06. The boot
         // path re-derives them from the full DAG (`rederive_cultivation_from_dag`).
         successor_chain: Vec::new(),
@@ -228,7 +210,7 @@ pub(crate) fn backfill_dag_from_python_state(
         let _ = save_dag_state(state);
     }
 
-    // (v0.9 owner-key removal: the operator_pinned backfill emit was removed —
+    // (v0.9 owner-key removal: the operator_pinned backfill emit was removed,
     // there is no pinned operator identity to record.)
 
     // Query Python for its loaded axis schemas + current values.
@@ -279,7 +261,7 @@ pub(crate) fn backfill_dag_from_python_state(
 /// This is the inverse of `_handle_load_state(skip_disk_load=true)`:
 /// load empty, then replay events to derive state.
 ///
-/// Errors during replay propagate up — a malformed event in the DAG
+/// Errors during replay propagate up, a malformed event in the DAG
 /// indicates corruption; substrate refuses to boot with partial state.
 pub(crate) fn replay_python_events_from_dag(
     python_client: &mut BridgeClient,
@@ -429,10 +411,9 @@ pub(crate) fn replay_python_events_from_dag(
                 .advance(new_cycle)
                 .map_err(SubstrateError::Bridge)?;
         }
-        // Other event types (genesis_event, operator_pinned, nonce_*,
-        // sporocarp:*, mutation:*, immune:*, raw_material:*,
-        // absorption_event:*, evolution_*:*, self_euthanasia_proposal:*,
-        // spore_emission:*, owner_key_initialized) are NOT replayed to
+        // Other event types (genesis_event, sporocarp:*, mutation:*, immune:*,
+        // raw_material:*, absorption_event:*, evolution_*:*,
+        // self_euthanasia_proposal:*, spore_emission:*) are NOT replayed to
         // Python (Rust-side state derived via DerivedState; Python doesn't
         // need them for gradient).
         //

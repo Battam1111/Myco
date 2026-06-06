@@ -30,7 +30,7 @@
 //  and `myco_attest_l0_revision` were removed with the anchor surface.)
 // Perception (substrate self-knowledge):
 //   `myco_query_substrate_observatory` (Phase α M24.5 vital signs),
-//   `myco_query_substrate_id` (P8 §5.6 owner-minted id).
+//   `myco_query_substrate_id` (P8 §5.6 self-derived id; v0.9 keyless).
 //
 // The server lazily spawns the substrate subprocess on the first tool call;
 // subsequent calls reuse the same substrate.
@@ -566,7 +566,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "myco_run_immune_check",
     description:
-      "Trigger an ad-hoc immune verification scan. The substrate runs comprehensive integrity checks (substrate_id well-formedness, DAG hash chain integrity, cycle counter monotonicity, pinned operator pubkey well-formedness, owner_keys consistency). For each failed check, the substrate emits a C9 cold_resume_invariant_failure immune sporocarp (visible via myco_query_immune_events). Returns a per-check report.",
+      "Trigger an ad-hoc immune verification scan. The substrate runs comprehensive integrity checks (substrate_id well-formedness, DAG hash-chain integrity, cycle-counter monotonicity, canonical-bytes drift detection, orphan-node detection). For each failed check, the substrate emits a C9 cold_resume_invariant_failure immune sporocarp (visible via myco_query_immune_events). Returns a per-check report.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -603,7 +603,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "myco_sprout_child",
     description:
-      "P8 永恒繁衍 (Eternal Reproduction): Sprout a child substrate from the parent's spore-schema (L0/cards/P01-P14 (principles).2 P8). **A child spawn now REQUIRES a cultivator co-attestation (P08 §3.5 / §5.1)**: spawning is a CI-class doctrine event, NOT a daily-mode mutation. This tool assembles the child's spore-schema from the parent's current gradient, fetches the anchor wall-clock + nonce, builds a myco-spawn-cosign-v1 envelope, and co-signs it with the cultivator's owner key — the substrate verifies the signature (and the I7(a) static-schema + parent replay-guard + §16.B rate throttle) BEFORE creating anything; an unattested/invalid spawn is refused with C68 (the 'daily-mode spawn = doctrine collapse' signal). On success the child's substrate_id is OWNER-MINTED deterministically as blake3(parent_id, spore_schema_hash, child_genesis_ts) [§5.6], the child DAG is built (with a birth_closure_pending marker so the child runs its own I3 self-check on first boot), and the parent emits genesis_attested:{child_prefix} (the I7-closure record). The parent's causal DAG is NOT transferred. After sprout, spawn a separate substrate process pointing at child_state_dir via MYCO_STATE_DIR. Rejects if the target already contains a dag.cb/manifest.cb.",
+      "P8 永恒繁衍 (Eternal Reproduction): Sprout a child substrate from the parent's spore-schema (L0/cards/P08 §5.2). **A child spawn is a CI-class doctrine event (P08 §3.5 / §5.1), NOT a daily-mode mutation.** This tool assembles the child's spore-schema from the parent's current gradient, stamps a local wall-clock timestamp + a fresh random nonce, and builds a myco-spawn-cosign-v1 envelope. v0.9 keyless: there is no owner key and no signature — the substrate decodes the envelope STRUCTURE and verifies the I7(a) static-schema binding + the parent replay-guard + the §16.B rate throttle BEFORE creating anything; a malformed/replayed spawn is refused with C68 (the 'daily-mode spawn = doctrine collapse' signal). On success the child's substrate_id is minted deterministically as blake3(parent_id, spore_schema_hash, child_genesis_ts) [§5.6], the child DAG is built (with a birth_closure_pending marker so the child runs its own I3 self-check on first boot), and the parent emits genesis_attested:{child_prefix} (the I7-closure record). The parent's causal DAG is NOT transferred. After sprout, spawn a separate substrate process pointing at child_state_dir via MYCO_STATE_DIR. Rejects if the target already contains a dag.cb/manifest.cb.",
     inputSchema: {
       type: "object",
       properties: {
@@ -615,7 +615,7 @@ const TOOL_DEFINITIONS = [
         depth_override: {
           type: "boolean",
           description:
-            "Optional (default false). When true, the cultivator's signed envelope carries a depth_override permitting this spawn to exceed the §16.A reproduction_lineage_depth_max (forkbomb depth cap) for THIS child. Use only deliberately — it is recorded as a depth_override_exercised DAG event.",
+            "Optional (default false). When true, the spawn-cosign envelope carries a depth_override permitting this spawn to exceed the §16.A reproduction_lineage_depth_max (forkbomb depth cap) for THIS child. Use only deliberately: it is recorded as a depth_override_exercised DAG event.",
         },
       },
       required: ["child_state_dir"],
@@ -624,7 +624,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "myco_query_self_euthanasia_proposals",
     description:
-      "P7 必朽 (Endogenous-pair Mortality): List the substrate's pending `self_euthanasia_proposal:*` DAG nodes. These are emitted automatically when a mortality_signal axis fruits (crosses its decay threshold) — the substrate proposing its own end. Per L0 P7, executing the proposal requires owner co-attestation (the pair has agency over its ending; owner retains veto). M19-MV: proposals are informational; M20+ will add owner co-attestation execution. Each entry includes the axis_name, fruiting_value, at_cycle, and triggering_sporocarp_hash.",
+      "P7 必朽 (Endogenous-pair Mortality): List the substrate's pending `self_euthanasia_proposal:*` DAG nodes. These are emitted automatically when a mortality_signal axis fruits (crosses its decay threshold): the substrate proposing its own end. v0.9 keyless: executing a proposal (myco_accept_self_euthanasia_proposal) references a real proposal_hash and is gated at the CI human-in-the-loop level, not by an owner co-signature (the owner key was removed). M19-MV: proposals are informational. Each entry includes the axis_name, fruiting_value, at_cycle, and triggering_sporocarp_hash.",
     inputSchema: {
       type: "object",
       properties: {
@@ -920,7 +920,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "myco_declare_owner_objective",
     description:
-      "P14 §3.2 / M26.4 F20 (owner-objective declaration): declare the owner's telos as a sparse weight vector over substrate node_type prefixes. The substrate uses it as the reference centroid for P14.c telos-drift detection (cosine alignment of recent sporocarp activity against the declared objective; sustained low/negative alignment grades up to a C24 telos_drift_critical immune event). Weights SHOULD be non-negative and need not sum to 1 (the substrate normalizes for the cosine). The operator owner key signs the canonical-bytes objective as the CI attestation. On accept, the substrate emits `owner_objective_declared:{objective_id}`. Example weights: [{prefix:\"axis_perturbed:\",weight:0.75},{prefix:\"raw_material:\",weight:0.25}]. Contract-identity-level (owner attestation required); an empty weights array is rejected (C5).",
+      "P14 §3.2 / M26.4 F20 (cultivator-objective declaration): declare the cultivator's telos as a sparse weight vector over substrate node_type prefixes. The substrate uses it as the reference centroid for P14.c telos-drift detection (cosine alignment of recent sporocarp activity against the declared objective; sustained low/negative alignment grades up to a C24 telos_drift_critical immune event). Weights SHOULD be non-negative and need not sum to 1 (the substrate normalizes for the cosine). v0.9 keyless: the objective is cultivator-stated CONTENT, classified contract-identity-level by the Python classifier (mutation_type=owner_objective_declaration): there is no owner key and no signature; the trust root is the live human at the CI gate (the doctrine-repo PR review enforced by the BLAKE3 drift gate). On accept, the substrate emits `owner_objective_declared:{objective_id}`. Example weights: [{prefix:\"axis_perturbed:\",weight:0.75},{prefix:\"raw_material:\",weight:0.25}]. An empty weights array is rejected (C5).",
     inputSchema: {
       type: "object",
       properties: {
@@ -981,7 +981,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "myco_query_substrate_id",
     description:
-      "PERCEPTION (P8 §5.6): report this substrate's immutable owner-minted substrate_id — the deterministic 32-byte hash established at genesis. This is the substrate knowing its own identity; the id binds owner attestations / signatures / DAG tips to THIS specific substrate, which is what makes cross-substrate replay attacks detectable. Read-only (inspects the genesis_event DAG node).",
+      "PERCEPTION (P8 §5.6): report this substrate's immutable self-derived substrate_id, the deterministic 32-byte hash established at genesis (P01c). This is the substrate knowing its own identity; the id binds spawn-cosign envelopes / federation FED_HELLO / DAG tips to THIS specific substrate, which is what makes cross-substrate replay attacks detectable. v0.9 keyless: the id is self-derived, not owner-minted. Read-only (inspects the genesis_event DAG node).",
     inputSchema: { type: "object", properties: {}, required: [] },
   },
 ];
@@ -1257,11 +1257,15 @@ export class McpServer {
           initialAppetiteAxisSchema: cbMap([
             ["axis_register_count", { type: "uint", value: axisRegisterCount }],
           ]),
-          // v0.9 keyless: this spore-schema descriptor field formerly carried
-          // the owner pubkey; with the anchor surface gone there is no owner
-          // key, so it is a stable 32-zero-byte marker (the substrate only
-          // requires all 7 fields present + the blake3 of the whole bytes to
-          // match the envelope's spore_schema_hash, which it does).
+          // v0.9 keyless: `anchor_surface_config` is a vestigial spore-schema
+          // descriptor field that formerly carried the anchor/owner pubkey.
+          // The anchor surface + owner key are gone, but the field NAME is a
+          // retained WIRE CONTRACT: I7(a) requires all 7 named spore-schema
+          // fields present and blake3(whole bytes) to match the envelope's
+          // spore_schema_hash (the substrate validates the 7-field shape by
+          // name; the parity vectors pin it). It carries a stable 32-zero-byte
+          // marker — no key is encoded. Renaming/removing it would need a
+          // coordinated substrate change, so it stays keyless-by-content.
           anchorSurfaceConfig: {
             type: "bytes",
             value: new Uint8Array(32),
@@ -1282,7 +1286,7 @@ export class McpServer {
               type: "text" as const,
               text: [
                 `🍄 Child substrate sprouted at ${result.childStateDir}`,
-                `child_substrate_id = ${toHex(result.childSubstrateId)} (owner-minted, deterministic)`,
+                `child_substrate_id = ${toHex(result.childSubstrateId)} (deterministically minted)`,
                 `inherited_axis_count = ${result.childAxisCount}`,
                 `spore_emission_hash = ${toHex(result.sporeEmissionHash).substring(0, 24)}…`,
                 `genesis_attested_hash = ${toHex(result.genesisAttestedHash).substring(0, 24)}… (I7-closure record in parent DAG)`,
@@ -1304,7 +1308,7 @@ export class McpServer {
         if (report.filteredTotal === 0n) {
           lines.push("  (no self-euthanasia proposals; substrate's mortality_signal axes are stable)");
         } else {
-          lines.push(`  M19-MV: proposals are informational; owner co-attestation execution is M20+`);
+          lines.push(`  M19-MV: proposals are informational (v0.9 keyless: execution is gated at the CI human-in-the-loop level, not by an owner co-signature)`);
         }
         for (const node of report.nodes) {
           const axisName = node.nodeType.replace(/^self_euthanasia_proposal:/, "");
@@ -1767,7 +1771,7 @@ export class McpServer {
           content: [
             {
               type: "text" as const,
-              text: `substrate_id=${toHex(substrateId)}  (owner-minted, immutable, binding for replay guards)`,
+              text: `substrate_id=${toHex(substrateId)}  (self-derived, immutable, binding for replay guards)`,
             },
           ],
         };

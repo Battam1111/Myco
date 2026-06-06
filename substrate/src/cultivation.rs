@@ -1,4 +1,4 @@
-//! **COV06 不弃不孤** — cultivator-mortality + succession FSM.
+//! **COV06 不弃不孤**, cultivator-mortality + succession FSM.
 //!
 //! L0/cards/COV06_no_abandonment_succession.md + L1/GOVERNANCE §3.2 specify a
 //! five-state cultivation-succession FSM whose states are **sub-states of
@@ -17,25 +17,28 @@
 //! `current_cultivation_state` is a pure derivation over DAG events.
 //!
 //! This module owns:
-//!   - [`CultivationState`] + [`current_cultivation_state`] — the FSM derivation.
-//!   - [`compute_staleness`] — a PURE staleness-in-days function (deterministic
+//!   - [`CultivationState`] + [`current_cultivation_state`], the FSM derivation.
+//!   - [`compute_staleness`], a PURE staleness-in-days function (deterministic
 //!     for tests; no clock reads).
-//!   - [`catechumenate_below_min`] — the C46 predicate (`session_count < 50`).
-//!   - [`SuccessionConfig`] — cadence/windows/terminal-choice with built-in
+//!   - [`catechumenate_below_min`], the C46 predicate (`session_count < 50`).
+//!   - [`SuccessionConfig`], cadence/windows/terminal-choice with built-in
 //!     defaults + `MYCO_TEST_*` env overrides.
 //!   - the operator-facing handlers (heartbeat / successor-chain / succession).
 //!
-//! AS §5.2 forbids the substrate from reading its own clock for liveness; every
-//! wall-clock that enters this module is **operator-threaded** (the anchor-signed
-//! heartbeat envelope carries `anchor_timestamp_unix_ns`; the autonomous tick
-//! reads `MYCO_TEST_ANCHOR_NOW_NS` in tests or the latest threaded anchor stamp).
+//! The substrate does not read its own clock for liveness; every wall-clock that
+//! enters this module is **operator-threaded** (the keyless succession / seal
+//! requests carry an `anchor_timestamp_unix_ns` field; the autonomous tick reads
+//! `MYCO_TEST_ANCHOR_NOW_NS` in tests or the latest threaded stamp). (v0.9
+//! keyless; acknowledged-debt: no external trusted clock, these are
+//! operator-threaded values, not anchor-signed. The legacy `anchor_*` field
+//! names are retained as the wire contract.)
 
 use crate::server::ServerState;
 
-/// **COV06 §3.2.C** — minimum dual-signed Layer-D Catechumenate sessions a
+/// **COV06 §3.2.C**, minimum dual-signed Layer-D Catechumenate sessions a
 /// successor must accumulate before F21 activation. Per META §6.3 + COV06 §5.3:
 /// activation that lacks ≥50 sessions is `owner_succession_bypass` (C46). This
-/// is the gate that makes succession **un-fabricable in production** — synthetic
+/// is the gate that makes succession **un-fabricable in production**, synthetic
 /// tests pass a count directly (49 → C46, 50 → proceeds), but a real successor
 /// must accumulate 50 real dual-signed sessions.
 pub(crate) const CATECHUMENATE_MIN_SESSIONS: u64 = 50;
@@ -45,23 +48,23 @@ pub(crate) const CATECHUMENATE_MIN_SESSIONS: u64 = 50;
 // watchdog they served. `DerivedSuccessionConfig` + the `cultivation_succession_config_declared`
 // event remain as DAG-derivation infrastructure.)
 
-/// **COV06** — the five cultivation-succession FSM states (sub-states of
-/// `alive`; L1/GOVERNANCE §3.2). DAG-derived — never persisted as a field.
+/// **COV06**, the five cultivation-succession FSM states (sub-states of
+/// `alive`; L1/GOVERNANCE §3.2). DAG-derived, never persisted as a field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CultivationState {
-    /// `alive::normal` — heartbeat fresh; full daily + CI operations.
+    /// `alive::normal`, heartbeat fresh; full daily + CI operations.
     Normal,
-    /// `alive::legacy` — heartbeat stale; daily ops continue, CI FROZEN except
+    /// `alive::legacy`, heartbeat stale; daily ops continue, CI FROZEN except
     /// `successor_chain` mutation. Entered via T1.
     Legacy,
-    /// `alive::orphaned` — legacy_window elapsed OR empty chain at legacy entry;
+    /// `alive::orphaned`, legacy_window elapsed OR empty chain at legacy entry;
     /// operational ceiling enforced. Entered via T4.
     Orphaned,
-    /// `alive::archived` — terminal-non-destroyed via LB §4 bet-retirement;
+    /// `alive::archived`, terminal-non-destroyed via LB §4 bet-retirement;
     /// state_dir preserved, cold-readable, no metabolism. Entered via T7.
     Archived,
     /// `alive::normal` reached via T5 exceptional recovery (orphaned→normal).
-    /// Distinguished from `Normal` for observability — the substrate REMEMBERS
+    /// Distinguished from `Normal` for observability, the substrate REMEMBERS
     /// it was recovered (the latest `cultivation_recovered` event dominates a
     /// preceding `cultivation_orphaned`).
     Recovered,
@@ -80,17 +83,17 @@ impl CultivationState {
     }
 }
 
-/// **COV06 §3.2** — derive the current cultivation-succession FSM state by
+/// **COV06 §3.2**, derive the current cultivation-succession FSM state by
 /// walking the DAG for the LATEST event of the cultivation family (mirrors
 /// `crate::lifecycle::current_quarantine_state`). The last transition wins.
 ///
 /// Derivation rules (latest-event-wins; insertion order):
-///   - `bet_retired:{reason}`              → Archived (terminal; sticky — nothing
+///   - `bet_retired:{reason}`              → Archived (terminal; sticky, nothing
 ///                                            transitions out of archived).
 ///   - `cultivation_recovered:{pk}`        → Recovered (orphaned→normal).
 ///   - `cultivation_orphaned:{pk}`         → Orphaned (legacy→orphaned). Orphaned
 ///                                            PERSISTS until a `bet_retired:*`
-///                                            seal (archive) or death lands — the
+///                                            seal (archive) or death lands, the
 ///                                            orphaned→terminal watchdog emits a
 ///                                            *proposal* (`bet_retired_proposal` /
 ///                                            `self_euthanasia_proposal:…`), not a
@@ -113,13 +116,13 @@ pub(crate) fn current_cultivation_state(state: &ServerState) -> CultivationState
             current = CultivationState::Archived;
             archived = true;
         } else if archived {
-            // Archived is terminal — ignore everything after the seal.
+            // Archived is terminal, ignore everything after the seal.
             continue;
         } else if nt.starts_with(crate::events::NODE_TYPE_CULTIVATION_RECOVERED_PREFIX) {
             current = CultivationState::Recovered;
         } else if nt.starts_with(crate::events::NODE_TYPE_CULTIVATION_ORPHANED_PREFIX) {
             // `cultivation_orphaned:{pk}`. NOTE: the `cultivation_orphaned_terminal`
-            // marker is NOT in this family — it is a *reason* string carried inside
+            // marker is NOT in this family, it is a *reason* string carried inside
             // terminal proposals (`bet_retired_proposal` / `self_euthanasia_proposal:…`
             // / the `bet_retired:cultivation_orphaned_terminal` seal), and it does
             // NOT match this prefix (no trailing colon). Orphaned therefore persists
@@ -135,7 +138,7 @@ pub(crate) fn current_cultivation_state(state: &ServerState) -> CultivationState
 }
 
 /// Returns `true` if `node_type` belongs to the cultivation-succession FSM
-/// family — i.e., emitting it can change the value of
+/// family, i.e., emitting it can change the value of
 /// [`current_cultivation_state`]. The centralized [`crate::server::emit_substrate_event`]
 /// uses this to decide when to refresh the memoized `ServerState::cultivation_state`
 /// cache. This is exactly the set of branches the derivation above inspects.
@@ -146,7 +149,7 @@ pub(crate) fn is_cultivation_family_node_type(node_type: &str) -> bool {
         || node_type.starts_with(crate::events::NODE_TYPE_SUCCESSION_COMPLETED_PREFIX)
 }
 
-/// **COV06 §5.3 (C46)** — the catechumenate-floor predicate: returns `true` when
+/// **COV06 §5.3 (C46)**, the catechumenate-floor predicate: returns `true` when
 /// the successor has fewer than [`CATECHUMENATE_MIN_SESSIONS`] dual-signed Layer-D
 /// sessions. A `true` result MUST reject a succession-acceptance with C46
 /// (`owner_succession_bypass`). Pure + total (no clock, no DAG).
@@ -159,10 +162,12 @@ fn env_u64(key: &str) -> Option<u64> {
     std::env::var(key).ok().and_then(|s| s.trim().parse::<u64>().ok())
 }
 
-/// **COV06** — resolve the "now" anchor timestamp (test-only deterministic
-/// clock via `MYCO_TEST_ANCHOR_NOW_NS`; `None` otherwise — the substrate never
-/// reads its own clock for liveness, AS §5.2). Used as the `bet_retired` seal's
-/// anchor-timestamp stamp when present.
+/// **COV06**, resolve the "now" timestamp (test-only deterministic clock via
+/// `MYCO_TEST_ANCHOR_NOW_NS`; `None` otherwise, the substrate does not read its
+/// own clock for liveness). Used as the `bet_retired` seal's timestamp stamp
+/// when present. (v0.9 keyless; acknowledged-debt: no external trusted clock.
+/// The `MYCO_TEST_ANCHOR_NOW_NS` env-var name + the fn name are retained as the
+/// existing test/wire contract.)
 pub(crate) fn resolve_anchor_now_ns() -> Option<i64> {
     env_u64("MYCO_TEST_ANCHOR_NOW_NS").map(|v| v as i64)
 }
@@ -203,7 +208,7 @@ fn payload_timestamp(request: &Message, key: &str) -> Result<i64, SubstrateError
     }
 }
 
-/// **COV06 §3.2.A (F21)** — handle `update_successor_chain` (KEYLESS v0.9).
+/// **COV06 §3.2.A (F21)**, handle `update_successor_chain` (KEYLESS v0.9).
 ///
 /// Appends a SuccessorEntry: validates monotone `valid_from` (strictly
 /// increasing vs the last entry) + non-overlapping intervals, then emits
@@ -296,15 +301,15 @@ pub(crate) fn handle_update_successor_chain(
     )))
 }
 
-/// **COV06 T3** — handle `accept_succession` (KEYLESS v0.9). Gates (in order):
+/// **COV06 T3**, handle `accept_succession` (KEYLESS v0.9). Gates (in order):
 ///   1. **C46** (`owner_succession_bypass`): reject if
-///      `catechumenate_session_count < 50` (the un-fabricable gate — KEPT).
+///      `catechumenate_session_count < 50` (the un-fabricable gate, KEPT).
 ///   2. Else emit `succession_completed:{successor_pubkey}`.
 ///
 /// The owner Ed25519 gates were removed with the anchor surface: the successor
 /// signature verify (gate 1), the C12 fresh-owner-heartbeat takeover guard, and
-/// the `owner_key_added` history append are gone. The C46 catechumenate floor —
-/// the structurally un-fabricable production gate — remains the authorization
+/// the `owner_key_added` history append are gone. The C46 catechumenate floor,
+/// the structurally un-fabricable production gate, remains the authorization
 /// root. `prior_cultivator_pubkey` is still recorded for the lineage record.
 pub(crate) fn handle_accept_succession(
     state: &mut ServerState,
@@ -322,7 +327,7 @@ pub(crate) fn handle_accept_succession(
         }
     };
 
-    // Gate (C46): catechumenate floor. The un-fabricable production gate —
+    // Gate (C46): catechumenate floor. The un-fabricable production gate,
     // a real successor must accumulate ≥50 real dual-signed Layer-D sessions.
     if catechumenate_below_min(catechumenate_session_count) {
         let evidence = format!(
@@ -371,12 +376,12 @@ pub(crate) fn handle_accept_succession(
     )))
 }
 
-/// **COV06 T7 / LB §4** — handle `accept_bet_retired_proposal` (KEYLESS v0.9).
+/// **COV06 T7 / LB §4**, handle `accept_bet_retired_proposal` (KEYLESS v0.9).
 /// The cultivator co-attests a `bet_retired_proposal` (emitted by the COV06-T7
 /// orphaned-terminal watchdog OR an LB §4 living-bet quorum). Steps:
 ///   1. Confirm `proposal_hash` points to a real `bet_retired_proposal` in the
 ///      DAG; extract its `reason` (the non-arbitrary structural gate).
-///   2. Emit `bet_retired:{reason}` — the archive seal. The substrate is now
+///   2. Emit `bet_retired:{reason}`, the archive seal. The substrate is now
 ///      `alive::archived` (sticky): metabolism halts, state_dir preserved
 ///      cold-readable. The main loop, observing this message type, exits cleanly
 ///      (re-spawn re-derives Archived + the metabolism guard refuses cycling).
@@ -384,7 +389,7 @@ pub(crate) fn handle_accept_succession(
 /// The owner Ed25519 co-attestation gate was removed with the anchor surface;
 /// the proposal-reference is the deliberate structural gate that replaces it.
 /// This single seal serves BOTH COV06-T7 (orphaned→archived) AND LB_living_bets
-/// §4 (living-bet retirement) — `alive::archived` is designed once for both.
+/// §4 (living-bet retirement), `alive::archived` is designed once for both.
 pub(crate) fn handle_accept_bet_retired_proposal(
     state: &mut ServerState,
     request: &Message,
@@ -444,10 +449,10 @@ pub(crate) fn handle_accept_bet_retired_proposal(
     )))
 }
 
-/// **COV06** — is the substrate in `alive::archived` (terminal via bet-retirement)?
+/// **COV06**, is the substrate in `alive::archived` (terminal via bet-retirement)?
 /// Metabolic operations (cycle advance) are refused while archived; the state_dir
 /// stays cold-readable. Reads the memoized FSM cache (maintained at the emit
-/// point + hydrated at boot) — this is on the per-ADVANCE / per-tick hot path.
+/// point + hydrated at boot), this is on the per-ADVANCE / per-tick hot path.
 pub(crate) fn is_archived(state: &ServerState) -> bool {
     state.cultivation_state() == CultivationState::Archived
 }
@@ -622,7 +627,7 @@ mod tests {
     }
 
     // ===================================================================
-    // Keyless handler tests — no signature gate; structural validation only.
+    // Keyless handler tests, no signature gate; structural validation only.
     // ===================================================================
 
     fn successor_request(

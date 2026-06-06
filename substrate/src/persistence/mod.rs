@@ -1,4 +1,4 @@
-//! Substrate persistence — manifest save/load.
+//! Substrate persistence, manifest save/load.
 //!
 //! ## State directory layout (M7 v1)
 //!
@@ -26,10 +26,10 @@
 //!
 //! ## Doctrine traceability
 //!
-//! - L1/CONTINUITY §6 — disk-backed WAL is the L4-pick; this M7 implementation
+//! - L1/CONTINUITY §6, disk-backed WAL is the L4-pick; this M7 implementation
 //!   is snapshot-only (every state change → full manifest rewrite). M8+ adds
 //!   true append-only WAL for performance.
-//! - L0/cards/AS_anchor_surface §3 — canonical-bytes determinism preserved across persistence.
+//! - L0/cards/AS_anchor_surface §3, canonical-bytes determinism preserved across persistence.
 //!
 //! ## Module organization
 //!
@@ -37,14 +37,14 @@
 //! every item is re-exported here at `crate::persistence::*` so existing call
 //! paths resolve unchanged:
 //!
-//! - [`manifest`] — `manifest.cb` (substrate identity + cycle counter)
-//! - [`dag_io`] — `dag.cb` (causal DAG)
-//! - [`snapshot`] — `snapshot.cb` (signed derived-state cache)
-//! - [`nonce_log`] — `nonces.cb` (attestation nonce log)
-//! - [`signing_key`] — `substrate_signing_key.cb` (substrate-private Ed25519 seed custody)
+//! - [`manifest`], `manifest.cb` (substrate identity + cycle counter)
+//! - [`dag_io`], `dag.cb` (causal DAG)
+//! - [`snapshot`], `snapshot.cb` (signed derived-state cache)
+//! - [`signing_key`], `substrate_signing_key.cb` (substrate-private Ed25519 seed custody)
 //!
-//! (The `operator_identity` module — `operator_identity_pubkey.cb` M9 TOFU pin —
-//! was removed with the v0.9 owner-key/anchor layer.)
+//! (The `operator_identity` module, `operator_identity_pubkey.cb` M9 TOFU pin,
+//! AND the `nonce_log` module, `nonces.cb` attestation-nonce ledger, were both
+//! removed with the v0.9 owner-key/anchor layer.)
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -54,13 +54,11 @@ use crate::SubstrateError;
 
 mod dag_io;
 mod manifest;
-mod nonce_log;
 mod signing_key;
 mod snapshot;
 
 pub use dag_io::*;
 pub use manifest::*;
-pub use nonce_log::*;
 pub use signing_key::*;
 pub use snapshot::*;
 
@@ -117,7 +115,7 @@ mod tests {
         // A monotonic per-process counter guarantees a DISTINCT path per call
         // even when two parallel tests observe the same `current_unix_ns()`. The
         // Windows system-clock resolution can be ~15ms, so a ns-only suffix is
-        // NOT collision-free under cargo's default multi-thread test runner — a
+        // NOT collision-free under cargo's default multi-thread test runner, a
         // shared dir let one test's `remove_dir_all` race another's save/load
         // (an intermittent failure in e.g. `nonce_log_empty_roundtrips`).
         static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -264,217 +262,10 @@ mod tests {
         std::env::remove_var("MYCO_STATE_DIR");
     }
 
-    // (v0.9 owner-key removal: the M9 pinned-operator-identity persistence tests
-    // were removed along with the `operator_identity` module.)
-
-    // -----------------------------------------------------------------------
-    // M14 nonce log persistence tests.
-    // -----------------------------------------------------------------------
-
-    fn make_nonce(byte: u8, consumed: bool, expiry_ns: i64) -> PersistedNonceEntry {
-        PersistedNonceEntry {
-            nonce: [byte; 32],
-            bound_content_hash: [byte.wrapping_add(1); 32],
-            bound_dag_tip: [byte.wrapping_add(2); 32],
-            substrate_issued_at_unix_ns: expiry_ns
-                .saturating_sub(NONCE_TTL_DEFAULT_SECONDS * 1_000_000_000),
-            expiry_unix_ns: expiry_ns,
-            anchor_clock_issued_at_unix_ns: None,
-            anchor_clock_expiry_unix_ns: None,
-            consumed,
-        }
-    }
-
-    /// M15: make a nonce with dual-clock fields populated.
-    fn make_nonce_dual_clock(
-        byte: u8,
-        consumed: bool,
-        expiry_ns: i64,
-        anchor_issued: i64,
-        anchor_expiry: i64,
-    ) -> PersistedNonceEntry {
-        PersistedNonceEntry {
-            nonce: [byte; 32],
-            bound_content_hash: [byte.wrapping_add(1); 32],
-            bound_dag_tip: [byte.wrapping_add(2); 32],
-            substrate_issued_at_unix_ns: expiry_ns
-                .saturating_sub(NONCE_TTL_DEFAULT_SECONDS * 1_000_000_000),
-            expiry_unix_ns: expiry_ns,
-            anchor_clock_issued_at_unix_ns: Some(anchor_issued),
-            anchor_clock_expiry_unix_ns: Some(anchor_expiry),
-            consumed,
-        }
-    }
-
-    #[test]
-    fn nonce_log_empty_roundtrips() {
-        let dir = temp_state_dir();
-        save_nonce_log(&[], &dir).unwrap();
-        let loaded = load_nonce_log(&dir).unwrap().unwrap();
-        assert_eq!(loaded.len(), 0);
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn nonce_log_single_entry_roundtrips() {
-        let dir = temp_state_dir();
-        let entries = vec![make_nonce(0x11, false, 1_000_000)];
-        save_nonce_log(&entries, &dir).unwrap();
-        let loaded = load_nonce_log(&dir).unwrap().unwrap();
-        assert_eq!(loaded.len(), 1);
-        assert_eq!(loaded[0], entries[0]);
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn nonce_log_multi_entry_with_consumed_state() {
-        let dir = temp_state_dir();
-        let entries = vec![
-            make_nonce(0x01, true, 1_000),
-            make_nonce(0x02, false, 2_000),
-            make_nonce(0x03, true, 3_000),
-        ];
-        save_nonce_log(&entries, &dir).unwrap();
-        let loaded = load_nonce_log(&dir).unwrap().unwrap();
-        assert_eq!(loaded.len(), 3);
-        // Verify consumed flags survive.
-        assert!(loaded[0].consumed);
-        assert!(!loaded[1].consumed);
-        assert!(loaded[2].consumed);
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn nonce_log_missing_returns_none() {
-        let dir = temp_state_dir();
-        let loaded = load_nonce_log(&dir).unwrap();
-        assert!(loaded.is_none());
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn nonce_log_atomic_save_no_tmp_leftover() {
-        let dir = temp_state_dir();
-        save_nonce_log(&[make_nonce(0xff, false, 9_999)], &dir).unwrap();
-        let tmp = dir.join(format!("{NONCE_LOG_FILENAME}.tmp"));
-        assert!(!tmp.exists());
-        let target = dir.join(NONCE_LOG_FILENAME);
-        assert!(target.exists());
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn nonce_log_version_mismatch_returns_none() {
-        use myco_kernel_shared::canonical_bytes::{encode, Value};
-        let dir = temp_state_dir();
-        let mut bad = BTreeMap::new();
-        bad.insert("format_version".to_string(), Value::Uint(999));
-        bad.insert("entries".to_string(), Value::Array(vec![]));
-        let bad_bytes = encode(&Value::Map(bad)).unwrap();
-        fs::write(dir.join(NONCE_LOG_FILENAME), bad_bytes.as_ref()).unwrap();
-        let loaded = load_nonce_log(&dir).unwrap();
-        assert!(loaded.is_none());
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    // -----------------------------------------------------------------------
-    // M15 dual-clock + v1↔v2 backward-compat persistence tests.
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn m15_nonce_log_v2_with_dual_clock_roundtrips() {
-        let dir = temp_state_dir();
-        let entries = vec![make_nonce_dual_clock(
-            0x42,
-            false,
-            5_000_000_000,
-            1_000_000_000,
-            4_000_000_000,
-        )];
-        save_nonce_log(&entries, &dir).unwrap();
-        let loaded = load_nonce_log(&dir).unwrap().unwrap();
-        assert_eq!(loaded.len(), 1);
-        assert_eq!(
-            loaded[0].anchor_clock_issued_at_unix_ns,
-            Some(1_000_000_000)
-        );
-        assert_eq!(loaded[0].anchor_clock_expiry_unix_ns, Some(4_000_000_000));
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn m15_nonce_log_v1_file_loads_with_anchor_clock_none() {
-        // Hand-write a v1 nonce log (no anchor-clock fields, no substrate_issued_at).
-        use myco_kernel_shared::canonical_bytes::{encode, Value};
-        let dir = temp_state_dir();
-        let mut entry_map = BTreeMap::new();
-        entry_map.insert("nonce".to_string(), Value::Bytes(vec![0xab; 32]));
-        entry_map.insert(
-            "bound_content_hash".to_string(),
-            Value::Bytes(vec![0xcd; 32]),
-        );
-        entry_map.insert("bound_dag_tip".to_string(), Value::Bytes(vec![0xef; 32]));
-        entry_map.insert(
-            "expiry_unix_ns".to_string(),
-            Value::Timestamp(10_000_000_000),
-        );
-        entry_map.insert("consumed".to_string(), Value::Bool(false));
-        let mut root = BTreeMap::new();
-        root.insert(
-            "format_version".to_string(),
-            Value::Uint(NONCE_LOG_FORMAT_VERSION_V1),
-        );
-        root.insert(
-            "entries".to_string(),
-            Value::Array(vec![Value::Map(entry_map)]),
-        );
-        let bytes = encode(&Value::Map(root)).unwrap();
-        fs::write(dir.join(NONCE_LOG_FILENAME), bytes.as_ref()).unwrap();
-
-        let loaded = load_nonce_log(&dir).unwrap().unwrap();
-        assert_eq!(loaded.len(), 1);
-        assert_eq!(loaded[0].nonce, [0xab; 32]);
-        // M15: missing anchor-clock fields → None (single-clock mode preserved).
-        assert!(loaded[0].anchor_clock_issued_at_unix_ns.is_none());
-        assert!(loaded[0].anchor_clock_expiry_unix_ns.is_none());
-        // M15: missing substrate_issued_at → defaulted to expiry - TTL.
-        let expected_default =
-            10_000_000_000_i64.saturating_sub(NONCE_TTL_DEFAULT_SECONDS * 1_000_000_000);
-        assert_eq!(loaded[0].substrate_issued_at_unix_ns, expected_default);
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn m15_nonce_log_v2_writes_format_version_2() {
-        use myco_kernel_shared::canonical_bytes::{decode, map_get_uint, Value};
-        let dir = temp_state_dir();
-        save_nonce_log(&[make_nonce(0x10, false, 9_999)], &dir).unwrap();
-        let bytes = fs::read(dir.join(NONCE_LOG_FILENAME)).unwrap();
-        let decoded = decode(&bytes).unwrap();
-        if let Value::Map(m) = decoded {
-            let version = map_get_uint(&m, "format_version").unwrap();
-            assert_eq!(version, NONCE_LOG_FORMAT_VERSION);
-            assert_eq!(version, 2); // pinned: M15 writes v2.
-        } else {
-            panic!("expected Map");
-        }
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn m15_nonce_entry_without_anchor_clock_omits_those_fields() {
-        // Re-encoding a nonce with anchor_clock = None should NOT emit those keys.
-        use myco_kernel_shared::canonical_bytes::Value;
-        let entry = make_nonce(0x77, false, 1_000_000);
-        let value = entry.to_value();
-        if let Value::Map(m) = value {
-            assert!(!m.contains_key("anchor_clock_issued_at_unix_ns"));
-            assert!(!m.contains_key("anchor_clock_expiry_unix_ns"));
-            assert!(m.contains_key("substrate_issued_at_unix_ns")); // always present in v2
-        } else {
-            panic!("expected Map");
-        }
-    }
+    // (v0.9 keyless removal: the M9 pinned-operator-identity persistence tests
+    // were removed along with the `operator_identity` module, and the M14/M15
+    // nonce-log persistence tests were removed along with the `nonce_log` module
+    //, there is no attestation-nonce ledger in the keyless build.)
 
     #[test]
     fn save_then_load_preserves_cycle_counter() {
@@ -538,7 +329,7 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // **v3.1.1 Sprint 2** — Windows DPAPI sealing tests.
+    // **v3.1.1 Sprint 2**, Windows DPAPI sealing tests.
     // -----------------------------------------------------------------------
 
     #[test]
@@ -571,7 +362,7 @@ mod tests {
             map.get("seed").is_none(),
             "v2 file MUST NOT carry plain seed field (the whole point of the wrap)"
         );
-        // Plaintext bytes must NOT appear in the on-disk file bytes — easy
+        // Plaintext bytes must NOT appear in the on-disk file bytes, easy
         // smoke test that DPAPI actually altered the seed.
         let needle: &[u8] = &seed;
         assert!(
@@ -757,7 +548,7 @@ mod tests {
         wrapper.insert("signature".to_string(), Value::Bytes(sig));
         let bad_wrapper = encode(&Value::Map(wrapper)).unwrap();
         fs::write(&path, bad_wrapper.as_ref()).unwrap();
-        // load_snapshot still returns Some — the wrapper is well-formed — but
+        // load_snapshot still returns Some, the wrapper is well-formed, but
         // the caller's verify_signature call will reject the corrupted sig.
         let loaded = load_snapshot(&dir).unwrap().expect("wrapper still parses");
         let verify_result = verify_signature(
@@ -803,7 +594,7 @@ mod tests {
         save_substrate_signing_key(&seed, &dir).unwrap();
         let path = dir.join(SUBSTRATE_SIGNING_KEY_FILENAME);
         let mode = fs::metadata(&path).unwrap().permissions().mode();
-        // Mask off the file-type bits — we only care about the perm bits.
+        // Mask off the file-type bits, we only care about the perm bits.
         let perm_bits = mode & 0o777;
         assert_eq!(
             perm_bits, 0o600,
@@ -888,7 +679,7 @@ mod tests {
     #[test]
     fn m26_1_c6_genesis_path_reports_restrictive() {
         // On the genesis (fresh-seed) branch, the file is written by
-        // save_substrate_signing_key with 0600 from the start — the boot
+        // save_substrate_signing_key with 0600 from the start, the boot
         // helper must report was_restrictive=true so no spurious C4
         // sporocarp gets emitted.
         let dir = temp_state_dir();

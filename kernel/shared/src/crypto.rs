@@ -4,17 +4,20 @@
 //!
 //! - L1/SCHEMA §2.1: Merkle DAG content-addressing (BLAKE3 default).
 //! - L1/SKIN §2: HMAC envelope_digest keyed by `operator_token`.
-//! - L0/cards/AS_anchor_surface §3 + L1/GOVERNANCE §2.3: Owner signature verification at
-//!   attestation receipt.
+//! - L1/GOVERNANCE §2.3: Ed25519 signature verification. v0.9 keyless: there is
+//!   no owner key. The Ed25519 primitives below verify the substrate's OWN F24
+//!   signing keypair (snapshot.cb integrity + the federation FED_HELLO peer
+//!   auth) and the per-handshake operator keypair — substrate/session crypto,
+//!   not an owner key.
 //!
-//! ## M2 signature suite: Ed25519
+//! ## Signature suite: Ed25519
 //!
 //! Per L1/GOVERNANCE §7 candidate set {Ed25519, ECDSA-P256, post-quantum
-//! candidates}, Ed25519 is chosen for M2 (RFC 8032; deterministic; well-
-//! audited; ed25519-dalek crate). The choice is L4-owner-changeable at
-//! genesis time per L1/GOVERNANCE §2.1; for M2 the suite is hard-coded to
-//! Ed25519. M3+ can add a suite-tag to allow rotation via L1/GOVERNANCE §3.1
-//! cryptographic suite rotation.
+//! candidates}, Ed25519 is chosen (RFC 8032; deterministic; well-audited;
+//! ed25519-dalek crate). The choice is L4-changeable at genesis time per
+//! L1/GOVERNANCE §2.1; the suite is currently hard-coded to Ed25519. A future
+//! suite-tag can allow rotation via L1/GOVERNANCE §3.1 cryptographic suite
+//! rotation.
 
 use blake3::Hasher;
 use ed25519_dalek::{
@@ -142,8 +145,10 @@ pub fn hmac_verify(key: &[u8], canonical_bytes: &[u8], tag: &HmacTag) -> Result<
 
 /// Ed25519 public key (32 bytes; RFC 8032 compressed form).
 ///
-/// Per L1/GOVERNANCE §7 M2 suite choice. Substrate stores owner public keys
-/// as `Ed25519PublicKey` in `owner_key_history` (L1/GOVERNANCE §3.1).
+/// Per L1/GOVERNANCE §7 suite choice. v0.9 keyless: there is no owner key /
+/// owner_key_history. An `Ed25519PublicKey` is the substrate's OWN F24 verifying
+/// key (snapshot.cb + FED_HELLO), a federation peer's key, or the per-handshake
+/// operator key, never an owner key.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ed25519PublicKey(pub [u8; PUBLIC_KEY_LENGTH]);
 
@@ -208,16 +213,19 @@ impl Ed25519Signature {
     }
 }
 
-/// Ed25519 private key seed (32 bytes). Substrate-side code should NEVER
-/// have access to this — owner private keys live outside the substrate
-/// process per L1/GOVERNANCE §2.1. This type exists for:
+/// Ed25519 private key seed (32 bytes). v0.9 keyless: there is no owner key,
+/// so this is never a foreign/owner private key. It is held only by:
 ///
-/// - operators (each operator generates a per-handshake keypair
-///   that the operator-runtime holds).
-/// - anchor-client tests + parity vectors.
+/// - the substrate itself, for its OWN F24 signing keypair (snapshot.cb
+///   integrity + the federation FED_HELLO peer auth) — this lives in-process
+///   by design and is sealed at rest per L1/SKIN §2;
+/// - operators (each operator generates a per-handshake keypair that the
+///   operator-runtime holds);
+/// - cross-language parity vectors + tests.
 ///
-/// **Substrate-side appearance of an `Ed25519PrivateKey` is a doctrine
-/// breach.** L1/HARD_RULES has no direct row for this yet; treat as
+/// **Appearance of an `Ed25519PrivateKey` that is NOT the substrate's own F24
+/// key (i.e., an unsealed foreign secret in substrate address space) is a
+/// doctrine breach.** L1/HARD_RULES has no direct row for this yet; treat as
 /// C4-adjacent (substrate_secret_unsealed analogue).
 #[derive(Clone)]
 pub struct Ed25519PrivateKey(SigningKey);
@@ -266,9 +274,10 @@ impl std::fmt::Debug for Ed25519PrivateKey {
 
 /// Verify an Ed25519 signature against a public key and message.
 ///
-/// Per L1/GOVERNANCE §2.3: substrate receives signed attestation envelopes
-/// and verifies the owner signature against the active owner public key
-/// (from `owner_key_history`).
+/// Per L1/GOVERNANCE §2.3. v0.9 keyless: there is no owner signature to verify.
+/// This verifies a signature: the substrate's OWN F24 keypair (snapshot.cb
+/// integrity), a federation peer's FED_HELLO, or a per-handshake operator
+/// signature, never an owner key.
 ///
 /// Returns `Ok(())` on valid signature; [`CryptoError::SignatureInvalid`] on
 /// invalid signature or any internal verification error.

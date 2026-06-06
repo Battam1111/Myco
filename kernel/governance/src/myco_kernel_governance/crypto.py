@@ -3,7 +3,7 @@
 MUST produce byte-identical output to:
 
 - ``kernel/shared/src/crypto.rs`` (Rust reference)
-- ``anchor/client/src/crypto.ts`` (TypeScript)
+- ``operators/claude/src/canonical/crypto.ts`` (TypeScript)
 
 Cross-language test vectors at ``test_vectors/crypto_v1.json``.
 
@@ -14,9 +14,13 @@ Primitives
   (per L1/SCHEMA §2.1 + pass-3 mycoparasite-2).
 - :func:`hmac_sign` — HMAC-SHA256 (per L1/SKIN §2 envelope_digest).
 - :func:`hmac_verify` — constant-time HMAC verification.
+- :func:`verify_signature` — Ed25519 (RFC 8032).
 
-Signature verification is M2-deferred (algorithm choice per
-L1/GOVERNANCE §7 is L4-pick within {Ed25519, ECDSA-P256, post-quantum}).
+v0.9 keyless: there is no owner key. The Ed25519 primitives verify the
+substrate's OWN F24 signing keypair (snapshot.cb + federation FED_HELLO) and
+the per-handshake operator keypair — substrate/session crypto, not an owner
+key. The suite choice per L1/GOVERNANCE §7 is L4-pick within {Ed25519,
+ECDSA-P256, post-quantum}; Ed25519 is the current pick.
 """
 
 from __future__ import annotations
@@ -252,9 +256,10 @@ class Ed25519Signature:
 class Ed25519PrivateKey:
     """Ed25519 private key (32-byte seed).
 
-    Substrate-side code should NEVER hold this — owner private keys live
-    outside the substrate process per L1/GOVERNANCE §2.1. This class exists
-    for operators + anchor-client tests + cross-language parity.
+    v0.9 keyless: there is no owner key, so this is never a foreign/owner
+    private key. It is held only by the substrate (for its OWN F24 signing
+    keypair — snapshot.cb + federation FED_HELLO; sealed at rest), by operators
+    (per-handshake keypair), and by cross-language parity vectors + tests.
     """
 
     __slots__ = ("_inner",)
@@ -288,8 +293,9 @@ class Ed25519PrivateKey:
     def seed_bytes(self) -> bytes:
         """Return the private key seed bytes.
 
-        NEVER call this in substrate-side code; only operator-side / anchor-
-        client code may need this for sealed storage operations.
+        Handle with care: only the substrate's own sealed-storage path (for the
+        F24 keypair) and operator-side code legitimately need the raw seed; a
+        seed MUST NOT be exported into an unsealed location.
         """
         return self._inner.private_bytes(
             encoding=Encoding.Raw,
@@ -309,8 +315,10 @@ def verify_signature(
 ) -> None:
     """Verify an Ed25519 signature against a public key and message.
 
-    Per L1/GOVERNANCE §2.3: substrate verifies the owner signature against
-    the active owner public key from owner_key_history.
+    Per L1/GOVERNANCE §2.3. v0.9 keyless: there is no owner signature to
+    verify. This verifies a signature: the substrate's OWN F24 keypair
+    (snapshot.cb integrity), a federation peer's FED_HELLO, or a per-handshake
+    operator signature, never an owner key.
 
     Raises:
         PublicKeyMalformed: if ``public_key`` is not 32 bytes or not a valid

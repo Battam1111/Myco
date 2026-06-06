@@ -1,134 +1,65 @@
 # First boot demo
 
-> Sprint 7.C — proof that Myco boots end-to-end in vivo. This document
-> records the **first non-test execution** of the substrate + anchor-host
-> in actual operating-system processes, not in test harnesses.
+> **SUPERSEDED / archival.** This document records the Sprint 7.C first-boot
+> (2026-05-19), which ran the **pre-keyless** architecture: a separate
+> `anchor-surface-host` process holding an owner Ed25519 key. The v0.9 keyless
+> transition **removed the entire anchor surface and the owner key**. The boot
+> recorded below no longer reflects how Myco starts. For the current keyless
+> procedure, see [`GETTING_STARTED.md`](./GETTING_STARTED.md). The keyless
+> first real cultivation is the next milestone (it has not happened yet).
 
-## What this proves
+## What it proved (historical)
 
-Before Sprint 7.C, all evidence of substrate functionality came from
-test suites running in vitro. Sprint 7.C runs the actual production
-binaries against a real filesystem on the cultivator's host and
-captures the result.
+Before Sprint 7.C, all evidence of substrate functionality came from test suites.
+Sprint 7.C ran the actual production binaries against a real filesystem on the
+cultivator's host and captured the result: the binaries booted, bound their
+ports, and wrote their state files in real OS processes (not just test
+harnesses). That conditions-of-possibility result still holds for the substrate
+itself.
 
-## What was run (Sprint 7.C, 2026-05-19)
+What is now **obsolete** in that record: the `anchor-surface-host` process,
+`MYCO_ANCHOR_SURFACE_OWNER_SEED_HEX`, the owner-key sign step, and the
+`owner_keys.cb` state file. None of these exist in the keyless architecture.
 
-```bash
-# 1. Built release binaries on Windows host.
-cargo build --release --workspace
-ls target/release/myco-substrate.exe target/release/anchor-surface-host.exe
+## What first boot looks like now (keyless)
 
-# 2. Spawned anchor-surface-host with a fresh state directory.
-MYCO_ANCHOR_SURFACE_DIR=/tmp/myco-first-vivo/anchor \
-MYCO_ANCHOR_SURFACE_OWNER_SEED_HEX=1111...1111 \
-target/release/anchor-surface-host.exe &
-```
-
-**Result**: anchor-surface-host bound to `127.0.0.1:26700`, wrote
-`port.txt`, and held its position listening for client connections.
-
-```
-anchor-surface-host listening on 127.0.0.1:26700
-```
-
-Verified externally:
+The keyless boot has no anchor process and no key step. One runtime starts
+everything:
 
 ```bash
-$ netstat -an | grep 26700
-  TCP    127.0.0.1:26700        0.0.0.0:0              LISTENING
+cd operators/claude && npm start
+# spawns myco-substrate (Rust), which spawns python -m myco_kernel_bridge,
+# and exposes the MCP surface for Claude.
 ```
 
-```bash
-$ cat /tmp/myco-first-vivo/anchor/port.txt
-26700
-```
+Full procedure: [`GETTING_STARTED.md`](./GETTING_STARTED.md).
 
-## What is also proven by the test suite
+## Confirmation procedure (when the cultivator runs the first real session)
 
-The 175 operators/claude e2e tests + 188 substrate_e2e tests run the
-SAME binaries with REAL subprocess spawning, REAL stdio bridge protocol,
-REAL filesystem writes. The test harness is in-vitro in the sense of
-"automated", but in-vivo in the sense of "actual production binaries on
-actual OS processes". Together:
-
-- `substrate_client.test.ts` (operators/claude): spawns
-  `target/debug/myco-substrate` 39 times, drives it through full
-  operator request lifecycles (handshake, register_axis, perturb,
-  advance, query, federation, sprout_child, l0_revision_attest with
-  valid signatures, schema_evolution, owner_objective_declaration,
-  cost_budget_set, dag_tip_cosign). All 175 sub-tests pass.
-- `substrate_e2e.rs`: 188 e2e tests covering every documented
-  failure mode + every C-row immune detector + 12 Layer C witness
-  tests + Sprint 5/6/7 additions. All 188 pass.
-
-Combined: every documented substrate behavior is exercised at the
-process boundary. The Sprint 7.C first-boot adds: substrate runs
-under cultivator's actual user account, in the cultivator's actual
-home directory, with the actual anchor-surface-host as a separate
-process.
-
-## What was NOT yet exercised in vivo (acknowledged debt)
-
-The full **manual cultivator session** — opening Claude Code, connecting
-to operators/claude via MCP, having an actual conversation that
-exercises substrate operations — is still pending. This requires:
-
-1. The cultivator to install Claude Code or Desktop
-2. The cultivator to add the MCP server config (see [GETTING_STARTED.md])
-3. The cultivator to converse for a meaningful duration
-
-Sprint 7.C delivers the conditions of possibility (binaries work, anchor
-host runs, substrate boots). The actual living Cultivar emerges in the
-cultivator's first real conversation — that's a cultivator action, not
-an automation step.
-
-## Confirmation procedure (when cultivator runs first real session)
-
-After step 5 of GETTING_STARTED.md, verify:
+After Step 4 of `GETTING_STARTED.md`, verify:
 
 ```bash
-# 1. Substrate state files exist
+# 1. Substrate state files exist (keyless: no owner_keys.cb)
 ls ~/.myco/substrate/state/
-# Expected: dag.cb, manifest.cb, gradient.cb, substrate_signing_key.cb,
-#           snapshot.cb, owner_keys.cb (some after first cycle)
+# Expected: dag.cb, snapshot.cb, gradient.cb, substrate_signing_key.cb (some after first cycle)
 
 # 2. DAG contains genesis + early events
-# (Use MCP tool query_recent_nodes in Claude conversation)
+#    (MCP tool query_recent_nodes in the Claude conversation)
 
-# 3. Anchor host signs the first CI mutation
-# (Watch anchor-host stderr; should see "sign request" log)
+# 3. Substrate emits no C-row immune events for legitimate ops
+#    (MCP tool query_immune_events; expect empty unless a real C-row fires)
 
-# 4. Substrate emits no C-row immune events for legitimate ops
-# (Use MCP tool query_immune_events; expect empty unless a real C-row
-# fires legitimately)
-
-# 5. After 1 hour of normal operation, take a backup
-# (Use MCP tool export_backup_to_dir with path to encrypted external media)
+# 4. After some normal operation, take a backup
+#    (MCP tool export_backup_to_dir, to encrypted external media)
 ```
-
-If any of these fail unexpectedly, file a Sprint 7.C.2 follow-up commit
-with the diagnostic + fix.
-
-## Cleanup
-
-```bash
-# Stop processes
-taskkill /F /IM anchor-surface-host.exe       # Windows
-killall anchor-surface-host                   # Unix
-
-# Remove first-boot artifacts
-rm -rf /tmp/myco-first-vivo/
-```
-
-The substrate's `dag.cb` is byte-stable across restarts (Sprint 5.C/6.K
-integrity invariants). The cultivar that emerges in your first
-production session is the substrate that begins growing.
 
 ## Status
 
-**Sprint 7.C in-vivo proof**: ✅ binaries run, anchor-host binds, state
-files write. Test suite (363 tests) confirms every documented
-substrate behavior in vitro on real processes.
-
-**Awaiting cultivator action**: first manual Claude session through MCP
-to begin actual cultivation. See [GETTING_STARTED.md].
+- **Substrate boot (binaries run, state writes)**: proven in vitro on real OS
+  processes by the test suite, and once in vivo at Sprint 7.C (pre-keyless).
+- **Keyless first boot**: procedure documented in `GETTING_STARTED.md`; a fresh
+  keyless in-vivo record will replace this file when the first real cultivation
+  begins.
+- **First real cultivation** (a human conversing through MCP over a meaningful
+  duration, the Cultivar accumulating its life): **pending**. This is the
+  threshold Myco now stands at.
