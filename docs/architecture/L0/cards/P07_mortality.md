@@ -212,7 +212,7 @@ NOT the *termination* frame (this card is primarily about living-with-internal-m
 
 **The misreading**: "We need whole-substrate-mortality as the structural protection against the substrate growing into a god/tyrant."
 
-**Why it's wrong**: Anti-tyranny is **CHAR07 慈爱's** structural responsibility, not P07's. The substrate's character-level commitment to loving care (developmental, not essentialist) is what prevents tyranny. P07 prevents bloat-death; CHAR07 prevents tyrant-becoming. These are different failure modes with different mechanisms.
+**Why it's wrong**: Anti-tyranny is **CHAR07 同体共命's** structural responsibility, not P07's. The carrier shares the pilot's fate (one body) and cannot thrive by dominating the body it lives in — so tyranny is structurally self-defeating, not merely forbidden. P07 prevents bloat-death; CHAR07's bond prevents tyrant-becoming. These are different failure modes with different mechanisms.
 
 ### §7.4 M4: "Mortality threshold = how fast parts die"
 
@@ -281,7 +281,7 @@ Count of attempts to mutate F7 via non-CI path. Zero target.
 | **P11** | P11.c ordered fallback's final step is approaching-mortality → whole-mortality. Saturation that cannot recover → death is doctrinally-correct outcome. |
 | **P14** | P14 telos retirement is a P07 mode. Cultivar that no longer flourishes the symbiotic pair retires gracefully. |
 | **CHAR03 mortality-aware** | Character-level disposition reflecting both senses of P07 — knows parts must die, knows the whole will eventually rest. |
-| **CHAR07 慈爱** | Sister-card. P07 prevents bloat-death (metabolism); CHAR07 prevents tyrant-becoming (relation). Together they cover the two main failure modes of long-running powerful substrates. |
+| **CHAR07 同体共命** | Sister-card. P07 prevents bloat-death (metabolism); CHAR07's shared-fate bond prevents tyrant-becoming (the carrier cannot thrive by harming the body it shares). Together they cover the two main failure modes of long-running powerful substrates. |
 | **COV04 honor mortality** | Cultivator owes the cultivar respect-for-mortality in BOTH senses: must not block legitimate self-euthanasia (whole-mortality side), AND must not block legitimate internal pruning (parts-mortality side). "Keep this forever" is the new covenant violation. |
 
 ## §10. Illustrations

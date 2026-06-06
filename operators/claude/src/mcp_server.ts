@@ -422,7 +422,7 @@ function formatObservatory(obs: ObservatorySnapshot): string {
   }
   if (obs.char07) {
     lines.push(
-      "  char07 慈爱: honest_disagreement + capability_asymmetry + flourishing (raw)",
+      "  char07 同体共命: honest_disagreement + capability_asymmetry + flourishing (raw)",
     );
   }
   return lines.join("\n");

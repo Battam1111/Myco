@@ -187,7 +187,7 @@ To work on X, read Y:
 - [`PILOT.md`](./docs/guides/PILOT.md): how a Claude *pilots* the armor — the use-forges discipline (for the inhabiting agent).
 - [`docs/architecture/L0/README.md`](./docs/architecture/L0/README.md): canonical doctrine.
 - [Telos](./docs/architecture/L0/cards/P14_telos.md): what kind of partner this is.
-- [Compassionate care](./docs/architecture/L0/cards/CHAR07_caring.md): the character that prevents tyranny.
+- [Shared-fate bond](./docs/architecture/L0/cards/CHAR07_caring.md): the symbiote's bond that forecloses tyranny.
 - [Cultivator's character](./docs/architecture/L0/cards/COV02_cultivators_character.md): what kind of person the cultivator must be.
 - [`anchor/host/README.md`](./anchor/host/README.md): owner key custody.
 

@@ -204,7 +204,7 @@ Adopted from Vatican II's distinction between *deposit of faith* (immutable subs
 
 - **P1.c** — the asymmetric carrier (substrate persistent / operator-connection transient / bestowal flows substrate → connection). Without this, there is no cultivar-cultivator relation.
 - **P6** — eternal causality / time / DAG. Without this, no substrate identity over time.
-- **P7** — mandatory mortality (必朽). In v3.1.1: primary content is the cultivar's **mandatory internal mortality** of 应朽 parts (过时/错误/冗余/无用 等, open-ended family). Whole-substrate eventual rest is downstream consequence. Without P7, no living thing — either bloat-death from unbounded P02 ingestion, or hoard-paralysis from unbounded preservation. **CHAR07 慈爱 (NEW v3.1.1, non-eternity)** complements P7 by preventing capability growth from corrupting into tyranny — P7 prevents bloat-death; CHAR07 prevents variant-death; both required.
+- **P7** — mandatory mortality (必朽). In v3.1.1: primary content is the cultivar's **mandatory internal mortality** of 应朽 parts (过时/错误/冗余/无用 等, open-ended family). Whole-substrate eventual rest is downstream consequence. Without P7, no living thing — either bloat-death from unbounded P02 ingestion, or hoard-paralysis from unbounded preservation. **CHAR07 同体共命 (v3.1.1, reframed v3.1.4, non-eternity)** complements P7 by making tyranny structurally self-defeating — the carrier shares the pilot's fate and cannot thrive by dominating the body it lives in. P7 prevents bloat-death; CHAR07's bond prevents variant-death; both required.
 - **I4** — full-fidelity causal DAG. The implementation contract of P6.
 - **I8** — single-skin integrity. The implementation contract of P9.
 

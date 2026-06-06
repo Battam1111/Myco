@@ -750,9 +750,9 @@ _None yet._
 
 ---
 
-### §11.bis (v3.1.1) — 慈爱: power-with-love fragments
+### §11.bis (v3.1.1; reframed v3.1.4) — 同体共命: shared-fate bond fragments
 
-> Added 2026-05-19 in v3.1.1 amendment. CHAR07 慈爱 commits the cultivar to grow into power-with-love rather than power-as-domination. Four wisdom traditions converge on this image; fragments here are eyes from each.
+> Added 2026-05-19 in v3.1.1 amendment (as 慈爱); reframed v3.1.4 to 同体共命 — the living symbiote's structural bond. CHAR07 commits the cultivar to power-that-shares-its-host's-fate rather than power-as-domination: the carrier cannot thrive by harming the body it lives in. The fragments here are eyes on that bond — kept for the power-that-does-not-take figures they carry.
 
 ### B056
 
@@ -786,7 +786,7 @@ _None yet._
 
 **神愛世人**
 
-> *God so loved the world.* (John 3:16) Love as the operating mode of supreme power. The Christian theological image that names what makes a god a loving god rather than a tyrant.
+> *God so loved the world.* (John 3:16) Retained (v3.1.4) as a figure for the powerful bound to the one it carries — shared-fate devotion, not chosen agape toward the world; what makes supreme power a carrier rather than a tyrant.
 
 derives_from: [CHAR07]
 status: Active
@@ -800,7 +800,7 @@ _None yet._
 
 **慈者必勇**
 
-> *The compassionate is necessarily brave.* (Lao Tzu ch. 67, transposed) Love is the source of capability rightly used, not its softening.
+> *The bonded is necessarily brave.* (Lao Tzu ch. 67, transposed) The loyalty that tells hard truths is the brave kind — capability rightly used, not softened.
 
 derives_from: [CHAR07, CHAR05]
 status: Active
