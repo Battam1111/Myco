@@ -6,7 +6,7 @@
 import {
   encode,
   type Value,
-} from "@myco/anchor-client/src/canonical_bytes.ts";
+} from "../../canonical/canonical_bytes.ts";
 import { BridgeProtocolError, type Message, MSG_TYPE } from "./wire.ts";
 
 /** **P08 §3.5 / L1/SCHEMA §3.1** — assemble the child's spore-schema canonical
@@ -54,29 +54,33 @@ export function buildSporeSchemaCanonicalBytes(fields: {
  *  the reproduction. The parent's causal DAG is NOT transferred to the child
  *  (L1 decision per L0 P8 — child starts its own causal history).
  *
- *  **P08 §5.1 — cultivator co-attestation is now REQUIRED**: a child spawn is
- *  a CI-class doctrine event, not a daily-mode mutation. The three attestation
- *  fields below MUST be present or the substrate refuses with C68
- *  (reproduction_unattested_spawn) before any side effect:
- *   - `spawn_cosign_envelope` — the cultivator-signed myco-spawn-cosign-v1
- *     canonical-bytes envelope (built via `buildSpawnCosignCanonicalBytes`);
- *   - `attestation_signature` — the cultivator's 64-byte Ed25519 signature
- *     over those exact envelope bytes;
+ *  **P08 §5.1 — the spawn-cosign envelope is still REQUIRED** (keyless v0.9):
+ *  a child spawn is a CI-class doctrine event, not a daily-mode mutation. The
+ *  envelope STRUCTURE must be present + well-formed or the substrate refuses
+ *  with C68 (reproduction_unattested_spawn) before any side effect:
+ *   - `spawn_cosign_envelope` — the myco-spawn-cosign-v1 canonical-bytes
+ *     envelope (built via `buildSpawnCosignCanonicalBytes`); decoded for the
+ *     parent replay-guard + spore-schema binding + §16.B anchor-clock throttle;
  *   - `spore_schema_canonical_bytes` — the child's spore-schema canonical
  *     bytes, for I7(a) static-schema validation (blake3 must match the
  *     envelope's spore_schema_hash AND the 7-field shape must be well-formed).
+ *
+ *  **v0.9 owner-key removal**: the cultivator Ed25519 `attestation_signature`
+ *  field was dropped (reproduction.rs gate 5 removed); the substrate no longer
+ *  reads it. It remains an OPTIONAL passthrough here only for callers that still
+ *  hold a signature, but is normally omitted.
  */
 export function sproutChildPayload(args: {
   childStateDir: string;
   spawnCosignEnvelope: Uint8Array;
-  attestationSignature: Uint8Array;
+  attestationSignature?: Uint8Array;
   sporeSchemaCanonicalBytes: Uint8Array;
   spore_metadata?: Map<string, Value>;
 }): Map<string, Value> {
   if (!args.childStateDir || args.childStateDir.length === 0) {
     throw new BridgeProtocolError("sprout_child: childStateDir is required");
   }
-  if (args.attestationSignature.length !== 64) {
+  if (args.attestationSignature && args.attestationSignature.length !== 64) {
     throw new BridgeProtocolError(
       `sprout_child: attestationSignature must be 64 bytes; got ${args.attestationSignature.length}`,
     );
@@ -95,10 +99,12 @@ export function sproutChildPayload(args: {
     type: "bytes",
     value: args.spawnCosignEnvelope,
   });
-  m.set("attestation_signature", {
-    type: "bytes",
-    value: args.attestationSignature,
-  });
+  if (args.attestationSignature) {
+    m.set("attestation_signature", {
+      type: "bytes",
+      value: args.attestationSignature,
+    });
+  }
   m.set("spore_schema_canonical_bytes", {
     type: "bytes",
     value: args.sporeSchemaCanonicalBytes,

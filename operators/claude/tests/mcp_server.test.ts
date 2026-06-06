@@ -10,7 +10,6 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 import { McpServer } from "../src/mcp_server.ts";
-import { killAllSpawnedHosts } from "../src/anchor_surface_client.ts";
 
 function locateSubstrateBinary(): string {
   const fromEnv = process.env.MYCO_SUBSTRATE_BIN;
@@ -28,49 +27,12 @@ function locateSubstrateBinary(): string {
 
 const SUBSTRATE_BIN = locateSubstrateBinary();
 
-function locateAnchorSurfaceBinary(): string {
-  const fromEnv = process.env.MYCO_ANCHOR_SURFACE_BIN;
-  if (fromEnv && existsSync(fromEnv)) return fromEnv;
-  const root = resolvePath(import.meta.dirname ?? __dirname, "..", "..", "..");
-  const exe = process.platform === "win32" ? ".exe" : "";
-  const candidate = resolvePath(root, "target", "debug", `anchor-surface-host${exe}`);
-  if (!existsSync(candidate)) {
-    throw new Error(
-      `anchor-surface-host binary not found at ${candidate}; build with: cargo build -p anchor-surface-host`,
-    );
-  }
-  return candidate;
-}
-
-const ANCHOR_SURFACE_BIN = locateAnchorSurfaceBinary();
-
-// M-anchor-1: SubstrateClient.spawn (called internally by McpServer.dispose's
-// underlying SubstrateClient lifecycle) falls back to OperatorIdentity.loadOrCreate()
-// when no explicit identity is provided. loadOrCreate now requires an anchor-surface-host
-// binary path. Set the env var so the fallback chain finds the binary built in
-// target/debug/. Also point at an isolated default dir so the tests don't pollute
-// (or read from) the user's ~/.myco/anchor_surface/. All hosts spawned by
-// anchor_surface_client.ts are tracked module-level and killed in exit handlers.
-const SHARED_ANCHOR_DIR_FOR_TESTS = mkdtempSync(
-  resolvePath(tmpdir(), "myco-mcp-test-anchor-"),
-);
-process.env.MYCO_ANCHOR_SURFACE_BIN = ANCHOR_SURFACE_BIN;
-process.env.MYCO_ANCHOR_SURFACE_DIR = SHARED_ANCHOR_DIR_FOR_TESTS;
-process.once("exit", () => {
-  try {
-    rmSync(SHARED_ANCHOR_DIR_FOR_TESTS, { recursive: true, force: true });
-  } catch {
-    // Ignore.
-  }
-});
-
-// File-level teardown: McpServer creates SubstrateClient instances which
-// auto-load OperatorIdentity (now closed by SubstrateClient.shutdown). This
-// hook is a belt-and-suspenders cleanup for any anchor-surface-host children
-// not killed by the normal path — without it, leftover hosts hold stdio
-// pipes that keep the Node event loop alive and the test process hangs.
+// v0.9 keyless: no anchor-surface-host binary / operator-identity env. The
+// SubstrateClient handshake completes on session_secret alone, so there are no
+// anchor-surface child processes to track or reap. This `after` hook is a no-op
+// placeholder kept for suite-shape stability.
 after(async () => {
-  await killAllSpawnedHosts();
+  // nothing to tear down (keyless).
 });
 
 function freshStateDir(): string {
@@ -292,124 +254,11 @@ describe("McpServer tool dispatch", () => {
     }
   });
 
-  // M-anchor-5 §3.2 / §3.4 + P14 §3.2 owner-attestation tools.
-  // These exercise the anchor-surface signing path through the MCP surface
-  // (OperatorIdentity.loadOrCreate() picks up MYCO_ANCHOR_SURFACE_BIN, set
-  // file-level above), mirroring the substrate_client.test.ts e2e suite.
-
-  it("myco_cosign_dag_tip with no args cosigns the current tip + emits tip_cosigned:", async () => {
-    const server = newServer();
-    try {
-      // Bare call: defaults tip_hash to the substrate's current DAG tip.
-      const result = await server._testDispatch("myco_cosign_dag_tip", {});
-      assert.ok(
-        !result.isError,
-        `bare cosign must succeed; got: ${result.content[0]!.text}`,
-      );
-      const text = result.content[0]!.text;
-      assert.match(text, /cosign accepted=true/);
-      assert.match(text, /classification=contract_identity_level/);
-      assert.match(text, /tip_cosign_event_hash=/);
-
-      // A tip_cosigned:* node must now be in the DAG.
-      const nodes = await server._testDispatch("myco_query_recent_nodes", {
-        count: 50,
-      });
-      assert.match(nodes.content[0]!.text, /tip_cosigned:/);
-    } finally {
-      await server.dispose();
-    }
-  });
-
-  it("myco_cosign_dag_tip accepts explicit tip + enumerated + proposed hashes", async () => {
-    const server = newServer();
-    try {
-      // The substrate co-signs whatever envelope the owner attests; it does
-      // not require the tip_hash to equal its live tip. Pass an explicit tip
-      // plus enumerated-node + proposed-mutation hashes (mirrors the
-      // substrate_client.test.ts "with-proposed-mutation" e2e) and assert the
-      // envelope is accepted.
-      const fill = (seed: number) => {
-        const b = new Uint8Array(32);
-        for (let i = 0; i < 32; i++) b[i] = (i * seed + seed) & 0xff;
-        return Array.from(b)
-          .map((x) => x.toString(16).padStart(2, "0"))
-          .join("");
-      };
-      const result = await server._testDispatch("myco_cosign_dag_tip", {
-        tip_hash_hex: fill(5),
-        enumerated_node_hashes_hex: [fill(1), fill(3)],
-        proposed_mutation_hash_hex: fill(7),
-      });
-      assert.ok(
-        !result.isError,
-        `cosign(explicit) must succeed; got: ${result.content[0]!.text}`,
-      );
-      assert.match(result.content[0]!.text, /cosign accepted=true/);
-      assert.match(result.content[0]!.text, /tip_cosign_event_hash=/);
-    } finally {
-      await server.dispose();
-    }
-  });
-
-  it("myco_cosign_dag_tip with malformed (non-64) hex returns isError", async () => {
-    const server = newServer();
-    try {
-      const result = await server._testDispatch("myco_cosign_dag_tip", {
-        tip_hash_hex: "deadbeef", // 8 chars, not 64
-      });
-      assert.equal(result.isError, true);
-      assert.match(result.content[0]!.text, /tip_hash_hex must be 64 hex chars/);
-    } finally {
-      await server.dispose();
-    }
-  });
-
-  it("myco_attest_l0_revision emits l0_revision_attested:", async () => {
-    const server = newServer();
-    try {
-      const prior = "ab".repeat(32);
-      const next = "cd".repeat(32);
-      const result = await server._testDispatch("myco_attest_l0_revision", {
-        prior_l0_hash_hex: prior,
-        new_l0_hash_hex: next,
-        diff_summary: "Add §9.4 federation observatory (mcp test)",
-      });
-      assert.ok(
-        !result.isError,
-        `l0 revision must succeed; got: ${result.content[0]!.text}`,
-      );
-      const text = result.content[0]!.text;
-      assert.match(text, /l0_revision accepted=true/);
-      assert.match(text, /classification=contract_identity_level/);
-      assert.match(text, /l0_revision_event_hash=/);
-
-      const nodes = await server._testDispatch("myco_query_recent_nodes", {
-        count: 50,
-      });
-      assert.match(nodes.content[0]!.text, /l0_revision_attested:abababab/);
-    } finally {
-      await server.dispose();
-    }
-  });
-
-  it("myco_attest_l0_revision with malformed prior hash returns isError", async () => {
-    const server = newServer();
-    try {
-      const result = await server._testDispatch("myco_attest_l0_revision", {
-        prior_l0_hash_hex: "ab", // too short
-        new_l0_hash_hex: "cd".repeat(32),
-        diff_summary: "bad",
-      });
-      assert.equal(result.isError, true);
-      assert.match(
-        result.content[0]!.text,
-        /prior_l0_hash_hex must be 64 hex chars/,
-      );
-    } finally {
-      await server.dispose();
-    }
-  });
+  // **v0.9 owner-key removal**: the `myco_cosign_dag_tip` (§3.2) +
+  // `myco_attest_l0_revision` (§3.4) tools were removed with the anchor surface
+  // (the substrate no longer accepts the dag_tip_cosign / l0_revision_attest CI
+  // mutation types), so their MCP-surface tests were deleted. `myco_declare_owner_objective`
+  // survives keyless (the substrate classifies it by mutation_type + content).
 
   it("myco_declare_owner_objective accepts + emits owner_objective_declared:{id}", async () => {
     const server = newServer();

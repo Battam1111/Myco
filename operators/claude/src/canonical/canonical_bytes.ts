@@ -7,6 +7,12 @@
 // Cross-language test vectors at test_vectors/canonical_bytes_v1.json.
 //
 // Drift from spec = L1/HARD_RULES C18 canonical_bytes_render_drift (CRITICAL).
+//
+// **v0.9 owner-key removal**: this module was relocated here from the deleted
+// `anchor/client/` TypeScript package. Canonical-bytes are the byte-exact
+// substrate wire contract (NOT owner-key material), so they survive the anchor
+// teardown; the operator package now owns its own copy. The encoder is
+// dependency-free; the byte format is unchanged (still cross-language parity).
 
 /**
  * Typed value tree — the input domain for the canonical-bytes serializer.

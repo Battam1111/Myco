@@ -1,25 +1,30 @@
 // Canonical-bytes rendering — TypeScript implementation (L0/cards/AS_anchor_surface §3 + L1/GOVERNANCE §2.4).
 //
 // Per L0/cards/AS_anchor_surface §3 canonical-bytes doctrine: substrate emits canonical bytes;
-// substrate does NOT narrate. The anchor-surface client renders
-// deterministically for owner review.
+// substrate does NOT narrate. The deterministic decode/render below is used by
+// the operator runtime to read substrate-emitted canonical bytes.
+//
+// **v0.9 owner-key removal**: relocated here from the deleted `anchor/client/`
+// TypeScript package. The decode path is the byte-exact inverse of the encoder
+// (the operator decodes substrate DAG-node content + genesis_event payloads);
+// the render path is a deterministic human-readable display layer. Both survive
+// the anchor teardown — they are wire/display, not owner-key material.
 //
 // This module:
 //
 // - Decodes canonical-bytes (TLV format) back into the typed Value tree.
-// - Renders Value trees as human-readable strings for owner review.
+// - Renders Value trees as human-readable strings for review.
 // - The decode is byte-deterministic: identical canonical bytes → identical
 //   Value tree. The render is line-deterministic: identical Value tree →
 //   identical text output. Together: identical canonical bytes → identical
-//   rendered text, regardless of which anchor-client instance is used (per
-//   L1/HARD_RULES C18 canonical_bytes_render_drift detection).
+//   rendered text (per L1/HARD_RULES C18 canonical_bytes_render_drift detection).
 //
 // ## Render format
 //
 // The render uses an indented S-expression-like format that's both compact
-// and human-readable. The format is committed at L1 (so two anchor-client
-// instances agree) but DOES NOT change the underlying canonical-bytes spec
-// (only the display layer).
+// and human-readable. The format is committed at L1 (so two renderers agree)
+// but DOES NOT change the underlying canonical-bytes spec (only the display
+// layer).
 
 import {
   CanonicalBytes,
@@ -157,8 +162,8 @@ function decodeOne(r: Reader): Value {
       // ordering on decode (matches Rust + Python decoder behavior). Pre-fix,
       // TS decoder silently accepted out-of-order Maps — creating a
       // canonical_bytes_render_drift (C18) attack: an adversary's blob could
-      // be accepted by TS but rejected by Rust/Python, causing the owner's
-      // rendered view to diverge from what the substrate would accept.
+      // be accepted by TS but rejected by Rust/Python, causing the rendered
+      // view to diverge from what the substrate would accept.
       let prevKeyCanonical: Uint8Array | null = null;
       for (let i = 0n; i < count; i++) {
         // Key is a String value. Capture its canonical-bytes span (tag +
@@ -241,10 +246,8 @@ const DEFAULT_OPTIONS: Required<RenderOptions> = {
 /**
  * Render a Value tree as a deterministic human-readable string.
  *
- * Per L0/cards/AS_anchor_surface §3 + L1/HARD_RULES C18: two anchor-client instances rendering
- * the same canonical bytes MUST produce identical text output. This is the
- * substrate-to-owner display channel; the owner reviews the rendered text
- * before signing.
+ * Per L0/cards/AS_anchor_surface §3 + L1/HARD_RULES C18: two renderers rendering the same
+ * canonical bytes MUST produce identical text output.
  *
  * Format:
  *
@@ -327,13 +330,7 @@ function bytesToHex(bytes: Uint8Array): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Decode canonical bytes and render them for owner review.
- *
- * Used by the anchor-surface client when displaying a proposed mutation:
- *
- *     1. Substrate emits AttestationRequest with canonical_bytes payload.
- *     2. anchor-client.renderForReview(payload) → human-readable text.
- *     3. Owner reads, signs the canonical_bytes hash.
+ * Decode canonical bytes and render them for review.
  */
 export function renderForReview(
   canonical: CanonicalBytes,

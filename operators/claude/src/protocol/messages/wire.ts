@@ -29,8 +29,8 @@ import {
   CanonicalBytes,
   encode,
   type Value,
-} from "@myco/anchor-client/src/canonical_bytes.ts";
-import { decode } from "@myco/anchor-client/src/renderer.ts";
+} from "../../canonical/canonical_bytes.ts";
+import { decode } from "../../canonical/renderer.ts";
 
 /** Bridge wire protocol version. Bumped on any breaking change. */
 export const PROTOCOL_VERSION = 1n;
@@ -77,8 +77,9 @@ export const MSG_TYPE = {
   QUERY_IMMUNE_EVENTS_RESPONSE: "query_immune_events_response",
   RUN_IMMUNE_CHECK: "run_immune_check",
   RUN_IMMUNE_CHECK_RESPONSE: "run_immune_check_response",
-  REQUEST_ATTESTATION_NONCE: "request_attestation_nonce",
-  REQUEST_ATTESTATION_NONCE_RESPONSE: "request_attestation_nonce_response",
+  // v0.9 owner-key removal: REQUEST_ATTESTATION_NONCE(+_RESPONSE) removed — the
+  // substrate no longer issues anchor-surface attestation nonces (CI mutations
+  // are classified keyless by Python).
   ENUMERATE_DAG_SINCE: "enumerate_dag_since",
   ENUMERATE_DAG_SINCE_RESPONSE: "enumerate_dag_since_response",
   INGEST_RAW_MATERIAL: "ingest_raw_material",
@@ -127,8 +128,9 @@ export const MSG_TYPE = {
   QUERY_MIGRATION_PENDING: "query_migration_pending",
   QUERY_MIGRATION_PENDING_RESPONSE: "query_migration_pending_response",
   // COV06 不弃不孤 — cultivator-mortality + succession FSM (L1/GOVERNANCE §3.2).
-  RECORD_CULTIVATOR_HEARTBEAT: "record_cultivator_heartbeat",
-  RECORD_CULTIVATOR_HEARTBEAT_RESPONSE: "record_cultivator_heartbeat_response",
+  // v0.9 owner-key removal: RECORD_CULTIVATOR_HEARTBEAT(+_RESPONSE) removed (the
+  // anchor-signed cultivator-liveness heartbeat handler + the staleness watchdog
+  // were dropped with the anchor surface). The keyless succession FSM remains.
   UPDATE_SUCCESSOR_CHAIN: "update_successor_chain",
   UPDATE_SUCCESSOR_CHAIN_RESPONSE: "update_successor_chain_response",
   ACCEPT_SUCCESSION: "accept_succession",

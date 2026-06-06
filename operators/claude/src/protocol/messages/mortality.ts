@@ -1,59 +1,22 @@
-// M22.5 / M23.2 — operator owner-signed mortality overrides.
+// M22.5 / M23.2 — operator mortality overrides (KEYLESS v0.9).
 //
 // Split out of the former monolithic `protocol/messages.ts`. Mirrors
-// `substrate::server::handle_lift_birth_period_quarantine` +
-// `handle_accept_self_euthanasia_proposal`. The signing-input Map shapes are
-// the security boundary; one byte off breaks the substrate signature check.
+// `substrate::lifecycle::handle_lift_birth_period_quarantine` +
+// `handle_accept_self_euthanasia_proposal`. **v0.9 owner-key removal**: both
+// handlers are now keyless — the owner Ed25519 signature gates were dropped with
+// the anchor surface. lift_birth_period_quarantine reads nothing from the
+// payload; accept_self_euthanasia_proposal needs only a real `proposal_hash`.
 
-import { encode, type Value } from "@myco/anchor-client/src/canonical_bytes.ts";
+import { type Value } from "../../canonical/canonical_bytes.ts";
 import { BridgeProtocolError, type Message, MSG_TYPE } from "./wire.ts";
 
-/** Compute the canonical-bytes signing input for `lift_birth_period_quarantine`
- *  owner attestation (M22.5; Phase β security fix).
+/** Build the payload for `lift_birth_period_quarantine` (M22.5; KEYLESS v0.9).
  *
- *  Mirrors Rust reconstruction in `handle_lift_birth_period_quarantine`:
- *  ```
- *  canonical_bytes(Map({
- *    "context": "myco-lift-birth-period-quarantine-v1",
- *    "substrate_id": Bytes(32),
- *    "current_cycle": Uint(cycle_counter),
- *  }))
- *  ```
- *
- *  The operator IDENTITY key signs THIS. The `current_cycle` field binds the
- *  signature to a specific point in time — replay across cycles is blocked.
- */
-export function liftBirthPeriodQuarantineSigningInput(
-  substrateId: Uint8Array,
-  currentCycle: bigint,
-): Uint8Array {
-  if (substrateId.length !== 32) {
-    throw new BridgeProtocolError(
-      `substrate_id must be 32 bytes; got ${substrateId.length}`,
-    );
-  }
-  const m = new Map<string, Value>();
-  m.set("context", {
-    type: "string",
-    value: "myco-lift-birth-period-quarantine-v1",
-  });
-  m.set("substrate_id", { type: "bytes", value: substrateId });
-  m.set("current_cycle", { type: "uint", value: currentCycle });
-  return encode({ type: "map", value: m }).bytes;
-}
-
-/** Build the payload for `lift_birth_period_quarantine` (M22.5). */
-export function liftBirthPeriodQuarantinePayload(args: {
-  ownerSignature: Uint8Array;
-}): Map<string, Value> {
-  if (args.ownerSignature.length !== 64) {
-    throw new BridgeProtocolError(
-      `owner_signature must be 64 bytes; got ${args.ownerSignature.length}`,
-    );
-  }
-  const m = new Map<string, Value>();
-  m.set("owner_signature", { type: "bytes", value: args.ownerSignature });
-  return m;
+ *  The owner Ed25519 signature gate was removed with the anchor surface;
+ *  `handle_lift_birth_period_quarantine` reads NOTHING from the payload, so
+ *  this sends an empty Map. */
+export function liftBirthPeriodQuarantinePayload(): Map<string, Value> {
+  return new Map<string, Value>();
 }
 
 /** Parsed `lift_birth_period_quarantine_response` (M22.5). */

@@ -7,6 +7,13 @@
 // Cross-language test vectors at test_vectors/crypto_v1.json.
 //
 // Implementation: @noble/hashes (audited, dependency-free, pure-JS).
+//
+// **v0.9 owner-key removal**: relocated here from the deleted `anchor/client/`
+// TypeScript package. The operator runtime still needs `merkleHash` / `NodeHash`
+// (to independently re-derive + verify the substrate's DAG enumeration — the
+// owner-side defense against substrate hash forgery; SubstrateClient.verifyEnumeration).
+// The Ed25519 + HMAC primitives are retained for completeness / parity but are
+// no longer used to mint owner signatures (the anchor signing layer is gone).
 
 import { blake3 } from "@noble/hashes/blake3.js";
 import { hmac } from "@noble/hashes/hmac.js";
@@ -274,8 +281,7 @@ export class Ed25519Signature {
  * Ed25519 private key (32-byte seed).
  *
  * Substrate-side code should NEVER hold this — owner private keys live
- * outside the substrate process per L1/GOVERNANCE §2.1. This class is for
- * operators + anchor-client signing flows.
+ * outside the substrate process per L1/GOVERNANCE §2.1.
  *
  * Debug output is redacted (never leak the seed via `toString` / `JSON.stringify`).
  */
@@ -313,8 +319,7 @@ export class Ed25519PrivateKey {
   }
 
   /**
-   * Return the seed bytes. NEVER call in substrate-side code; only
-   * operator-side / anchor-client code may need this for sealed storage.
+   * Return the seed bytes. NEVER call in substrate-side code.
    */
   seedBytes(): Uint8Array {
     return new Uint8Array(this.seed);
@@ -333,9 +338,6 @@ export class Ed25519PrivateKey {
 
 /**
  * Verify an Ed25519 signature against a public key and message.
- *
- * Per L1/GOVERNANCE §2.3: substrate verifies the owner signature against
- * the active owner public key from owner_key_history.
  *
  * @throws {PublicKeyMalformed} if `publicKey` is not 32 bytes.
  * @throws {SignatureMalformed} if `signature` is not 64 bytes.

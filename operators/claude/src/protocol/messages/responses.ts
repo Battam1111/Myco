@@ -5,7 +5,7 @@
 // the substrate response Map field names + value types; field/type drift
 // surfaces here as a `BridgeProtocolError` decode failure.
 
-import { type Value } from "@myco/anchor-client/src/canonical_bytes.ts";
+import { type Value } from "../../canonical/canonical_bytes.ts";
 import { BridgeProtocolError, type Message, MSG_TYPE } from "./wire.ts";
 
 // ---------------------------------------------------------------------------

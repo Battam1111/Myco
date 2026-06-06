@@ -10,7 +10,7 @@
 // keep parsing — and the new keys are surfaced as `raw` maps here for
 // forward-compatible consumption.
 
-import { type Value } from "@myco/anchor-client/src/canonical_bytes.ts";
+import { type Value } from "../../canonical/canonical_bytes.ts";
 import { BridgeProtocolError, type Message, MSG_TYPE } from "./wire.ts";
 
 /** Build the payload for `query_substrate_observatory` (Phase α / M24.5).

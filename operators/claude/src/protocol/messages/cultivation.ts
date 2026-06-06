@@ -1,27 +1,20 @@
 // COV06 不弃不孤 — cultivator-mortality + succession FSM operator messages.
 //
 // Mirrors the Rust handlers in `substrate/src/cultivation.rs`
-// (`handle_record_cultivator_heartbeat` / `handle_update_successor_chain` /
-// `handle_accept_succession` / `handle_accept_bet_retired_proposal`). The
-// signing-input Map shapes are the security boundary; one byte off breaks the
-// substrate signature check (the substrate re-derives + verifies these exact
-// canonical-bytes envelopes).
+// (`handle_update_successor_chain` / `handle_accept_succession` /
+// `handle_accept_bet_retired_proposal`). The payload Map field names + value
+// types are the wire contract; field/type drift breaks the substrate decode.
 //
-// The substrate has NO anchor socket (AS §5.2 forbids self-clock); the operator
-// threads the anchor-signed heartbeat / successor-chain / succession-acceptance
-// envelopes in. In production the anchor signs; the operator forwards.
+// **v0.9 owner-key removal**: the `record_cultivator_heartbeat` handler + the
+// heartbeat-staleness watchdog were dropped with the anchor surface, and the
+// owner Ed25519 signature gates on update_successor_chain / accept_succession /
+// accept_bet_retired_proposal were removed (the handlers are now KEYLESS — the
+// C46 catechumenate floor + the structural interval/proposal-reference gates are
+// the surviving authorization roots). The signing-input helpers + the signature
+// payload fields are therefore gone.
 
-import { encode, type Value } from "@myco/anchor-client/src/canonical_bytes.ts";
+import { type Value } from "../../canonical/canonical_bytes.ts";
 import { BridgeProtocolError, type Message, MSG_TYPE } from "./wire.ts";
-
-// ---------------------------------------------------------------------------
-// Domain-separation contexts — MUST byte-match substrate/src/cultivation.rs.
-// ---------------------------------------------------------------------------
-
-const HEARTBEAT_CONTEXT = "myco-cultivator-liveness-heartbeat-v1";
-const SUCCESSOR_CHAIN_CONTEXT = "myco-successor-chain-entry-v1";
-const SUCCESSION_ACCEPTANCE_CONTEXT = "myco-succession-acceptance-v1";
-const BET_RETIRED_CONTEXT = "myco-bet-retired-seal-v1";
 
 function requireLen(name: string, b: Uint8Array, n: number): void {
   if (b.length !== n) {
@@ -30,126 +23,20 @@ function requireLen(name: string, b: Uint8Array, n: number): void {
 }
 
 // ---------------------------------------------------------------------------
-// record_cultivator_heartbeat (anchor-signed liveness pulse; AS §3.7).
+// update_successor_chain (F21 SuccessorEntry append; §3.2.A; KEYLESS v0.9).
 // ---------------------------------------------------------------------------
 
-/** Canonical signing input for the `cultivator_liveness_heartbeat` envelope.
- *  The anchor signs THIS; the substrate verifies against the active owner key. */
-export function cultivatorHeartbeatSigningInput(
-  substrateId: Uint8Array,
-  cultivatorPubkey: Uint8Array,
-  anchorTimestampUnixNs: bigint,
-  validUntilUnixNs: bigint,
-  heartbeatNonce: Uint8Array,
-): Uint8Array {
-  requireLen("substrate_id", substrateId, 32);
-  requireLen("cultivator_pubkey", cultivatorPubkey, 32);
-  requireLen("heartbeat_nonce", heartbeatNonce, 32);
-  const m = new Map<string, Value>();
-  m.set("context", { type: "string", value: HEARTBEAT_CONTEXT });
-  m.set("substrate_id", { type: "bytes", value: substrateId });
-  m.set("cultivator_pubkey", { type: "bytes", value: cultivatorPubkey });
-  m.set("anchor_timestamp_unix_ns", { type: "timestamp", value: anchorTimestampUnixNs });
-  m.set("valid_until_unix_ns", { type: "timestamp", value: validUntilUnixNs });
-  m.set("heartbeat_nonce", { type: "bytes", value: heartbeatNonce });
-  return encode({ type: "map", value: m }).bytes;
-}
-
-/** Build the `record_cultivator_heartbeat` request payload. */
-export function recordCultivatorHeartbeatPayload(args: {
-  cultivatorPubkey: Uint8Array;
-  anchorTimestampUnixNs: bigint;
-  validUntilUnixNs: bigint;
-  heartbeatNonce: Uint8Array;
-  anchorSignature: Uint8Array;
-}): Map<string, Value> {
-  requireLen("cultivator_pubkey", args.cultivatorPubkey, 32);
-  requireLen("heartbeat_nonce", args.heartbeatNonce, 32);
-  requireLen("anchor_signature", args.anchorSignature, 64);
-  const m = new Map<string, Value>();
-  m.set("cultivator_pubkey", { type: "bytes", value: args.cultivatorPubkey });
-  m.set("anchor_timestamp_unix_ns", { type: "timestamp", value: args.anchorTimestampUnixNs });
-  m.set("valid_until_unix_ns", { type: "timestamp", value: args.validUntilUnixNs });
-  m.set("heartbeat_nonce", { type: "bytes", value: args.heartbeatNonce });
-  m.set("anchor_signature", { type: "bytes", value: args.anchorSignature });
-  return m;
-}
-
-/** Parsed `record_cultivator_heartbeat_response`. */
-export interface RecordCultivatorHeartbeatResult {
-  /** DAG node hash of the emitted `cultivator_heartbeat_recorded` event. */
-  recordedEventHash: Uint8Array;
-  /** True iff a `cultivator_heartbeat_resumed` (T2) was also emitted. */
-  resumed: boolean;
-  /** The substrate's cultivation FSM sub-state after this pulse. */
-  cultivationState: string;
-}
-
-export function parseRecordCultivatorHeartbeatResponse(
-  response: Message,
-): RecordCultivatorHeartbeatResult {
-  if (response.messageType !== MSG_TYPE.RECORD_CULTIVATOR_HEARTBEAT_RESPONSE) {
-    throw new BridgeProtocolError(
-      `expected record_cultivator_heartbeat_response; got ${response.messageType}`,
-    );
-  }
-  const hashV = response.payload.get("recorded_event_hash");
-  const resumedV = response.payload.get("resumed");
-  const stateV = response.payload.get("cultivation_state");
-  if (
-    !hashV || hashV.type !== "bytes" ||
-    !resumedV || resumedV.type !== "bool" ||
-    !stateV || stateV.type !== "string"
-  ) {
-    throw new BridgeProtocolError(
-      "record_cultivator_heartbeat_response missing required typed fields",
-    );
-  }
-  return {
-    recordedEventHash: hashV.value,
-    resumed: resumedV.value,
-    cultivationState: stateV.value,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// update_successor_chain (F21 SuccessorEntry append; §3.2.A).
-// ---------------------------------------------------------------------------
-
-/** Canonical signing input for a successor-chain-entry attestation. The active
- *  cultivator (or alive::legacy cultivator) signs THIS. `validUntilUnixNs`
- *  null → open-ended interval. */
-export function successorChainSigningInput(
-  substrateId: Uint8Array,
-  successorPubkey: Uint8Array,
-  validFromUnixNs: bigint,
-  validUntilUnixNs: bigint | null,
-): Uint8Array {
-  requireLen("substrate_id", substrateId, 32);
-  requireLen("successor_pubkey", successorPubkey, 32);
-  const m = new Map<string, Value>();
-  m.set("context", { type: "string", value: SUCCESSOR_CHAIN_CONTEXT });
-  m.set("substrate_id", { type: "bytes", value: substrateId });
-  m.set("successor_pubkey", { type: "bytes", value: successorPubkey });
-  m.set("valid_from_unix_ns", { type: "timestamp", value: validFromUnixNs });
-  m.set(
-    "valid_until_unix_ns",
-    validUntilUnixNs === null
-      ? { type: "null" }
-      : { type: "timestamp", value: validUntilUnixNs },
-  );
-  return encode({ type: "map", value: m }).bytes;
-}
-
-/** Build the `update_successor_chain` request payload. */
+/** Build the `update_successor_chain` request payload (KEYLESS v0.9).
+ *
+ *  The owner Ed25519 attestation gate was removed; the substrate validates the
+ *  structural interval rules (monotone valid_from + non-overlap) only, so this
+ *  sends just the entry fields. */
 export function updateSuccessorChainPayload(args: {
   successorPubkey: Uint8Array;
   validFromUnixNs: bigint;
   validUntilUnixNs: bigint | null;
-  attestationSignature: Uint8Array;
 }): Map<string, Value> {
   requireLen("successor_pubkey", args.successorPubkey, 32);
-  requireLen("attestation_signature", args.attestationSignature, 64);
   const m = new Map<string, Value>();
   m.set("successor_pubkey", { type: "bytes", value: args.successorPubkey });
   m.set("valid_from_unix_ns", { type: "timestamp", value: args.validFromUnixNs });
@@ -159,7 +46,6 @@ export function updateSuccessorChainPayload(args: {
       ? { type: "null" }
       : { type: "timestamp", value: args.validUntilUnixNs },
   );
-  m.set("attestation_signature", { type: "bytes", value: args.attestationSignature });
   return m;
 }
 
@@ -188,45 +74,27 @@ export function parseUpdateSuccessorChainResponse(
 }
 
 // ---------------------------------------------------------------------------
-// accept_succession (T3 legacy→normal; the successor signs the acceptance).
+// accept_succession (T3 legacy→normal; KEYLESS v0.9).
 // ---------------------------------------------------------------------------
 
-/** Canonical signing input for a `succession_acceptance`. The successor signs
- *  THIS with their OWN key. */
-export function successionAcceptanceSigningInput(
-  substrateId: Uint8Array,
-  successorPubkey: Uint8Array,
-  priorCultivatorPubkey: Uint8Array,
-  anchorTimestampUnixNs: bigint,
-): Uint8Array {
-  requireLen("substrate_id", substrateId, 32);
-  requireLen("successor_pubkey", successorPubkey, 32);
-  requireLen("prior_cultivator_pubkey", priorCultivatorPubkey, 32);
-  const m = new Map<string, Value>();
-  m.set("context", { type: "string", value: SUCCESSION_ACCEPTANCE_CONTEXT });
-  m.set("substrate_id", { type: "bytes", value: substrateId });
-  m.set("successor_pubkey", { type: "bytes", value: successorPubkey });
-  m.set("prior_cultivator_pubkey", { type: "bytes", value: priorCultivatorPubkey });
-  m.set("anchor_timestamp_unix_ns", { type: "timestamp", value: anchorTimestampUnixNs });
-  return encode({ type: "map", value: m }).bytes;
-}
-
-/** Build the `accept_succession` request payload. */
+/** Build the `accept_succession` request payload (KEYLESS v0.9).
+ *
+ *  The successor Ed25519 signature gate (and the C12 fresh-owner-heartbeat
+ *  takeover guard) were removed with the anchor surface; the C46 catechumenate
+ *  floor (catechumenate_session_count ≥ 50) is the surviving un-fabricable
+ *  authorization gate, so this sends just the lineage fields + the count. */
 export function acceptSuccessionPayload(args: {
   successorPubkey: Uint8Array;
   priorCultivatorPubkey: Uint8Array;
   anchorTimestampUnixNs: bigint;
-  successorSignature: Uint8Array;
   catechumenateSessionCount: bigint;
 }): Map<string, Value> {
   requireLen("successor_pubkey", args.successorPubkey, 32);
   requireLen("prior_cultivator_pubkey", args.priorCultivatorPubkey, 32);
-  requireLen("successor_signature", args.successorSignature, 64);
   const m = new Map<string, Value>();
   m.set("successor_pubkey", { type: "bytes", value: args.successorPubkey });
   m.set("prior_cultivator_pubkey", { type: "bytes", value: args.priorCultivatorPubkey });
   m.set("anchor_timestamp_unix_ns", { type: "timestamp", value: args.anchorTimestampUnixNs });
-  m.set("successor_signature", { type: "bytes", value: args.successorSignature });
   m.set("catechumenate_session_count", { type: "uint", value: args.catechumenateSessionCount });
   return m;
 }
@@ -259,31 +127,17 @@ export function parseAcceptSuccessionResponse(
 // accept_bet_retired_proposal (T7 / LB §4 → alive::archived).
 // ---------------------------------------------------------------------------
 
-/** Canonical signing input for the bet-retirement co-attestation. The
- *  cultivator signs THIS over the proposal hash. */
-export function betRetiredSealSigningInput(
-  substrateId: Uint8Array,
-  proposalHash: Uint8Array,
-): Uint8Array {
-  requireLen("substrate_id", substrateId, 32);
-  requireLen("proposal_hash", proposalHash, 32);
-  const m = new Map<string, Value>();
-  m.set("context", { type: "string", value: BET_RETIRED_CONTEXT });
-  m.set("substrate_id", { type: "bytes", value: substrateId });
-  m.set("proposal_hash", { type: "bytes", value: proposalHash });
-  return encode({ type: "map", value: m }).bytes;
-}
-
-/** Build the `accept_bet_retired_proposal` request payload. */
+/** Build the `accept_bet_retired_proposal` request payload (KEYLESS v0.9).
+ *
+ *  The cultivator Ed25519 co-attestation gate was removed with the anchor
+ *  surface; the deliberate structural gate is that `proposal_hash` reference a
+ *  real `bet_retired_proposal` DAG node, so this sends just the hash. */
 export function acceptBetRetiredProposalPayload(args: {
   proposalHash: Uint8Array;
-  cultivatorSignature: Uint8Array;
 }): Map<string, Value> {
   requireLen("proposal_hash", args.proposalHash, 32);
-  requireLen("cultivator_signature", args.cultivatorSignature, 64);
   const m = new Map<string, Value>();
   m.set("proposal_hash", { type: "bytes", value: args.proposalHash });
-  m.set("cultivator_signature", { type: "bytes", value: args.cultivatorSignature });
   return m;
 }
 

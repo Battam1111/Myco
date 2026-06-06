@@ -7,9 +7,9 @@
 # in their own directories with their own package.json files.
 #
 # Per L3/OUTLINE §5 owner-chosen multi-language split:
-# - Rust (this workspace): kernel/shared + kernel/skin + kernel/schema + kernel/continuity + kernel/bridge + substrate + anchor/host + test_vectors/rs
+# - Rust (this workspace): kernel/shared + kernel/skin + kernel/schema + kernel/continuity + kernel/bridge + substrate + test_vectors/rs
 # - Python: kernel/governance + kernel/tropism + kernel/trajectory + kernel/hard_rules
-# - TypeScript: anchor/client + operators/<host>
+# - TypeScript: operators/<host> (v0.9 owner-key removal deleted the anchor/host Rust crate + anchor/client TS package)
 #
 # Cross-language canonical-bytes parity is enforced via a shared test vector suite
 # (each language's serializer round-trips identical bytes on identical inputs).
@@ -24,7 +24,8 @@ members = [
     "kernel/bridge/rust",
     "substrate",
     "test_vectors/rs",
-    "anchor/host",
+    # v0.9 owner-key removal: `anchor/host` (anchor-surface-host, Ed25519 owner-key
+    # custody) was deleted with the rest of the anchor surface.
 ]
 
 [workspace.package]

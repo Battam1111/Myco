@@ -631,45 +631,10 @@ impl BridgeClient {
         Ok((axis_count, hydrated))
     }
 
-    /// **C70** — tell Python to apply an ACTIVATED owner-key rotation to its
-    /// in-memory `owner_keys` history (retire the old key + add the new one).
-    /// Called by the substrate AFTER it has verified the dual-cosign +
-    /// post-cooldown activation, so Python's next CI-attestation check verifies
-    /// against the rotated key. L1/GOVERNANCE §3.1.
-    pub fn apply_owner_key_rotation(
-        &mut self,
-        prior_active_pubkey: &[u8; 32],
-        new_pubkey: &[u8; 32],
-        activate_anchor_timestamp_unix_seconds: u64,
-        cooldown_expires_at_unix_seconds: u64,
-    ) -> Result<(), BridgeError> {
-        use myco_kernel_shared::canonical_bytes::Value;
-        let mut payload = std::collections::BTreeMap::new();
-        payload.insert(
-            "prior_active_pubkey".to_string(),
-            Value::Bytes(prior_active_pubkey.to_vec()),
-        );
-        payload.insert(
-            "new_pubkey".to_string(),
-            Value::Bytes(new_pubkey.to_vec()),
-        );
-        payload.insert(
-            "activate_anchor_timestamp_unix_seconds".to_string(),
-            Value::Uint(activate_anchor_timestamp_unix_seconds),
-        );
-        payload.insert(
-            "cooldown_expires_at_unix_seconds".to_string(),
-            Value::Uint(cooldown_expires_at_unix_seconds),
-        );
-        let response = self.send_request(msg_type::APPLY_OWNER_KEY_ROTATION, payload)?;
-        if response.message_type != msg_type::APPLY_OWNER_KEY_ROTATION_ACK {
-            return Err(BridgeError::Protocol(format!(
-                "expected apply_owner_key_rotation_ack; got {}",
-                response.message_type
-            )));
-        }
-        Ok(())
-    }
+    // **v0.9 owner-key removal**: `apply_owner_key_rotation` (C70 — tell Python
+    // to mutate its in-memory owner_keys history after an activated dual-cosign
+    // rotation) was removed with the owner-key subsystem. The substrate no longer
+    // verifies owner signatures, so Python carries no owner_keys history to rotate.
 
     /// M21.3: Query all current axis schemas from Python.
     ///

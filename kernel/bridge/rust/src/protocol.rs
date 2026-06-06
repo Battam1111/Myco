@@ -127,11 +127,9 @@ pub mod msg_type {
     pub const RUN_IMMUNE_CHECK: &str = "run_immune_check";
     /// `run_immune_check_response` — Rust→Operator: scan results (per-check pass/fail).
     pub const RUN_IMMUNE_CHECK_RESPONSE: &str = "run_immune_check_response";
-    /// `request_attestation_nonce` — Operator→Rust: request a fresh nonce bound to
-    /// a proposed mutation hash + current DAG tip (M13).
-    pub const REQUEST_ATTESTATION_NONCE: &str = "request_attestation_nonce";
-    /// `request_attestation_nonce_response` — Rust→Operator: nonce + expiry + dag_tip.
-    pub const REQUEST_ATTESTATION_NONCE_RESPONSE: &str = "request_attestation_nonce_response";
+    // **v0.9 owner-key removal**: REQUEST_ATTESTATION_NONCE(+_RESPONSE) removed —
+    // the substrate stopped issuing anchor-surface attestation nonces in stage 3
+    // (the owner-attested submit_mutation envelope was deleted with the anchor).
     /// `enumerate_dag_since` — Operator→Rust: enumerate DAG node hashes added
     /// since the given prev_tip (M15). Closes L1/HARD_RULES C6 dag_enumeration_unclosed
     /// by giving the owner a deterministic enumeration with full per-node
@@ -388,15 +386,10 @@ pub mod msg_type {
     /// `abort_migration_ack` — Python→Rust: candidate dropped.
     pub const ABORT_MIGRATION_ACK: &str = "abort_migration_ack";
 
-    /// **C70** — `apply_owner_key_rotation` — Rust→Python: after the substrate
-    /// has accepted a dual-cosign owner-key rotation activation (cooldown
-    /// elapsed + both keys verified), tell Python to mutate its in-memory
-    /// `owner_keys` history so the NEXT CI mutation's `attestation_signature`
-    /// verifies against the rotated key: add the new key + retire the old one
-    /// (set `valid_until` + `cooldown_expired_at`). L1/GOVERNANCE §3.1.
-    pub const APPLY_OWNER_KEY_ROTATION: &str = "apply_owner_key_rotation";
-    /// `apply_owner_key_rotation_ack` — Python→Rust: owner_keys rotated.
-    pub const APPLY_OWNER_KEY_ROTATION_ACK: &str = "apply_owner_key_rotation_ack";
+    // **v0.9 owner-key removal**: APPLY_OWNER_KEY_ROTATION(+_ACK) removed — the
+    // owner-key rotation FSM (and the C70 Python owner_keys history mutation it
+    // drove) was deleted with the rest of the owner-key subsystem. The substrate
+    // stopped sending it in stage 3.
 
     /// `query_migration_pending` — Operator→Substrate: read whether a two-phase
     /// schema migration is currently in flight, and if so its op + window +
@@ -411,33 +404,13 @@ pub mod msg_type {
     // **COV06 不弃不孤** — cultivator-mortality + succession FSM
     // (L0/cards/COV06_no_abandonment_succession.md + L1/GOVERNANCE §3.2).
     //
-    // The substrate has NO anchor socket (AS §5.2 forbids self-clock); the
-    // operator threads the anchor-signed heartbeat in. These three operator→
-    // substrate messages drive the cultivation FSM.
+    // **v0.9 owner-key removal**: RECORD_CULTIVATOR_HEARTBEAT(+_RESPONSE) was
+    // removed — the anchor-signed cultivator-liveness heartbeat handler + the
+    // staleness watchdog were deleted with the anchor surface. The KEYLESS
+    // succession FSM (update_successor_chain / accept_succession /
+    // accept_bet_retired_proposal) remains and drives legacy→normal recovery via
+    // the C46 catechumenate floor + structural gates instead of a heartbeat.
     // ---------------------------------------------------------------------
-
-    /// `record_cultivator_heartbeat` — Operator→Substrate: thread an
-    /// anchor-signed `cultivator_liveness_heartbeat` envelope (AS §3.7) in. The
-    /// handler verifies the anchor signature against the active owner pubkey,
-    /// then emits `cultivator_heartbeat_recorded`; if the substrate is currently
-    /// `alive::legacy` and the same cultivator pubkey signs, it ALSO emits
-    /// `cultivator_heartbeat_resumed` (T2 legacy→normal recovery).
-    ///
-    /// Request payload:
-    /// ```text
-    /// Map({
-    ///   "cultivator_pubkey": Bytes(32),
-    ///   "anchor_timestamp_unix_ns": Timestamp,   // anchor wall-clock of this pulse
-    ///   "valid_until_unix_ns": Timestamp,
-    ///   "heartbeat_nonce": Bytes(32),
-    ///   "anchor_signature": Bytes(64),           // over the canonical heartbeat envelope
-    /// })
-    /// ```
-    /// Response payload: `{ recorded_event_hash: Bytes(32), resumed: Bool,
-    /// cultivation_state: String }`.
-    pub const RECORD_CULTIVATOR_HEARTBEAT: &str = "record_cultivator_heartbeat";
-    /// `record_cultivator_heartbeat_response` — see [`RECORD_CULTIVATOR_HEARTBEAT`].
-    pub const RECORD_CULTIVATOR_HEARTBEAT_RESPONSE: &str = "record_cultivator_heartbeat_response";
 
     /// `update_successor_chain` — Operator→Substrate: append a SuccessorEntry to
     /// the F21 cultivation_successor_chain (§3.2.A). CI-attested against the

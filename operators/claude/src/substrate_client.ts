@@ -24,7 +24,6 @@ import {
   type AcceptSelfEuthanasiaProposalResult,
   advancePayload,
   type AdvanceReport,
-  type AttestationNonceResult,
   BOOTSTRAP_KEY,
   computeIntentPayload,
   type DagEnumerationReport,
@@ -56,7 +55,6 @@ import {
   type PopulationConsensusTally,
   type HelloAck,
   helloPayload,
-  helloSigningBody,
   type ImmuneCheckReport,
   type ImmuneEventsReport,
   type IngestResult,
@@ -64,7 +62,6 @@ import {
   type IntentReport,
   liftBirthPeriodQuarantinePayload,
   type LiftBirthPeriodQuarantineResult,
-  liftBirthPeriodQuarantineSigningInput,
   type Message,
   type MigrationPendingReport,
   MSG_TYPE,
@@ -95,7 +92,6 @@ import {
   parseQueryRecentNodesResponse,
   parseReadNodeByHashResponse,
   parseListPlatesResponse,
-  parseRequestAttestationNonceResponse,
   parseRunImmuneCheckResponse,
   parseSnapshotResponse,
   parseSubmitMutationResponse,
@@ -111,16 +107,11 @@ import {
   type RecentDagNode,
   type PlateIndexReport,
   registerAxisPayload,
-  requestAttestationNoncePayload,
-  revealKeyBindingSigningInput,
   sproutChildPayload,
   type SproutChildResult,
   submitMutationPayload,
-  buildDagTipCosignCanonicalBytes,
-  buildL0RevisionCanonicalBytes,
   buildSpawnCosignCanonicalBytes,
 } from "./protocol/messages.ts";
-import { OperatorIdentity } from "./operator_identity.ts";
 
 /** Configuration for spawning a SubstrateClient. */
 export interface SubstrateClientConfig {
@@ -132,10 +123,6 @@ export interface SubstrateClientConfig {
   env?: Record<string, string>;
   /** Pre-seeded 32-byte session secret. Random by default. */
   sessionSecret?: Uint8Array;
-  /** Operator identity for M9 hello signing. If omitted, loads-or-creates
-   *  from ~/.myco/operator_keys/ (or $MYCO_OPERATOR_KEY_DIR). Pass an explicit
-   *  OperatorIdentity for tests (isolated keypairs). */
-  operatorIdentity?: OperatorIdentity;
   /** Per-request response timeout in milliseconds. If the substrate writes no
    *  response frame for a request within this window, the awaiting promise
    *  rejects with a {@link SubstrateTimeoutError} and the waiter is evicted.
@@ -201,10 +188,6 @@ export class SubstrateClient {
   private fatalError: Error | null;
   /** Resolved hello_ack info. */
   helloAck: HelloAck;
-  /** Identity auto-loaded by spawn() (NOT a caller-provided one). When set,
-   *  shutdown() will close it; without this the anchor-surface-host child
-   *  it owns would leak (its stdio pipes keep the parent alive). */
-  private autoLoadedIdentity: OperatorIdentity | null;
 
   private constructor(
     child: ChildProcess,
@@ -218,7 +201,6 @@ export class SubstrateClient {
     this.reader = new FrameReader();
     this.pendingResponses = new Map();
     this.fatalError = null;
-    this.autoLoadedIdentity = null;
     this.helloAck = {
       kernelTropismVersion: "",
       pythonVersion: "",
@@ -242,47 +224,16 @@ export class SubstrateClient {
       );
     }
 
-    // M9/M-anchor-1: load (or create) the operator identity for signing
-    // the hello message. After M-anchor-1, this delegates to
-    // anchor_surface_host over local TCP — the owner Ed25519 private key
-    // never enters the operator process memory.
-    //
-    // If the caller passed an explicit identity, they OWN its lifecycle.
-    // If we auto-load one, WE own its lifecycle — shutdown() must close it
-    // so the anchor-surface-host child it spawned doesn't leak (its stdio
-    // pipes hold the parent process alive until the child exits).
-    const callerProvidedIdentity = config.operatorIdentity ?? null;
-    const identity =
-      callerProvidedIdentity ?? (await OperatorIdentity.loadOrCreate());
-    const operatorPubkey = identity.publicKeyBytes();
-
-    // Compute the hello signature over the canonical-bytes of {session_secret, operator_pubkey}.
-    const signingInput = helloSigningBody(sessionSecret, operatorPubkey);
-    const helloSignature = await identity.sign(signingInput);
-
-    // **M-anchor-2 §9.2.1 birth attestation injection**.
-    //
-    // If this looks like a FRESH substrate (no MYCO_STATE_DIR override OR
-    // an explicitly-empty state dir), pre-generate substrate_id +
-    // genesis_time, request a birth attestation from anchor_surface_host
-    // via OperatorIdentity, and pass all values to the substrate as env
-    // vars. The substrate's Manifest::genesis path honors
-    // MYCO_SUBSTRATE_ID_OVERRIDE_HEX + MYCO_GENESIS_TIME_OVERRIDE_UNIX_NS;
-    // server.rs honors MYCO_BIRTH_ATTESTATION_* and emits the DAG event
-    // right after genesis_event.
-    //
-    // For PRE-EXISTING substrates (state dir already has manifest.cb),
-    // skipping injection is correct: the birth_attestation event is
-    // already in their DAG, and substrate-side C20 verifier re-checks it
-    // on every boot regardless.
-    const birthAttestationEnv = await maybeBuildBirthAttestationEnv(
-      identity,
-      config.env?.MYCO_STATE_DIR,
-    );
-
+    // **v0.9 keyless handshake** (owner-key removal). The M9/M-anchor owner
+    // Ed25519 identity, the signed-hello TOFU pinning, and the M-anchor-2
+    // birth-attestation injection were all removed with the anchor surface.
+    // `substrate/src/handshake.rs::handle_hello` now completes the handshake on
+    // a well-formed 32-byte `session_secret` alone (no operator pubkey, no
+    // hello signature, no TOFU pin) and ignores any identity fields. Fresh
+    // substrates self-mint their substrate_id at genesis; no env injection.
     const child = spawn(binary, [], {
       stdio: ["pipe", "pipe", "inherit"],
-      env: { ...process.env, ...config.env, ...birthAttestationEnv },
+      env: { ...process.env, ...config.env },
     });
 
     const client = new SubstrateClient(
@@ -290,19 +241,16 @@ export class SubstrateClient {
       sessionSecret,
       config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
     );
-    // Record ownership: if we auto-loaded the identity, we must close it.
-    if (!callerProvidedIdentity) {
-      client.autoLoadedIdentity = identity;
-    }
     client._wireStreams();
 
-    // Send hello using BOOTSTRAP_KEY; await hello_ack signed with session_secret.
+    // Send the keyless hello using BOOTSTRAP_KEY; await hello_ack (subsequent
+    // frames are HMAC'd with the exchanged session_secret).
     const requestId = client._allocateRequestId();
     const helloMsg: Message = {
       version: 1n,
       messageType: MSG_TYPE.HELLO,
       requestId,
-      payload: helloPayload(sessionSecret, operatorPubkey, helloSignature),
+      payload: helloPayload(sessionSecret),
     };
     const helloFrame = encodeFrameBody(helloMsg, BOOTSTRAP_KEY);
     const waitForAck = client._registerWaiter(requestId, MSG_TYPE.HELLO);
@@ -467,7 +415,7 @@ export class SubstrateClient {
     messageType: string,
     payload: Map<
       string,
-      import("@myco/anchor-client/src/canonical_bytes.ts").Value
+      import("./canonical/canonical_bytes.ts").Value
     >,
   ): Promise<Message> {
     if (this.fatalError) throw this.fatalError;
@@ -568,7 +516,7 @@ export class SubstrateClient {
   async readNodeByHash(hash: Uint8Array): Promise<RecentDagNode | null> {
     const payload = new Map<
       string,
-      import("@myco/anchor-client/src/canonical_bytes.ts").Value
+      import("./canonical/canonical_bytes.ts").Value
     >();
     payload.set("node_hash", { type: "bytes", value: hash });
     const response = await this._sendRequest(MSG_TYPE.READ_NODE_BY_HASH, payload);
@@ -582,7 +530,7 @@ export class SubstrateClient {
   async listPlates(): Promise<PlateIndexReport> {
     const payload = new Map<
       string,
-      import("@myco/anchor-client/src/canonical_bytes.ts").Value
+      import("./canonical/canonical_bytes.ts").Value
     >();
     const response = await this._sendRequest(MSG_TYPE.LIST_PLATES, payload);
     return parseListPlatesResponse(response);
@@ -601,7 +549,7 @@ export class SubstrateClient {
     contentKind: RawMaterialKind;
     contentBytes: Uint8Array;
     sourceUri?: string;
-    meta?: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value>;
+    meta?: Map<string, import("./canonical/canonical_bytes.ts").Value>;
   }): Promise<IngestResult> {
     const response = await this._sendRequest(
       MSG_TYPE.INGEST_RAW_MATERIAL,
@@ -661,9 +609,9 @@ export class SubstrateClient {
     // Genesis is the first DAG node (insertion order); newest-first traversal
     // means it's the LAST in `nodes` array.
     const genesis = recent.nodes[recent.nodes.length - 1]!;
-    const { decode } = await import("@myco/anchor-client/src/renderer.ts");
+    const { decode } = await import("./canonical/renderer.ts");
     const { CanonicalBytes } = await import(
-      "@myco/anchor-client/src/canonical_bytes.ts"
+      "./canonical/canonical_bytes.ts"
     );
     const decoded = decode(new CanonicalBytes(genesis.contentCanonicalBytes));
     if (decoded.type !== "map") {
@@ -681,52 +629,48 @@ export class SubstrateClient {
     return idValue.value;
   }
 
-  /** M20 + **P08 §3.5 / §5.1** — Sprout a child substrate WITH a cultivator
-   *  co-attestation. This is an attestation orchestrator (modelled on
-   *  `cosignDagTip`): a child spawn is a CI-class doctrine event, not a
-   *  daily-mode mutation, so the cultivator MUST co-sign it at the anchor
-   *  surface or the substrate refuses with C68.
+  /** M20 + **P08 §3.5 / §5.1** — Sprout a child substrate (KEYLESS v0.9).
+   *
+   *  A child spawn is still a CI-class doctrine event: the substrate REQUIRES a
+   *  well-formed `myco-spawn-cosign-v1` envelope (parent replay-guard +
+   *  I7(a) spore-schema binding + §16.B anchor-clock rate throttle) or it
+   *  refuses with C68. The owner-key removal dropped ONLY the Ed25519
+   *  co-signature gate (reproduction.rs gate 5) — the envelope STRUCTURE is
+   *  still decoded + checked, so this builds + sends it, just without a
+   *  signature.
    *
    *  Steps:
    *  1. **querySubstrateId** — read the parent's substrate_id (binds the
    *     envelope to THIS parent → substrate-side replay guard).
    *  2. Compute `spore_schema_hash = blake3(sporeSchemaCanonicalBytes)`
    *     (raw BLAKE3 — matches the substrate's I7(a) check exactly).
-   *  3. **getAnchorWallClock** + **generateAnchorNonce** — owner's
-   *     authoritative timestamp + unbiasable nonce.
-   *  4. Build the `myco-spawn-cosign-v1` envelope binding
-   *     `(parent_substrate_id, spore_schema_hash,
-   *      child_genesis_timestamp_unix_ns, anchor_timestamp_unix_ns,
-   *      anchor_nonce, depth_override)`.
-   *  5. **sign** — owner's Ed25519 key signs the envelope bytes.
-   *  6. **sprout_child** — send envelope + signature + spore-schema bytes; the
-   *     substrate verifies, owner-mints the §5.6 deterministic child-id, builds
-   *     the child DAG, and emits `genesis_attested:{child_prefix}` (I7-closure).
+   *  3. Stamp the envelope's `anchor_timestamp_unix_ns` with the local wall
+   *     clock + a fresh random nonce (no anchor process to consult; the
+   *     §16.B throttle only needs a STRICTLY-increasing stamp vs prior spawns).
+   *  4. Build the `myco-spawn-cosign-v1` envelope and send it (no signature).
+   *     The substrate mints the §5.6 deterministic child-id, builds the child
+   *     DAG, and emits `genesis_attested:{child_prefix}` (I7-closure).
    *
    *  The parent's causal DAG is NOT transferred (child starts its own causal
    *  history). Rejects if `childStateDir` already contains a dag.cb / manifest.cb.
    *
-   *  `childGenesisTimestampUnixNs` defaults to the anchor wall-clock (the most
-   *  natural birth timestamp). `depthOverride` defaults to false (the §16.A
-   *  lineage-depth cap is enforced); set true to have the cultivator's signed
-   *  override permit a spawn past the cap for THIS child.
+   *  `childGenesisTimestampUnixNs` defaults to the local wall clock. `depthOverride`
+   *  defaults to false (the §16.A lineage-depth cap is enforced); set true to
+   *  permit a spawn past the cap for THIS child.
    */
   async sproutChild(args: {
     childStateDir: string;
     /** The child's spore-schema canonical bytes (the 7-field L1/SCHEMA §3.1
      *  shape). Assembled by the caller (mcp_server) from the parent's current
-     *  schema. blake3 of these bytes is co-signed as the spore_schema_hash. */
+     *  schema. blake3 of these bytes is bound as the spore_schema_hash. */
     sporeSchemaCanonicalBytes: Uint8Array;
-    /** Operator/owner identity to co-sign with. Required (operator==owner in
-     *  v0.9; the substrate verifies against the pinned owner pubkey). */
-    operatorIdentity: OperatorIdentity;
     /** Optional explicit child genesis timestamp (unix ns). Defaults to the
-     *  anchor wall-clock fetched during orchestration. */
+     *  local wall clock. */
     childGenesisTimestampUnixNs?: bigint;
     /** Optional cultivator depth-override for this spawn (§16.A / F22).
      *  Default false. */
     depthOverride?: boolean;
-    spore_metadata?: Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value>;
+    spore_metadata?: Map<string, import("./canonical/canonical_bytes.ts").Value>;
   }): Promise<SproutChildResult> {
     // 1. Parent substrate_id (replay guard).
     const parentSubstrateId = await this.querySubstrateId();
@@ -735,35 +679,31 @@ export class SubstrateClient {
     const { blake3 } = await import("@noble/hashes/blake3.js");
     const sporeSchemaHash = blake3(args.sporeSchemaCanonicalBytes);
 
-    // 3. Anchor wall clock + nonce.
-    const wallClock = await args.operatorIdentity.getAnchorWallClock();
-    const nonceResult = await args.operatorIdentity.generateAnchorNonce(300n);
+    // 3. Keyless: local wall-clock anchor timestamp + a fresh random nonce.
+    //    (No anchor process in v0.9; the §16.B rate gate only needs the
+    //    anchor_timestamp to be STRICTLY later than the prior spawn's.)
+    const anchorTimestampUnixNs = BigInt(Date.now()) * 1_000_000n;
+    const anchorNonce = new Uint8Array(randomBytes(32));
+    const childGenesisTimestampUnixNs =
+      args.childGenesisTimestampUnixNs ?? anchorTimestampUnixNs;
 
-    const childGenesisTimestampUnixNs = args.childGenesisTimestampUnixNs ??
-      wallClock.anchorTimestampUnixNs;
-
-    // 4. Build the spawn-cosign envelope.
+    // 4. Build the spawn-cosign envelope (no signature — keyless v0.9).
     const envelope = buildSpawnCosignCanonicalBytes({
       parentSubstrateId,
       sporeSchemaHash,
       childGenesisTimestampUnixNs,
-      anchorTimestampUnixNs: wallClock.anchorTimestampUnixNs,
-      anchorNonce: nonceResult.nonce,
+      anchorTimestampUnixNs,
+      anchorNonce,
       depthOverride: args.depthOverride ?? false,
     });
 
-    // 5. Owner signs the envelope bytes.
-    const signature = await args.operatorIdentity.sign(envelope);
-
-    // 6. Send. The substrate verifies the co-attestation BEFORE any side
-    //    effect (C68 on failure), then mints the child-id + emits
-    //    genesis_attested.
+    // 5. Send. The substrate decodes the envelope (C68 on malformed/replayed),
+    //    mints the child-id + emits genesis_attested. No signature is checked.
     const response = await this._sendRequest(
       MSG_TYPE.SPROUT_CHILD,
       sproutChildPayload({
         childStateDir: args.childStateDir,
         spawnCosignEnvelope: envelope,
-        attestationSignature: signature,
         sporeSchemaCanonicalBytes: args.sporeSchemaCanonicalBytes,
         spore_metadata: args.spore_metadata,
       }),
@@ -855,212 +795,14 @@ export class SubstrateClient {
     return parseQueryMigrationPendingResponse(response);
   }
 
-  /** M14: Submit a CI mutation with full per-handshake REVEAL envelope.
-   *
-   *  This helper:
-   *  1. Generates a fresh ephemeral Ed25519 keypair (the REVEAL key).
-   *  2. Has the operator IDENTITY key (M9) sign the REVEAL pubkey via
-   *     `revealKeyBindingSigningInput` (closes C17 operator_witness_forgery).
-   *  3. Has the REVEAL private key sign `contentCanonicalBytes` (the attestation).
-   *  4. Requests an attestation nonce for the content (M13).
-   *  5. Submits the full envelope: content + REVEAL pubkey + IDENTITY-signed-REVEAL
-   *     + REVEAL-signed-content + nonce + expiry.
-   *
-   *  If the operator's IDENTITY private key leaks but the REVEAL key did not,
-   *  only THIS mutation's attestation can be forged — not future ones.
-   *  Per-mutation credential isolation. */
-  async submitMutationWithReveal(args: {
-    mutationType: string;
-    touchedFields?: string[];
-    touchedFiles?: string[];
-    touchedMetaStructures?: string[];
-    contentCanonicalBytes: Uint8Array;
-    operatorIdentity: import("./operator_identity.ts").OperatorIdentity;
-    /** M24.2 SECURITY (Phase β fix): substrate_id of the target substrate,
-     *  bound into the IDENTITY-over-REVEAL signature so the signature cannot
-     *  be replayed against a different substrate with the same pinned operator.
-     *  Obtainable from the genesis_event in the substrate's DAG. */
-    substrateId: Uint8Array;
-  }): Promise<MutationResult> {
-    const { ed25519 } = await import("@noble/curves/ed25519.js");
-    const { randomBytes: rb } = await import("node:crypto");
-
-    // 1. Fresh REVEAL keypair.
-    const revealSeed = new Uint8Array(rb(32));
-    const revealPubkey = ed25519.getPublicKey(revealSeed);
-
-    // 2. IDENTITY signs the REVEAL pubkey + substrate_id (M24.2 v2 binding).
-    const identitySigningInput = revealKeyBindingSigningInput(
-      revealPubkey,
-      args.substrateId,
-    );
-    const identitySigOverReveal = await args.operatorIdentity.sign(identitySigningInput);
-
-    // 3. REVEAL signs the content (the "attestation" signature).
-    const revealSig = ed25519.sign(args.contentCanonicalBytes, revealSeed);
-
-    // 4. Request a nonce bound to content + current DAG tip.
-    const nonceResult = await this.requestAttestationNonce(args.contentCanonicalBytes);
-
-    // 5. Submit the full envelope.
-    return this.submitMutation({
-      mutationType: args.mutationType,
-      touchedFields: args.touchedFields,
-      touchedFiles: args.touchedFiles,
-      touchedMetaStructures: args.touchedMetaStructures,
-      contentCanonicalBytes: args.contentCanonicalBytes,
-      attestationSignature: revealSig,
-      nonce: nonceResult.nonce,
-      expiryUnixNs: nonceResult.expiryUnixNs,
-      revealPubkey,
-      identitySignatureOverRevealPubkey: identitySigOverReveal,
-    });
-  }
-
-  /** **M-anchor-5 §9.2.2** — co-sign a DAG-tip from the anchor surface.
-   *
-   *  This is the high-level orchestrator for owner-side DAG-tip attestation.
-   *  It performs the four anchor-surface round-trips needed to produce a
-   *  valid `dag_tip_cosign` mutation:
-   *
-   *  1. **getAnchorWallClock** — fetch the owner's authoritative timestamp.
-   *  2. **generateAnchorNonce** — fetch a 32-byte unbiasable nonce.
-   *  3. Build the `myco-dag-tip-cosign-v1` canonical-bytes envelope binding
-   *     `(tip_hash, enumerated_node_hashes, proposed_mutation_hash,
-   *     anchor_timestamp_unix_ns, anchor_nonce)`.
-   *  4. **sign** — owner's Ed25519 key signs the canonical bytes.
-   *  5. **submitMutation** — wrap the envelope + signature into a CI mutation;
-   *     substrate decodes + emits `tip_cosigned:{tip_prefix}` DAG event.
-   *
-   *  After this returns successfully, the DAG contains an immutable
-   *  owner-attested record that "at this substrate-cycle, the owner
-   *  observed THIS exact tip + history walk." Any post-hoc DAG rewrite
-   *  becomes detectable by re-deriving from the cosign envelope.
-   *
-   *  `proposedMutationHash` is optional — pass undefined for a standalone
-   *  tip cosign (the substrate accepts 32 zero bytes as "no proposed mutation").
-   */
-  async cosignDagTip(args: {
-    /** The DAG tip the owner is attesting to (32 bytes). Typically obtained
-     *  via a recent `queryRecentNodes` call's `dagTip` field. */
-    tipHash: Uint8Array;
-    /** In-order list of DAG node hashes the owner has independently walked
-     *  and verified up to `tipHash`. Each must be 32 bytes. May be empty
-     *  for a "tip-only" cosign that does not pin history walk. */
-    enumeratedNodeHashes: Uint8Array[];
-    /** Optional 32-byte hash of a proposed CI mutation that the owner is
-     *  cosigning AS A PRECONDITION. Pass undefined for a standalone tip
-     *  cosign. */
-    proposedMutationHash?: Uint8Array;
-    /** Operator identity to sign with. Required (the owner's anchor-surface
-     *  key is what proves ownership of the signature). */
-    operatorIdentity: OperatorIdentity;
-  }): Promise<MutationResult> {
-    // 1. Anchor wall clock + 2. anchor nonce (both via OperatorIdentity).
-    const wallClock = await args.operatorIdentity.getAnchorWallClock();
-    const nonceResult = await args.operatorIdentity.generateAnchorNonce(300n);
-
-    // 3. Build the envelope.
-    const proposedMutationHash = args.proposedMutationHash ?? new Uint8Array(32);
-    const envelope = buildDagTipCosignCanonicalBytes({
-      tipHash: args.tipHash,
-      enumeratedNodeHashes: args.enumeratedNodeHashes,
-      proposedMutationHash,
-      anchorTimestampUnixNs: wallClock.anchorTimestampUnixNs,
-      anchorNonce: nonceResult.nonce,
-    });
-
-    // 4. Owner signs the canonical bytes.
-    const signature = await args.operatorIdentity.sign(envelope);
-
-    // 5. Submit as CI mutation. The substrate-side handler will decode the
-    //    envelope, capture the signature, and emit `tip_cosigned:{prefix}`
-    //    DAG event after the mutation:dag_tip_cosign node lands.
-    //    Substrate-issued nonce is also bound to the content hash for replay
-    //    protection (independent of the anchor nonce inside the envelope).
-    const subNonce = await this.requestAttestationNonce(envelope);
-    return this.submitMutation({
-      mutationType: "dag_tip_cosign",
-      contentCanonicalBytes: envelope,
-      attestationSignature: signature,
-      nonce: subNonce.nonce,
-      expiryUnixNs: subNonce.expiryUnixNs,
-    });
-  }
-
-  /** **M-anchor-5 §9.2.4** — attest an L0 doctrine revision from the
-   *  anchor surface.
-   *
-   *  When L0_DOCTRINE evolves from version X to version Y (e.g., a sealed
-   *  draft progresses, or a §-section is added), this helper anchors the
-   *  transition into the DAG as an owner-signed event. Without this anchor,
-   *  the substrate could silently shift its doctrine ground truth between
-   *  sessions; with it, every revision is permanently recorded and any
-   *  rewrite is detectable.
-   *
-   *  Orchestrates the same four anchor-surface calls as `cosignDagTip`:
-   *  wallClock → anchorNonce → buildEnvelope → sign → submitMutation. The
-   *  envelope binds `(prior_l0_hash, new_l0_hash, diff_summary,
-   *  anchor_timestamp_unix_ns, anchor_nonce)`.
-   *
-   *  After a successful return, the DAG contains
-   *  `l0_revision_attested:{prior_l0_hash_prefix}` referencing the new
-   *  doctrine hash plus the owner's signature — re-verifiable offline by
-   *  anyone with the owner's public key.
-   */
-  async signL0Revision(args: {
-    /** 32-byte hash of the L0 doctrine BEFORE the revision (e.g., SHA-256
-     *  of the L0_DOCTRINE.md file at the prior commit). */
-    priorL0Hash: Uint8Array;
-    /** 32-byte hash of the L0 doctrine AFTER the revision. */
-    newL0Hash: Uint8Array;
-    /** Short human-readable description of what changed
-     *  (e.g., "Add §9.4 federation observatory"). Stored verbatim in the
-     *  signed envelope; canonicalization preserves the exact bytes. */
-    diffSummary: string;
-    operatorIdentity: OperatorIdentity;
-  }): Promise<MutationResult> {
-    const wallClock = await args.operatorIdentity.getAnchorWallClock();
-    const nonceResult = await args.operatorIdentity.generateAnchorNonce(300n);
-    const envelope = buildL0RevisionCanonicalBytes({
-      priorL0Hash: args.priorL0Hash,
-      newL0Hash: args.newL0Hash,
-      diffSummary: args.diffSummary,
-      anchorTimestampUnixNs: wallClock.anchorTimestampUnixNs,
-      anchorNonce: nonceResult.nonce,
-    });
-    const signature = await args.operatorIdentity.sign(envelope);
-    const subNonce = await this.requestAttestationNonce(envelope);
-    return this.submitMutation({
-      mutationType: "l0_revision_attest",
-      contentCanonicalBytes: envelope,
-      attestationSignature: signature,
-      nonce: subNonce.nonce,
-      expiryUnixNs: subNonce.expiryUnixNs,
-    });
-  }
-
-  /** M13: Request an attestation nonce bound to a proposed mutation's content
-   *  hash. The substrate returns nonce + expiry + dag_tip; operator includes
-   *  the nonce in submit_mutation to prove a fresh (non-replay) intent.
-   *
-   *  M15: optionally supply `anchorClockUnixNs` (operator's wall-clock at
-   *  request time). When present, the response includes
-   *  `anchorClockExpiryUnixNs`, and the operator MUST supply
-   *  `anchorClockSubmittedAtUnixNs` at submit time for the dual-clock check.
-   *  Both clock checks must pass for nonce verification to succeed.
-   */
-  async requestAttestationNonce(
-    contentCanonicalBytes: Uint8Array,
-    anchorClockUnixNs?: bigint,
-  ): Promise<AttestationNonceResult> {
-    const contentHash = await this._sha256(contentCanonicalBytes);
-    const response = await this._sendRequest(
-      MSG_TYPE.REQUEST_ATTESTATION_NONCE,
-      requestAttestationNoncePayload(contentHash, anchorClockUnixNs),
-    );
-    return parseRequestAttestationNonceResponse(response);
-  }
+  // **v0.9 owner-key removal**: `submitMutationWithReveal` (M14 REVEAL-keypair
+  // envelope), `cosignDagTip` (M-anchor-5 §9.2.2), `signL0Revision`
+  // (§9.2.4), and `requestAttestationNonce` (M13) were REMOVED with the anchor
+  // surface. The substrate no longer issues attestation nonces, no longer
+  // verifies owner Ed25519 signatures on CI mutations, and no longer accepts
+  // the `dag_tip_cosign` / `l0_revision_attest` mutation types. CI mutations
+  // are now classified keyless by the Python classifier; submit them via
+  // `submitMutation` (the attestation_signature field is optional + ignored).
 
   /** M15: Enumerate DAG node hashes added since `prevTip` (or all from genesis
    *  if `prevTip` undefined). Returns each node with full metadata so the
@@ -1094,7 +836,7 @@ export class SubstrateClient {
   ): Promise<string[]> {
     const errors: string[] = [];
     // Reuse anchor-client's merkleHash (BLAKE3 + parent-count length prefix).
-    const { merkleHash, NodeHash } = await import("@myco/anchor-client/src/crypto.ts");
+    const { merkleHash, NodeHash } = await import("./canonical/crypto.ts");
     for (let i = 0; i < report.nodes.length; i++) {
       const node = report.nodes[i]!;
       const parents = node.parentHashes.map((b) => new NodeHash(b));
@@ -1128,12 +870,6 @@ export class SubstrateClient {
       }
     }
     return errors;
-  }
-
-  /** M13: Internal SHA-256 helper (substrate-side compute_content_hash counterpart). */
-  private async _sha256(data: Uint8Array): Promise<Uint8Array> {
-    const { sha256 } = await import("@noble/hashes/sha2.js");
-    return sha256(data);
   }
 
   /** M11: Query recent immune events (rejected mutations, pubkey mismatches,
@@ -1311,45 +1047,20 @@ export class SubstrateClient {
     return parseFederationQueryConsensusResponse(response);
   }
 
-  /** M22.5 (Phase β security fix): Owner-signed lift of birth-period
-   *  quarantine. The substrate requires the caller's Ed25519 IDENTITY-key
-   *  signature over the canonical signing input built by
-   *  `liftBirthPeriodQuarantineSigningInput` (context + substrate_id +
-   *  current_cycle). The current_cycle binding ensures the signature is not
-   *  replayable across substrate boots — operator must re-sign per-cycle.
+  /** M22.5 (KEYLESS v0.9): lift this substrate's birth-period quarantine.
+   *  The owner Ed25519 signature gate was removed with the anchor surface;
+   *  `handle_lift_birth_period_quarantine` now reads NOTHING from the payload
+   *  and simply emits `birth_period_quarantine_lifted` (the structural
+   *  birth-period gating in `dispatch` still applies until lifted/expired).
    *
-   *  When not in active quarantine, `wasInQuarantine=false` and no DAG event
-   *  is emitted.
-   *
-   *  Use `signLiftBirthPeriodQuarantine` to build the signature deterministically. */
-  async liftBirthPeriodQuarantine(args: {
-    ownerSignature: Uint8Array;
-  }): Promise<LiftBirthPeriodQuarantineResult> {
+   *  Idempotent — when not in active quarantine, `wasInQuarantine=false` and
+   *  no DAG event is emitted. */
+  async liftBirthPeriodQuarantine(): Promise<LiftBirthPeriodQuarantineResult> {
     const response = await this._sendRequest(
       MSG_TYPE.LIFT_BIRTH_PERIOD_QUARANTINE,
-      liftBirthPeriodQuarantinePayload(args),
+      liftBirthPeriodQuarantinePayload(),
     );
     return parseLiftBirthPeriodQuarantineResponse(response);
-  }
-
-  /** Helper: build the 64-byte Ed25519 owner signature for
-   *  `liftBirthPeriodQuarantine`. The signing input is bound to the
-   *  substrate_id (no cross-substrate replay) and current_cycle (no cross-boot
-   *  replay). The substrate's cycle counter is queried automatically. */
-  async signLiftBirthPeriodQuarantine(
-    operatorIdentity: OperatorIdentity,
-  ): Promise<Uint8Array> {
-    const substrateId = await this.querySubstrateId();
-    // Read current cycle via observatory (signal #1.manifest_cycle_counter is
-    // always present in v1+). This costs one round-trip per signature but
-    // ensures the cycle binding is exact.
-    const observatory = await this.querySubstrateObservatory();
-    const currentCycle = observatory.signal1?.manifestCycleCounter ?? 0n;
-    const signingInput = liftBirthPeriodQuarantineSigningInput(
-      substrateId,
-      currentCycle,
-    );
-    return await operatorIdentity.sign(signingInput);
   }
 
   /** M23.2 P7 必朽 (keyless v3.1.5): acceptance of a previously-emitted
@@ -1396,14 +1107,13 @@ export class SubstrateClient {
     return parseQuerySubstrateObservatoryResponse(response);
   }
 
-  /** Graceful shutdown — sends shutdown, awaits ack, waits for child exit,
-   *  and closes any auto-loaded operator identity (which kills its spawned
-   *  anchor-surface-host child). */
+  /** Graceful shutdown — sends shutdown, awaits ack, waits for child exit.
+   *  (v0.9 keyless: there is no auto-loaded operator identity / anchor-surface
+   *  child to close anymore.) */
   async shutdown(): Promise<void> {
     if (this.fatalError) {
       // Still try to clean up the child.
       this._killChild();
-      await this._closeAutoLoadedIdentity();
       return;
     }
     try {
@@ -1420,18 +1130,6 @@ export class SubstrateClient {
       // Ignore — we'll kill the child anyway.
     }
     await this._waitChildExit();
-    await this._closeAutoLoadedIdentity();
-  }
-
-  private async _closeAutoLoadedIdentity(): Promise<void> {
-    const id = this.autoLoadedIdentity;
-    if (!id) return;
-    this.autoLoadedIdentity = null;
-    try {
-      await id.close();
-    } catch {
-      // Best-effort; anchor host may already be dead.
-    }
   }
 
   private _waitChildExit(): Promise<void> {
@@ -1469,75 +1167,4 @@ function _bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
     if (a[i] !== b[i]) return false;
   }
   return true;
-}
-
-/**
- * **M-anchor-2 §9.2.1**: if the target state_dir looks fresh, pre-generate
- * `substrate_id` + `genesis_time_unix_ns`, request a birth attestation from
- * anchor_surface_host via the OperatorIdentity's underlying
- * AnchorSurfaceClient, and produce the env-var triple the substrate's
- * `read_birth_attestation_env_vars` helper expects.
- *
- * For PRE-EXISTING substrates (state dir has manifest.cb), returns `{}` so
- * the substrate's existing birth_attestation event (already in its DAG)
- * stays authoritative. Substrate-side C20 verifier re-checks on every boot.
- */
-async function maybeBuildBirthAttestationEnv(
-  identity: OperatorIdentity,
-  stateDirOverride: string | undefined,
-): Promise<Record<string, string>> {
-  // Detect fresh substrate: state_dir doesn't yet contain manifest.cb.
-  // If no override, the substrate uses its default dir (~/.myco/substrate/default);
-  // we conservatively skip injection because we can't easily detect freshness
-  // without inspecting the default path (and the default path may not exist
-  // for first-time installs — but those are rare; auto-injection there can
-  // happen via a future explicit `--bootstrap` flag).
-  if (!stateDirOverride) return {};
-  const { existsSync } = await import("node:fs");
-  const { resolve: rp } = await import("node:path");
-  const manifestPath = rp(stateDirOverride, "manifest.cb");
-  const dagPath = rp(stateDirOverride, "dag.cb");
-  if (existsSync(manifestPath) || existsSync(dagPath)) {
-    // Substrate already exists — its DAG already carries (or doesn't carry)
-    // a birth_attestation event; C20 will verify or fire accordingly. Don't
-    // re-inject (would double-emit or clobber).
-    return {};
-  }
-
-  // Fresh substrate. Pre-generate substrate_id + genesis_time, request
-  // attestation, return env triple.
-  const { randomBytes: rb } = await import("node:crypto");
-  const substrateId = new Uint8Array(rb(32));
-  const genesisTsNs = BigInt(Date.now()) * 1_000_000n;
-  // Spore schema hash: M-anchor-2 minimum uses a placeholder hash. Future
-  // M-anchor-2.5 will compute over the canonical-bytes of the initial
-  // axis schema + sporocarp type tree per L1/SCHEMA §3.1. Placeholder is
-  // a deterministic hash of the substrate_id so two substrates with
-  // different IDs get different placeholders (defeats trivial duplication).
-  const { createHash } = await import("node:crypto");
-  const sporeSchemaHash = new Uint8Array(
-    createHash("sha256").update(substrateId).update("placeholder_spore_v1").digest(),
-  );
-  // Anchor endpoint pubkey: per L0/cards/AS_anchor_surface §5 (v0.9 anchor collapsed to operator
-  // process), this equals the owner pubkey.
-  const anchorEndpointPubkey = identity.publicKeyBytes();
-
-  // identity wraps an AnchorSurfaceClient; expose birthAttest via a
-  // thin pass-through. The TS OperatorIdentity hides the inner client to
-  // keep its private-by-default contract clean, so we round-trip via a
-  // public helper that we'll add next.
-  const result = await identity.birthAttest({
-    substrateId,
-    genesisTimestampUnixNs: genesisTsNs,
-    sporeSchemaHash,
-    anchorEndpointPubkey,
-  });
-
-  return {
-    MYCO_SUBSTRATE_ID_OVERRIDE_HEX: _toHex(substrateId),
-    MYCO_GENESIS_TIME_OVERRIDE_UNIX_NS: genesisTsNs.toString(),
-    MYCO_BIRTH_ATTESTATION_BYTES_HEX: _toHex(result.attestedCanonicalBytes),
-    MYCO_BIRTH_ATTESTATION_SIGNATURE_HEX: _toHex(result.signature),
-    MYCO_BIRTH_ATTESTATION_OWNER_PUBKEY_HEX: _toHex(result.ownerPubkey),
-  };
 }

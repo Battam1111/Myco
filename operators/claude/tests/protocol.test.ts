@@ -26,7 +26,7 @@ import {
   PROTOCOL_VERSION,
   registerAxisPayload,
 } from "../src/protocol/messages.ts";
-import { encode as cbEncode, type Value } from "@myco/anchor-client/src/canonical_bytes.ts";
+import { encode as cbEncode, type Value } from "../src/canonical/canonical_bytes.ts";
 
 describe("BOOTSTRAP_KEY", () => {
   it("is 32 bytes", () => {
@@ -321,7 +321,7 @@ describe("computeHmac", () => {
 
 describe("response parsers", () => {
   it("parseHelloAck", () => {
-    const payload = new Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value>();
+    const payload = new Map<string, import("../src/canonical/canonical_bytes.ts").Value>();
     payload.set("kernel_tropism_version", { type: "string", value: "0.9.0" });
     payload.set("python_version", { type: "string", value: "3.13.3" });
     payload.set("substrate_version", { type: "string", value: "0.9.0-alpha.2" });
@@ -337,7 +337,7 @@ describe("response parsers", () => {
   });
 
   it("parseAdvanceResponse with empty fruit", () => {
-    const payload = new Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value>();
+    const payload = new Map<string, import("../src/canonical/canonical_bytes.ts").Value>();
     payload.set("cycle_number", { type: "uint", value: 3n });
     payload.set("fruited_axes", { type: "array", value: [] });
     payload.set("sporocarps", { type: "array", value: [] });
@@ -353,10 +353,10 @@ describe("response parsers", () => {
   });
 
   it("parseSnapshotResponse", () => {
-    const valuesMap = new Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value>();
+    const valuesMap = new Map<string, import("../src/canonical/canonical_bytes.ts").Value>();
     valuesMap.set("a", { type: "string", value: "2.5" });
     valuesMap.set("b", { type: "string", value: "0.0" });
-    const payload = new Map<string, import("@myco/anchor-client/src/canonical_bytes.ts").Value>();
+    const payload = new Map<string, import("../src/canonical/canonical_bytes.ts").Value>();
     payload.set("values", { type: "map", value: valuesMap });
     const snap = parseSnapshotResponse({
       version: 1n,

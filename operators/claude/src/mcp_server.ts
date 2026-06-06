@@ -17,18 +17,17 @@
 // Immune / integrity:
 //   `myco_run_immune_check`, `myco_query_immune_events`,
 //   `myco_enumerate_dag_since`.
-// Mutation / evolution (P3):
-//   `myco_request_attestation_nonce`, `myco_submit_mutation`,
-//   `myco_evolve_schema`.
+// Mutation / evolution (P3; v0.9 keyless — no owner-attestation surface):
+//   `myco_submit_mutation`, `myco_evolve_schema`.
 // Ingestion (P2):
 //   `myco_ingest_raw_material`, `myco_perturb_axis_from_raw_material`,
 //   `myco_query_raw_material`.
 // Reproduction / mortality (P8 / P7):
 //   `myco_sprout_child`, `myco_query_self_euthanasia_proposals`.
-// Anchor-surface owner attestations (M-anchor-5 / P14):
-//   `myco_cosign_dag_tip` (§3.2 DAG-tip co-sign),
-//   `myco_attest_l0_revision` (§3.4 L0 revision attestation),
+// Owner objective (P14):
 //   `myco_declare_owner_objective` (P14 §3.2 owner-objective declaration).
+// (v0.9 owner-key removal: `myco_request_attestation_nonce`, `myco_cosign_dag_tip`,
+//  and `myco_attest_l0_revision` were removed with the anchor surface.)
 // Perception (substrate self-knowledge):
 //   `myco_query_substrate_observatory` (Phase α M24.5 vital signs),
 //   `myco_query_substrate_id` (P8 §5.6 owner-minted id).
@@ -58,9 +57,8 @@ import type {
   RecentDagNode,
   RecentNodesReport,
 } from "./protocol/messages.ts";
-import { OperatorIdentity } from "./operator_identity.ts";
 import { bytesToHex as toHex, hexTo32 } from "./hex.ts";
-import type { Value } from "@myco/anchor-client/src/canonical_bytes.ts";
+import type { Value } from "./canonical/canonical_bytes.ts";
 
 /** Build a canonical-bytes Map `Value` from typed entries. Keeps the nested
  *  value type checked as `Value` (vs. a bare object literal, which TS infers too
@@ -82,17 +80,17 @@ function _bytesEq(a: Uint8Array, b: Uint8Array): boolean {
  *
  *  The content of every DAG node is already transmitted in the recent-nodes
  *  response (`RecentDagNode.contentCanonicalBytes`); this decodes that
- *  canonical-bytes Map (reusing the anchor-client decode utilities the operator
- *  already imports for querySubstrateId) and renders per node-type:
+ *  canonical-bytes Map (reusing the operator's local canonical decode utilities
+ *  it already imports for querySubstrateId) and renders per node-type:
  *   - `raw_material:*` → kind + decoded UTF-8 of the "bytes" field + source_uri.
  *   - `forged_understanding:*` → label + decoded "understanding" text + the
  *     source raw_material hashes.
  *   - anything else → a best-effort key/value decode of the top-level Map.
  */
 async function renderNodeContentText(node: RecentDagNode): Promise<string> {
-  const { decode } = await import("@myco/anchor-client/src/renderer.ts");
+  const { decode } = await import("./canonical/renderer.ts");
   const { CanonicalBytes } = await import(
-    "@myco/anchor-client/src/canonical_bytes.ts"
+    "./canonical/canonical_bytes.ts"
   );
   const utf8 = new TextDecoder("utf-8", { fatal: false });
   const header = `[cycle ${node.atCycle}] ${node.nodeType}  hash=${toHex(node.hash)}`;
@@ -562,22 +560,9 @@ const TOOL_DEFINITIONS = [
       required: [],
     },
   },
-  {
-    name: "myco_request_attestation_nonce",
-    description:
-      "Request an anchor-surface attestation nonce (M13). The substrate issues a 32-byte nonce bound to the SHA-256 of your proposed mutation content + the current DAG tip. Include this nonce in your subsequent myco_submit_mutation call (with the same content) to prove a fresh, non-replay intent. Nonces expire after 5 minutes and are one-time use. Returns: nonce, expiry_unix_ns, bound_dag_tip (all hex-encoded).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        content: {
-          type: "string",
-          description:
-            "The mutation content you intend to submit (UTF-8); the nonce is bound to its SHA-256 hash",
-        },
-      },
-      required: ["content"],
-    },
-  },
+  // **v0.9 owner-key removal**: the `myco_request_attestation_nonce` tool was
+  // removed — the substrate no longer issues anchor-surface attestation nonces
+  // (the M13 nonce-issuance handler was deleted with the anchor surface).
   {
     name: "myco_run_immune_check",
     description:
@@ -898,7 +883,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "myco_submit_mutation",
     description:
-      "Submit a mutation for the substrate to classify and (for contract-identity-level mutations) verify owner attestation. The substrate classifies via L1/GOVERNANCE rules: daily mutations are auto-accepted; CI mutations require owner attestation; untyped mutations are rejected. Accepted mutations are recorded as DAG nodes (causal history preserved). Rejected mutations trigger immune sporocarp emission (visible via myco_query_immune_events).",
+      "Submit a mutation for the substrate to classify. The substrate classifies via L1/GOVERNANCE rules: daily mutations are auto-accepted; untyped mutations are rejected. Accepted mutations are recorded as DAG nodes (causal history preserved). Rejected mutations trigger immune sporocarp emission (visible via myco_query_immune_events). (v0.9 keyless: the substrate no longer verifies an owner Ed25519 attestation on CI mutations — classification is content + mutation_type based.)",
     inputSchema: {
       type: "object",
       properties: {
@@ -922,68 +907,16 @@ const TOOL_DEFINITIONS = [
           description:
             "Optional list of meta-structure names touched (e.g. appetite_axis_schema)",
         },
-        require_attestation: {
-          type: "boolean",
-          description:
-            "When true, the operator's identity key (M9) signs the content as the owner attestation (for M10 operator==owner)",
-        },
       },
       required: ["mutation_type", "content"],
     },
   },
-  {
-    name: "myco_cosign_dag_tip",
-    description:
-      "M-anchor-5 §3.2 (owner DAG-tip co-sign): owner-attest the substrate's current causal-DAG tip from the anchor surface. The operator's owner key signs a `myco-dag-tip-cosign-v1` envelope binding (tip_hash, the in-order list of node hashes the owner independently walked, an optional proposed-mutation hash, an anchor wall-clock timestamp + anchor nonce). On accept, the substrate records an immutable `tip_cosigned:{tip_prefix}` DAG event — a permanent owner-witnessed checkpoint that makes any later DAG rewrite detectable. Call with NO arguments to co-sign whatever the substrate reports as its current tip (tip-only cosign). This is a contract-identity-level mutation (owner attestation required).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        tip_hash_hex: {
-          type: "string",
-          description:
-            "64-character hex string (32-byte hash) of the DAG tip to attest. Omit to co-sign the substrate's current tip (queried automatically).",
-        },
-        enumerated_node_hashes_hex: {
-          type: "array",
-          items: { type: "string" },
-          description:
-            "Optional in-order list of 64-hex (32-byte) DAG node hashes the owner has independently walked + verified up to the tip. Default [] (tip-only cosign that does not pin a history walk).",
-        },
-        proposed_mutation_hash_hex: {
-          type: "string",
-          description:
-            "Optional 64-hex (32-byte) hash of a proposed CI mutation the owner is co-signing as a precondition. Omit for a standalone tip cosign (substrate treats absence as 32 zero bytes).",
-        },
-      },
-      required: [],
-    },
-  },
-  {
-    name: "myco_attest_l0_revision",
-    description:
-      "M-anchor-5 §3.4 (owner L0-doctrine revision attestation): anchor an L0_DOCTRINE version transition (prior_l0_hash → new_l0_hash) into the causal DAG as an owner-signed event. The owner key signs a `myco-l0-revision-v1` envelope binding (prior_l0_hash, new_l0_hash, a short diff_summary, anchor wall-clock timestamp + anchor nonce). On accept, the substrate records `l0_revision_attested:{prior_l0_hash_prefix}` — re-verifiable offline by anyone holding the owner public key. Without this anchor the substrate could silently shift its doctrine ground truth between sessions. The hashes are owner-tooling-chosen (SHA-256 or BLAKE3 of the L0 file); the substrate attests the signed envelope, it does not re-derive them. Contract-identity-level (owner attestation required).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        prior_l0_hash_hex: {
-          type: "string",
-          description:
-            "64-character hex string (32-byte hash) of the L0 doctrine BEFORE the revision.",
-        },
-        new_l0_hash_hex: {
-          type: "string",
-          description:
-            "64-character hex string (32-byte hash) of the L0 doctrine AFTER the revision.",
-        },
-        diff_summary: {
-          type: "string",
-          description:
-            'Short human-readable description of what changed (e.g., "Add §9.4 federation observatory"). Stored verbatim in the signed envelope.',
-        },
-      },
-      required: ["prior_l0_hash_hex", "new_l0_hash_hex", "diff_summary"],
-    },
-  },
+  // **v0.9 owner-key removal**: the `myco_cosign_dag_tip` (M-anchor-5 §3.2) and
+  // `myco_attest_l0_revision` (§3.4) tools were removed — the substrate no
+  // longer accepts the `dag_tip_cosign` / `l0_revision_attest` CI mutation types
+  // (the owner Ed25519 attestation surface they drove was deleted with the
+  // anchor). L0 doctrine sealing is now the keyless BLAKE3 bundle-hash ceremony
+  // (operators/claude/ceremonies/) recorded in git, not an on-DAG owner signature.
   {
     name: "myco_declare_owner_objective",
     description:
@@ -1235,26 +1168,6 @@ export class McpServer {
           ],
         };
       }
-      case "myco_request_attestation_nonce": {
-        const sub = await this._ensureSubstrate();
-        const contentStr = String(args.content);
-        const contentBytes = new TextEncoder().encode(contentStr);
-        const result = await sub.requestAttestationNonce(contentBytes);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: [
-                `nonce=${toHex(result.nonce)}`,
-                `bound_dag_tip=${toHex(result.boundDagTip)}`,
-                `expiry_unix_ns=${result.expiryUnixNs}`,
-                `ttl_seconds=${result.ttlSeconds}`,
-                "(use this nonce in myco_submit_mutation with the SAME content)",
-              ].join("\n"),
-            },
-          ],
-        };
-      }
       case "myco_run_immune_check": {
         const sub = await this._ensureSubstrate();
         const report = await sub.runImmuneCheck();
@@ -1302,18 +1215,18 @@ export class McpServer {
         const childStateDir = String(args.child_state_dir);
         const depthOverride = Boolean(args.depth_override);
 
-        // **P08 §3.5 / §5.1** — a child spawn requires a cultivator
-        // co-attestation. Load the owner/operator identity (operator==owner in
-        // v0.9; this is the same key the substrate TOFU-pinned at handshake),
-        // assemble the child's spore-schema from the parent's current schema,
-        // and let `sproutChild` orchestrate the anchor-surface co-sign.
-        const { OperatorIdentity } = await import("./operator_identity.ts");
-        const identity = await OperatorIdentity.loadOrCreate();
-
+        // **P08 §3.5 / §5.1** (KEYLESS v0.9) — a child spawn is still a
+        // CI-class doctrine event: `sproutChild` builds the required
+        // myco-spawn-cosign-v1 envelope (parent replay-guard + I7(a)
+        // spore-schema binding + §16.B anchor-clock throttle), which the
+        // substrate decodes + checks before minting the child. The owner
+        // Ed25519 co-signature gate was removed with the anchor surface, so no
+        // operator identity is loaded.
+        //
         // Assemble a well-formed 7-field spore-schema (L1/SCHEMA §3.1). The
         // gradient-derived fields summarise the parent's observed axes; the
-        // substrate validates the SHAPE + co-signed hash (I7(a)) and rebuilds
-        // the child's actual gradient from its own internal query.
+        // substrate validates the SHAPE + bound hash (I7(a)) and rebuilds the
+        // child's actual gradient from its own internal query.
         const { buildSporeSchemaCanonicalBytes } = await import(
           "./protocol/messages.ts"
         );
@@ -1344,9 +1257,14 @@ export class McpServer {
           initialAppetiteAxisSchema: cbMap([
             ["axis_register_count", { type: "uint", value: axisRegisterCount }],
           ]),
+          // v0.9 keyless: this spore-schema descriptor field formerly carried
+          // the owner pubkey; with the anchor surface gone there is no owner
+          // key, so it is a stable 32-zero-byte marker (the substrate only
+          // requires all 7 fields present + the blake3 of the whole bytes to
+          // match the envelope's spore_schema_hash, which it does).
           anchorSurfaceConfig: {
             type: "bytes",
-            value: identity.publicKeyBytes(),
+            value: new Uint8Array(32),
           },
           parentImmuneSignalSummary: cbMap([
             ["unresolved_count", { type: "uint", value: immuneCount }],
@@ -1356,7 +1274,6 @@ export class McpServer {
         const result = await sub.sproutChild({
           childStateDir,
           sporeSchemaCanonicalBytes,
-          operatorIdentity: identity,
           depthOverride,
         });
         return {
@@ -1364,12 +1281,12 @@ export class McpServer {
             {
               type: "text" as const,
               text: [
-                `🍄 Child substrate sprouted (cultivator co-attested) at ${result.childStateDir}`,
+                `🍄 Child substrate sprouted at ${result.childStateDir}`,
                 `child_substrate_id = ${toHex(result.childSubstrateId)} (owner-minted, deterministic)`,
                 `inherited_axis_count = ${result.childAxisCount}`,
                 `spore_emission_hash = ${toHex(result.sporeEmissionHash).substring(0, 24)}…`,
                 `genesis_attested_hash = ${toHex(result.genesisAttestedHash).substring(0, 24)}… (I7-closure record in parent DAG)`,
-                depthOverride ? `depth_override = EXERCISED (cultivator-signed)` : `depth_override = no`,
+                depthOverride ? `depth_override = EXERCISED` : `depth_override = no`,
                 `(spawn a separate substrate at this path via MYCO_STATE_DIR to bring the child to life; it will run its own I3 self-check on first boot)`,
               ].join("\n"),
             },
@@ -1441,17 +1358,14 @@ export class McpServer {
         } else {
           throw new Error(`unknown evolve_schema op: ${op}`);
         }
-        // Operator IDENTITY signs the schema_diff bytes (M10 path; M17-MV
-        // accepts both REVEAL and IDENTITY signatures via classifier rule).
-        // M-anchor-1: signing happens over local TCP to anchor_surface_host;
-        // the operator process never holds the owner Ed25519 private key.
-        const identity = await OperatorIdentity.loadOrCreate();
-        const sig = await identity.sign(diffBytes);
+        // v0.9 keyless: the owner Ed25519 attestation over the schema_diff was
+        // removed with the anchor surface; the Python classifier accepts the
+        // schema_evolution mutation on its type + content (the schema-apply
+        // invariants + the two-phase migration window remain the safety gates).
         const migrationMode = Boolean(args.migration_mode);
         const result = await sub.submitMutation({
           mutationType: "schema_evolution",
           contentCanonicalBytes: diffBytes,
-          attestationSignature: sig,
           touchedMetaStructures: ["appetite_axis_schema"],
           migrationMode,
         });
@@ -1760,20 +1674,13 @@ export class McpServer {
         const touchedMeta = Array.isArray(args.touched_meta_structures)
           ? (args.touched_meta_structures as unknown[]).map((s) => String(s))
           : [];
-        let attestationSignature: Uint8Array | undefined;
-        if (args.require_attestation === true) {
-          // Sign the content with the operator's M9 identity key (which doubles
-          // as the genesis owner key for M10 minimum).
-          // M-anchor-1: signing now delegates to anchor_surface_host.
-          const identity = await OperatorIdentity.loadOrCreate();
-          attestationSignature = await identity.sign(contentBytes);
-        }
+        // v0.9 keyless: no owner Ed25519 attestation — the substrate classifies
+        // the mutation on type + content (the anchor signing surface is gone).
         const result = await sub.submitMutation({
           mutationType,
           touchedFields,
           touchedMetaStructures: touchedMeta,
           contentCanonicalBytes: contentBytes,
-          attestationSignature,
         });
         return {
           content: [
@@ -1782,91 +1689,9 @@ export class McpServer {
           isError: !result.accepted,
         };
       }
-      case "myco_cosign_dag_tip": {
-        const sub = await this._ensureSubstrate();
-        // Default tip = the substrate's current DAG tip (queried). zeros32 if
-        // the substrate has no tip (genuinely empty DAG — practically never,
-        // since genesis_event is the first node).
-        const zeros32 = new Uint8Array(32);
-        const tipHash =
-          typeof args.tip_hash_hex === "string" && args.tip_hash_hex.length > 0
-            ? hexTo32(String(args.tip_hash_hex), "tip_hash_hex")
-            : ((await sub.queryRecentNodes(1n)).dagTip ?? zeros32);
-        const enumeratedNodeHashes = Array.isArray(args.enumerated_node_hashes_hex)
-          ? (args.enumerated_node_hashes_hex as unknown[]).map((h, i) =>
-              hexTo32(String(h), `enumerated_node_hashes_hex[${i}]`),
-            )
-          : [];
-        const proposedMutationHash =
-          typeof args.proposed_mutation_hash_hex === "string" &&
-          args.proposed_mutation_hash_hex.length > 0
-            ? hexTo32(
-                String(args.proposed_mutation_hash_hex),
-                "proposed_mutation_hash_hex",
-              )
-            : zeros32;
-        const operatorIdentity = await OperatorIdentity.loadOrCreate();
-        const result = await sub.cosignDagTip({
-          tipHash,
-          enumeratedNodeHashes,
-          proposedMutationHash,
-          operatorIdentity,
-        });
-        const lines: string[] = [];
-        lines.push(
-          `cosign accepted=${result.accepted}  classification=${result.classification}`,
-        );
-        if (!result.accepted) {
-          lines.push(`rejection: ${result.rejectionReason}`);
-        } else {
-          lines.push(`cosigned_tip=${toHex(tipHash).substring(0, 24)}…`);
-          if (result.tipCosignEventHash) {
-            lines.push(
-              `tip_cosign_event_hash=${toHex(result.tipCosignEventHash).substring(0, 32)}…`,
-            );
-          }
-        }
-        return {
-          content: [{ type: "text" as const, text: lines.join("\n") }],
-          isError: !result.accepted,
-        };
-      }
-      case "myco_attest_l0_revision": {
-        const sub = await this._ensureSubstrate();
-        const priorL0Hash = hexTo32(
-          String(args.prior_l0_hash_hex),
-          "prior_l0_hash_hex",
-        );
-        const newL0Hash = hexTo32(String(args.new_l0_hash_hex), "new_l0_hash_hex");
-        const diffSummary = String(args.diff_summary);
-        const operatorIdentity = await OperatorIdentity.loadOrCreate();
-        const result = await sub.signL0Revision({
-          priorL0Hash,
-          newL0Hash,
-          diffSummary,
-          operatorIdentity,
-        });
-        const lines: string[] = [];
-        lines.push(
-          `l0_revision accepted=${result.accepted}  classification=${result.classification}`,
-        );
-        if (!result.accepted) {
-          lines.push(`rejection: ${result.rejectionReason}`);
-        } else {
-          lines.push(
-            `prior_l0=${toHex(priorL0Hash).substring(0, 16)}… → new_l0=${toHex(newL0Hash).substring(0, 16)}…`,
-          );
-          if (result.l0RevisionEventHash) {
-            lines.push(
-              `l0_revision_event_hash=${toHex(result.l0RevisionEventHash).substring(0, 32)}…`,
-            );
-          }
-        }
-        return {
-          content: [{ type: "text" as const, text: lines.join("\n") }],
-          isError: !result.accepted,
-        };
-      }
+      // v0.9 owner-key removal: the `myco_cosign_dag_tip` + `myco_attest_l0_revision`
+      // handlers were removed with their tool defs (the substrate no longer
+      // accepts the dag_tip_cosign / l0_revision_attest CI mutation types).
       case "myco_declare_owner_objective": {
         const sub = await this._ensureSubstrate();
         const objectiveId = String(args.objective_id);
@@ -1893,18 +1718,13 @@ export class McpServer {
           declaredAtCycle,
           weights,
         });
-        // Owner IDENTITY signs the objective bytes as the CI attestation;
-        // a substrate-issued nonce binds it against replay (M13). Signing
-        // happens over local TCP to anchor_surface_host (M-anchor-1).
-        const identity = await OperatorIdentity.loadOrCreate();
-        const subNonce = await sub.requestAttestationNonce(contentCanonicalBytes);
-        const sig = await identity.sign(contentCanonicalBytes);
+        // v0.9 keyless: the owner Ed25519 attestation + the M13 anchor nonce
+        // were removed with the anchor surface; the substrate records the
+        // owner_objective_declaration on accept (it is the P14.c telos-drift
+        // reference centroid — content-validated, not signature-gated).
         const result = await sub.submitMutation({
           mutationType: "owner_objective_declaration",
           contentCanonicalBytes,
-          attestationSignature: sig,
-          nonce: subNonce.nonce,
-          expiryUnixNs: subNonce.expiryUnixNs,
         });
         const lines: string[] = [];
         lines.push(

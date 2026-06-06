@@ -18,10 +18,11 @@
 // working tree + git history must match the pinned values in each ceremony's
 // `manifest.json`. Drift = doctrine-integrity breach.
 //
-// `_lib/` sits at the SAME directory depth as each ceremony dir, so the
-// relative imports below (`../../../../anchor/...`) resolve identically to the
-// per-ceremony copies they replace. REPO_ROOT is derived from this file's
-// __dirname with the same `../../../..` ascent the ceremony files used.
+// `_lib/` sits at the SAME directory depth as each ceremony dir. The
+// canonical-bytes import below resolves to the operator package's own
+// `src/canonical/` module (relocated there in the v0.9 owner-key teardown when
+// the `anchor/client` TS package was deleted). REPO_ROOT is derived from this
+// file's __dirname with the `../../../..` ascent the ceremony files used.
 //
 // Per L1/HARD_RULES C18 canonical_bytes_render_drift (CRITICAL).
 
@@ -37,7 +38,7 @@ import {
   encode,
   type Value,
   CanonicalBytes,
-} from "../../../../anchor/client/src/canonical_bytes.ts";
+} from "../../src/canonical/canonical_bytes.ts";
 
 // ---------------------------------------------------------------------------
 // Repo-root resolution.

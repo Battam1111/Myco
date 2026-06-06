@@ -4,7 +4,7 @@
 // payloads/responses mirror `substrate::server::handle_federation_*`. Field
 // name/type drift = bridge protocol drift, surface as decode errors here.
 
-import { type Value } from "@myco/anchor-client/src/canonical_bytes.ts";
+import { type Value } from "../../canonical/canonical_bytes.ts";
 import { BridgeProtocolError, type Message, MSG_TYPE } from "./wire.ts";
 
 /** Build the payload for a `federation_open_listener` request (M22.1).
