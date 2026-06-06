@@ -433,20 +433,21 @@ fn m22_2_double_connect_returns_already_pinned() {
 }
 
 #[test]
-fn m23_2_accept_self_euthanasia_rejects_when_no_pinned_identity() {
+fn m23_2_accept_self_euthanasia_rejects_unknown_proposal_hash() {
+    // Keyless (v3.1.5): no owner signature. The structural gate is that
+    // proposal_hash MUST point to a real self_euthanasia_proposal:* node — an
+    // all-zero (or arbitrary) hash references nothing and is rejected, so death
+    // cannot be triggered on an arbitrary value.
     let (mut client, _dir) = spawn_substrate();
     let result = client.call(
         proto::ACCEPT_SELF_EUTHANASIA_PROPOSAL,
-        build_payload(vec![
-            ("proposal_hash", CbValue::Bytes(vec![0u8; 32])),
-            ("owner_signature", CbValue::Bytes(vec![0u8; 64])),
-        ]),
+        build_payload(vec![("proposal_hash", CbValue::Bytes(vec![0u8; 32]))]),
     );
-    assert!(result.is_err(), "must reject when no operator identity is pinned");
+    assert!(result.is_err(), "must reject when proposal_hash is not a real proposal node");
     if let Err(e) = &result {
         assert!(
-            e.to_string().contains("pinned operator identity"),
-            "error should mention pinning; got {e}"
+            e.to_string().contains("not found in DAG"),
+            "error should mention the missing proposal; got {e}"
         );
     }
     client.shutdown().expect("shutdown");
@@ -459,18 +460,9 @@ fn m23_2_accept_self_euthanasia_rejects_wrong_size_fields() {
         proto::ACCEPT_SELF_EUTHANASIA_PROPOSAL,
         build_payload(vec![
             ("proposal_hash", CbValue::Bytes(vec![0u8; 16])), // wrong size
-            ("owner_signature", CbValue::Bytes(vec![0u8; 64])),
         ]),
     );
     assert!(r1.is_err());
-    let r2 = client.call(
-        proto::ACCEPT_SELF_EUTHANASIA_PROPOSAL,
-        build_payload(vec![
-            ("proposal_hash", CbValue::Bytes(vec![0u8; 32])),
-            ("owner_signature", CbValue::Bytes(vec![0u8; 32])), // wrong size
-        ]),
-    );
-    assert!(r2.is_err());
     client.shutdown().expect("shutdown");
 }
 

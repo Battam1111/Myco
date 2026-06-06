@@ -87,63 +87,19 @@ export function parseLiftBirthPeriodQuarantineResponse(
   };
 }
 
-/** Compute the canonical-bytes signing input for `accept_self_euthanasia_proposal`
- *  owner co-attestation (M23.2 P7 必朽).
- *
- *  Mirrors Rust reconstruction in `handle_accept_self_euthanasia_proposal`:
- *  ```
- *  canonical_bytes(Map({
- *    "context": "myco-self-euthanasia-v1",
- *    "proposal_hash": Bytes(32),
- *    "substrate_id": Bytes(32),
- *  }))
- *  ```
- *
- *  The operator IDENTITY key signs THIS. The triple binding
- *  (context + proposal_hash + substrate_id) prevents replay:
- *  - context: distinct from other operator co-attestations
- *  - proposal_hash: this specific proposal in this DAG
- *  - substrate_id: not replayable against another substrate
- */
-export function acceptSelfEuthanasiaProposalSigningInput(
-  proposalHash: Uint8Array,
-  substrateId: Uint8Array,
-): Uint8Array {
-  if (proposalHash.length !== 32) {
-    throw new BridgeProtocolError(
-      `proposal_hash must be 32 bytes; got ${proposalHash.length}`,
-    );
-  }
-  if (substrateId.length !== 32) {
-    throw new BridgeProtocolError(
-      `substrate_id must be 32 bytes; got ${substrateId.length}`,
-    );
-  }
-  const m = new Map<string, Value>();
-  m.set("context", { type: "string", value: "myco-self-euthanasia-v1" });
-  m.set("proposal_hash", { type: "bytes", value: proposalHash });
-  m.set("substrate_id", { type: "bytes", value: substrateId });
-  return encode({ type: "map", value: m }).bytes;
-}
-
-/** Build the payload for `accept_self_euthanasia_proposal` (M23.2). */
+/** Build the payload for `accept_self_euthanasia_proposal` (M23.2; keyless
+ *  v3.1.5 — the owner Ed25519 co-signature was removed with the anchor layer.
+ *  Whole-death is a deliberate call referencing a real proposal node). */
 export function acceptSelfEuthanasiaProposalPayload(args: {
   proposalHash: Uint8Array;
-  ownerSignature: Uint8Array;
 }): Map<string, Value> {
   if (args.proposalHash.length !== 32) {
     throw new BridgeProtocolError(
       `proposal_hash must be 32 bytes; got ${args.proposalHash.length}`,
     );
   }
-  if (args.ownerSignature.length !== 64) {
-    throw new BridgeProtocolError(
-      `owner_signature must be 64 bytes; got ${args.ownerSignature.length}`,
-    );
-  }
   const m = new Map<string, Value>();
   m.set("proposal_hash", { type: "bytes", value: args.proposalHash });
-  m.set("owner_signature", { type: "bytes", value: args.ownerSignature });
   return m;
 }
 

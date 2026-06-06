@@ -22,7 +22,6 @@ import { bytesToHex as _toHex } from "./hex.ts";
 import {
   acceptSelfEuthanasiaProposalPayload,
   type AcceptSelfEuthanasiaProposalResult,
-  acceptSelfEuthanasiaProposalSigningInput,
   advancePayload,
   type AdvanceReport,
   type AttestationNonceResult,
@@ -1353,47 +1352,25 @@ export class SubstrateClient {
     return await operatorIdentity.sign(signingInput);
   }
 
-  /** M23.2 P7 必朽: Owner co-attestation acceptance of a previously-emitted
-   *  `self_euthanasia_proposal:{axis_name}` DAG node. The substrate verifies
-   *  the IDENTITY-key signature over the canonical input built by
-   *  `acceptSelfEuthanasiaProposalSigningInput` (context + proposal_hash +
-   *  substrate_id), emits a `self_euthanasia_executed:{axis_name}` event, and
-   *  replies with success.
+  /** M23.2 P7 必朽 (keyless v3.1.5): acceptance of a previously-emitted
+   *  `self_euthanasia_proposal:{axis_name}` DAG node. The owner Ed25519
+   *  co-signature was removed with the anchor layer; whole-death is now a
+   *  DELIBERATE call whose only gate is that `proposalHash` point to a real
+   *  proposal node. The substrate emits `self_euthanasia_executed:{axis_name}`
+   *  and replies with success.
    *
    *  **The substrate gracefully shuts down AFTER this response is written.**
-   *  The DAG persists on disk as the substrate's signed post-mortem record.
-   *  The caller's `this.child` will exit cleanly (code 0) shortly after the
-   *  response resolves. Subsequent client operations will fail; callers
-   *  typically follow this call with `shutdown()` or `_waitChildExit()` to
-   *  observe the exit.
-   *
-   *  Use `signAcceptSelfEuthanasiaProposal` to build the signature
-   *  deterministically. */
+   *  The DAG persists on disk as the post-mortem record. The caller's
+   *  `this.child` will exit cleanly (code 0) shortly after; callers typically
+   *  follow this call with `shutdown()` or `_waitChildExit()`. */
   async acceptSelfEuthanasiaProposal(args: {
     proposalHash: Uint8Array;
-    ownerSignature: Uint8Array;
   }): Promise<AcceptSelfEuthanasiaProposalResult> {
     const response = await this._sendRequest(
       MSG_TYPE.ACCEPT_SELF_EUTHANASIA_PROPOSAL,
       acceptSelfEuthanasiaProposalPayload(args),
     );
     return parseAcceptSelfEuthanasiaProposalResponse(response);
-  }
-
-  /** Helper: build the 64-byte Ed25519 owner signature for
-   *  `acceptSelfEuthanasiaProposal`. The signing input is bound to the
-   *  proposal_hash + substrate_id; the signature is not replayable across
-   *  different proposals nor across different substrates. */
-  async signAcceptSelfEuthanasiaProposal(
-    operatorIdentity: OperatorIdentity,
-    proposalHash: Uint8Array,
-  ): Promise<Uint8Array> {
-    const substrateId = await this.querySubstrateId();
-    const signingInput = acceptSelfEuthanasiaProposalSigningInput(
-      proposalHash,
-      substrateId,
-    );
-    return await operatorIdentity.sign(signingInput);
   }
 
   /** Phase α / M24.5: Read the Living Bets observatory snapshot.

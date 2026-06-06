@@ -3720,14 +3720,9 @@ describe("SubstrateClient e2e", () => {
         }
         assert.ok(proposalHash, "mortality_signal should fire within 10 cycles");
 
-        // Owner co-attests acceptance.
-        const ownerSignature = await client.signAcceptSelfEuthanasiaProposal(
-          identity,
-          proposalHash!,
-        );
+        // Keyless (v3.1.5): a deliberate accept referencing the real proposal.
         const result = await client.acceptSelfEuthanasiaProposal({
           proposalHash: proposalHash!,
-          ownerSignature,
         });
         assert.equal(result.axisName, "vitality");
         assert.equal(result.executedEventHash.length, 32);
@@ -3762,8 +3757,10 @@ describe("SubstrateClient e2e", () => {
     }
   });
 
-  it("m25_5_accept_self_euthanasia_proposal_rejects_invalid_signature", async () => {
-    // Forge a bad signature; substrate must reject + stay alive.
+  it("m25_5_accept_self_euthanasia_proposal_rejects_unknown_proposal", async () => {
+    // Keyless (v3.1.5): no signature. A proposal_hash pointing to no real
+    // self_euthanasia_proposal node must be rejected, and the substrate must
+    // stay alive (death cannot be triggered on an arbitrary hash).
     const opDir = mkdtempSync(resolvePath(tmpdir(), "myco-m25-euth-bad-"));
     try {
       const { OperatorIdentity } = await import("../src/operator_identity.ts");
@@ -3775,33 +3772,11 @@ describe("SubstrateClient e2e", () => {
         operatorIdentity: identity,
       });
       try {
-        await client.registerAxis({
-          name: "vitality",
-          axisClass: "decay",
-          fruitingThreshold: 0.1,
-          initialValue: 1.0,
-          decayRatePerCycle: 0.5,
-          isMortalitySignal: true,
-          updateRuleKind: "decay",
-        });
-        let proposalHash: Uint8Array | null = null;
-        for (let c = 1n; c <= 10n; c++) {
-          const adv = await client.advance(c);
-          if (adv.selfEuthanasiaProposalHashes.length > 0) {
-            proposalHash = adv.selfEuthanasiaProposalHashes[0]!;
-            break;
-          }
-        }
-        assert.ok(proposalHash);
-        // Garbage signature.
-        const garbageSig = new Uint8Array(64);
+        // An all-zero hash references no proposal node.
+        const bogus = new Uint8Array(32);
         await assert.rejects(
-          () =>
-            client.acceptSelfEuthanasiaProposal({
-              proposalHash: proposalHash!,
-              ownerSignature: garbageSig,
-            }),
-          /signature invalid|invalid/i,
+          () => client.acceptSelfEuthanasiaProposal({ proposalHash: bogus }),
+          /not found in DAG|not a self_euthanasia_proposal/i,
         );
         // Substrate must be alive — confirm by issuing another query.
         const status = await client.federationStatus();

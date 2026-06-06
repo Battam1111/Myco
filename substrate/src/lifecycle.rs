@@ -24,23 +24,19 @@ use crate::SubstrateError;
 
 /// M23.2 P7 必朽: handle `accept_self_euthanasia_proposal`.
 ///
-/// Owner co-attestation gate for self-euthanasia execution:
-/// 1. Verify operator's Ed25519 IDENTITY-key signature over
-///    `canonical_bytes(Map({ "context": "myco-self-euthanasia-v1",
-///    "proposal_hash": Bytes(32), "substrate_id": Bytes(32) }))`.
-/// 2. Confirm the proposal_hash points to a real `self_euthanasia_proposal:*`
-///    event in the substrate's DAG.
-/// 3. Emit `self_euthanasia_executed:{axis_name}` DAG event carrying the
-///    owner signature + pubkey as the post-mortem signed attestation.
-/// 4. Return response. The main loop, observing the request type, will then
+/// Keyless deliberate-action gate (v3.1.5 — owner-key/anchor layer removed):
+/// 1. The `proposal_hash` MUST point to a real `self_euthanasia_proposal:*`
+///    event in the substrate's DAG — the non-arbitrary, deliberate gate that
+///    replaces the (removed) owner Ed25519 signature. Whole-death cannot happen
+///    by accident or on an arbitrary value; the authorization root is the live
+///    human-in-the-loop, with this proposal-reference as the structural gate.
+/// 2. Emit `self_euthanasia_executed:{axis_name}` DAG event (keyless).
+/// 3. Return response. The main loop, observing the request type, will then
 ///    `graceful_shutdown_python` and exit cleanly.
 ///
 /// Payload:
 /// ```text
-/// Map({
-///   "proposal_hash": Bytes(32),
-///   "owner_signature": Bytes(64),
-/// })
+/// Map({ "proposal_hash": Bytes(32) })
 /// ```
 ///
 /// Response payload:
@@ -57,19 +53,11 @@ pub(crate) fn handle_accept_self_euthanasia_proposal(
     use myco_kernel_shared::canonical_bytes::{decode as cb_decode, map_get_string, Value as CbV};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    // Require pinned operator identity — owner co-attestation needs the
-    // pinned IDENTITY key (M9 TOFU completed).
-    let pinned = state
-        .pinned_operator_identity
-        .as_ref()
-        .ok_or_else(|| {
-            SubstrateError::Protocol(
-                "accept_self_euthanasia_proposal: no pinned operator identity (M9 TOFU not completed)"
-                    .to_string(),
-            )
-        })?
-        .clone();
-
+    // Keyless (v3.1.5): whole-death is authorized by a DELIBERATE call that
+    // references a real `self_euthanasia_proposal:*` node (verified below) —
+    // NOT an owner signature. The owner-key/anchor layer was removed; the
+    // authorization root is re-grounded in the live human-in-the-loop, with the
+    // proposal-reference as the non-arbitrary structural gate.
     let proposal_hash_bytes = match request.payload.get("proposal_hash") {
         Some(Value::Bytes(b)) if b.len() == 32 => b.clone(),
         _ => {
@@ -80,42 +68,6 @@ pub(crate) fn handle_accept_self_euthanasia_proposal(
     };
     let mut proposal_hash = [0u8; 32];
     proposal_hash.copy_from_slice(&proposal_hash_bytes);
-    let owner_sig_bytes = match request.payload.get("owner_signature") {
-        Some(Value::Bytes(b)) if b.len() == 64 => b.clone(),
-        _ => {
-            return Err(SubstrateError::Protocol(
-                "accept_self_euthanasia_proposal: owner_signature must be 64 Bytes".to_string(),
-            ));
-        }
-    };
-    let mut owner_sig = [0u8; 64];
-    owner_sig.copy_from_slice(&owner_sig_bytes);
-
-    // Reconstruct the canonical signing input:
-    //   Map({ "context": "myco-self-euthanasia-v1",
-    //         "proposal_hash": Bytes(32),
-    //         "substrate_id": Bytes(32) })
-    let mut signing_map = BTreeMap::new();
-    signing_map.insert(
-        "context".to_string(),
-        Value::String("myco-self-euthanasia-v1".to_string()),
-    );
-    signing_map.insert(
-        "proposal_hash".to_string(),
-        Value::Bytes(proposal_hash.to_vec()),
-    );
-    signing_map.insert(
-        "substrate_id".to_string(),
-        Value::Bytes(state.substrate_id().to_vec()),
-    );
-    let signing_input = cb_encode(&Value::Map(signing_map))
-        .map_err(|e| SubstrateError::Protocol(format!("signing input encode: {e}")))?;
-
-    verify_signature(&pinned.pubkey, &owner_sig, signing_input.as_ref()).map_err(|e| {
-        SubstrateError::Protocol(format!(
-            "accept_self_euthanasia_proposal: owner signature invalid: {e}"
-        ))
-    })?;
 
     // Look up the proposal in DAG; extract axis_name.
     let proposal_node_hash = myco_kernel_shared::crypto::NodeHash::from_bytes(proposal_hash);
@@ -154,8 +106,6 @@ pub(crate) fn handle_accept_self_euthanasia_proposal(
     let content = crate::events::encode_self_euthanasia_executed(
         &axis_name,
         &proposal_hash,
-        &owner_sig,
-        &pinned.pubkey,
         state.cycle_counter(),
         now,
     );

@@ -472,17 +472,17 @@ pub fn self_euthanasia_executed_node_type(axis_name: &str) -> String {
 /// Map({
 ///   "axis_name": String,                          // axis whose proposal was accepted
 ///   "triggering_proposal_hash": Bytes(32),        // hash of the accepted proposal node
-///   "owner_signature": Bytes(64),                 // Ed25519 sig (canonical "myco-self-euthanasia-v1" + proposal_hash + substrate_id)
-///   "owner_pubkey": Bytes(32),                    // the IDENTITY pubkey at moment of execution
 ///   "at_cycle": Uint,
 ///   "executed_at_unix_ns": Timestamp,
 /// })
 /// ```
+///
+/// v3.1.5: keyless — the owner Ed25519 signature + pubkey were removed with the
+/// anchor layer. Whole-death is authorized by the deliberate
+/// `accept_self_euthanasia_proposal` call referencing a real proposal node.
 pub fn encode_self_euthanasia_executed(
     axis_name: &str,
     triggering_proposal_hash: &[u8; 32],
-    owner_signature: &[u8; 64],
-    owner_pubkey: &[u8; 32],
     at_cycle: u64,
     executed_at_unix_ns: i64,
 ) -> CanonicalBytes {
@@ -491,14 +491,6 @@ pub fn encode_self_euthanasia_executed(
     m.insert(
         "triggering_proposal_hash".to_string(),
         Value::Bytes(triggering_proposal_hash.to_vec()),
-    );
-    m.insert(
-        "owner_signature".to_string(),
-        Value::Bytes(owner_signature.to_vec()),
-    );
-    m.insert(
-        "owner_pubkey".to_string(),
-        Value::Bytes(owner_pubkey.to_vec()),
     );
     m.insert("at_cycle".to_string(), Value::Uint(at_cycle));
     m.insert(
