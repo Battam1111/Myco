@@ -643,6 +643,12 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     let state_dir = default_state_dir();
     ensure_state_dir(&state_dir)?;
 
+    // P09 single integument: take a process-level exclusive lock on the state
+    // dir so a second substrate cannot race writes to dag.cb/snapshot.cb. Held
+    // for the loop's whole lifetime; the OS releases it on exit or crash, so a
+    // crash never leaves a stale lock that would block a legitimate restart.
+    let _state_dir_lock = crate::state_lock::StateDirLock::acquire(&state_dir)?;
+
     // M21.2 P5 万物互联: DAG-first boot.
     //
     // 1. Load DAG (authoritative substrate event log).

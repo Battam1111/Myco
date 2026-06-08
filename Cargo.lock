@@ -405,6 +405,7 @@ name = "myco-substrate"
 version = "0.9.0-alpha.2"
 dependencies = [
  "blake3",
+ "libc",
  "myco-kernel-bridge",
  "myco-kernel-continuity",
  "myco-kernel-schema",
