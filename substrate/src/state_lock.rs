@@ -35,7 +35,10 @@ pub const LOCK_FILENAME: &str = "substrate.lock";
 #[derive(Debug)]
 pub struct StateDirLock {
     /// RAII guard: the open lock-file handle. The OS lock is bound to it; it is
-    /// released when this handle closes (drop / process exit / crash).
+    /// released when this handle closes (drop / process exit / crash). Held
+    /// purely for that side effect, never read (derive(Debug) does not count for
+    /// dead-code analysis), hence the allow.
+    #[allow(dead_code)]
     handle: File,
 }
 
