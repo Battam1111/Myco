@@ -69,6 +69,7 @@ pub mod derived_state;
 #[allow(unsafe_code)] // FFI adapter for Windows DPAPI — see module-level doc.
 pub mod dpapi;
 pub mod state_lock;
+pub mod parent_watch;
 pub mod events;
 pub mod federation;
 pub mod handshake;

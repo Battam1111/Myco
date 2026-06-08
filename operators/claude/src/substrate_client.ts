@@ -233,7 +233,15 @@ export class SubstrateClient {
     // substrates self-mint their substrate_id at genesis; no env injection.
     const child = spawn(binary, [], {
       stdio: ["pipe", "pipe", "inherit"],
-      env: { ...process.env, ...config.env },
+      // CHAR07 operator-liveness: tell the substrate our (operator) PID so it
+      // can sleep (exit cleanly) if we die, instead of orphaning and holding
+      // the state-dir lock against the next operator. See
+      // substrate/src/parent_watch.rs.
+      env: {
+        ...process.env,
+        ...config.env,
+        MYCO_OPERATOR_PID: String(process.pid),
+      },
     });
 
     const client = new SubstrateClient(

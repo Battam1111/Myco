@@ -1377,6 +1377,14 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // M23.1: parse tick interval from env (default 500ms = 2 ticks/sec).
     let tick_interval = parse_tick_interval();
 
+    // CHAR07 同体共命 operator-liveness: if the operator process that spawned
+    // this substrate dies, sleep (exit cleanly) instead of orphaning. This is
+    // belt-and-suspenders with the stdin-EOF path: on Windows the operator's
+    // death does not reliably deliver EOF to our stdin, so a substrate can
+    // outlive a dead operator and (with the state-dir lock) block the next one
+    // from booting. Polled once per idle tick (see the Timeout arm below).
+    let parent_watch = crate::parent_watch::ParentWatch::from_env();
+
     loop {
         let expected_key = if state.handshake_complete {
             state.session_secret
@@ -1394,6 +1402,13 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
                 ))));
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
+                // CHAR07: if the operator that spawned us has exited, sleep
+                // cleanly (snapshot + release the state-dir lock) rather than
+                // orphan. Checked once per idle tick.
+                if parent_watch.operator_gone() {
+                    graceful_shutdown_python(&mut state);
+                    return Ok(0);
+                }
                 // Autonomous tick, do federation work iff handshake done +
                 // listener open. Other ticks are no-ops (preserves the
                 // pre-handshake / no-federation idle behavior of M22 and

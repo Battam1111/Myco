@@ -45,6 +45,7 @@ windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Security_Cryptography",
     "Win32_System_Memory",
+    "Win32_System_Threading",
 ] }
 
 # Unix: flock(2) for the state-dir exclusive lock (P09 single integument).
