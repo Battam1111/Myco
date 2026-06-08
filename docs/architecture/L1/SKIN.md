@@ -52,7 +52,7 @@ L4-platform ∈ {netns, iptables/nftables, eBPF/ptrace, userspace proxy}. Preven
 
 Substrate MUST periodically list own spatial locus, compare against declared allowed-set. Deviation → `P9_spatial_locus_breach` immune; CRITICAL → §9 quarantine.
 
-- **state_dir allowed**: `{"dag.cb", "snapshot.cb", "substrate_signing_key.cb", "*.tmp", "*.tmp.<pid>", ".gitignore"}`.
+- **state_dir allowed**: `{"dag.cb", "snapshot.cb", "substrate_signing_key.cb", "substrate.lock", "*.tmp", "*.tmp.<pid>", ".gitignore"}`. (`substrate.lock`: P09 single-integument process lock; a 0-byte OS-advisory lockfile created on boot, auto-released on process exit/crash, so a second substrate on the same dir fails to boot rather than racing writes. Remains on disk after a clean exit.)
 - **OS-noise allowed**: `{".DS_Store", "Thumbs.db", "desktop.ini", "*.lock", ".tmp/*", ".lockfile"}` → `spatial_locus_noise_observed` (Daily).
 - **FD allowed**: state_dir files; skin sockets; sealed-key handles; stdin/stdout/stderr. Other → `P9_spatial_locus_breach:fd_unexpected:{fd_kind}`.
 - **Network binding allowed**: §1 listening; outbound matches §1 output OR a federation peer in the signed list (keyless v3.1.5: the anchor egress target is retired with the anchor surface). Outside → `P9_spatial_locus_breach:network_unexpected:{peer}`.

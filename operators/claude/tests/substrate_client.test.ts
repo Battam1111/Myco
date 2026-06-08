@@ -1811,15 +1811,18 @@ describe("SubstrateClient e2e", () => {
 
       // M21.5: snapshot.cb should exist alongside dag.cb.
       // M25.0: substrate_signing_key.cb (substrate-private Ed25519 seed) is also
-      // required — it cannot be derived from DAG content. (This is the
+      // required: it cannot be derived from DAG content. (This is the
       // SUBSTRATE's own signing key for federation, NOT an owner key.)
+      // P09: substrate.lock is the single-integument process lock (0-byte OS
+      // advisory lockfile created on boot, auto-released on exit; per L1/SKIN §6
+      // state_dir-allowed). It remains on disk after a clean exit.
       const fs = await import("node:fs");
       const path = await import("node:path");
       const files = fs.readdirSync(stateDir).filter((f) => !f.endsWith(".tmp")).sort();
       assert.deepEqual(
         files,
-        ["dag.cb", "snapshot.cb", "substrate_signing_key.cb"],
-        `M21.5 + M25.0: expected dag.cb + snapshot.cb + substrate_signing_key.cb; got: ${files.join(", ")}`,
+        ["dag.cb", "snapshot.cb", "substrate.lock", "substrate_signing_key.cb"],
+        `M21.5 + M25.0: expected dag.cb + snapshot.cb + substrate.lock + substrate_signing_key.cb; got: ${files.join(", ")}`,
       );
 
       // Boot should succeed (uses snapshot for fast Rust-side init).
@@ -1910,14 +1913,16 @@ describe("SubstrateClient e2e", () => {
 
     // After shutdown, the state_dir must contain ONLY:
     // - dag.cb (authoritative substrate state, M21.4)
-    // - snapshot.cb (optional cache, M21.5 — present if any K=10 cycle happened)
+    // - snapshot.cb (optional cache, M21.5: present if any K=10 cycle happened)
     // - substrate_signing_key.cb (substrate-private Ed25519 seed, M25.0)
+    // - substrate.lock (P09 single-integument lock: 0-byte OS advisory lockfile
+    //   created on boot, auto-released on exit; L1/SKIN §6 state_dir-allowed)
     const fs = await import("node:fs");
     const files = fs
       .readdirSync(stateDir)
       .filter((f) => !f.endsWith(".tmp"))
       .sort();
-    const allowed = new Set(["dag.cb", "snapshot.cb", "substrate_signing_key.cb"]);
+    const allowed = new Set(["dag.cb", "snapshot.cb", "substrate.lock", "substrate_signing_key.cb"]);
     for (const f of files) {
       assert.ok(
         allowed.has(f),
