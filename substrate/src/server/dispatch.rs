@@ -44,6 +44,11 @@ pub(super) fn dispatch(
                 let nt = crate::events::axis_registered_node_type(&event.name);
                 let content = crate::events::encode_axis_registered(&event);
                 let _ = emit_substrate_event(state, nt, content);
+                // **P04 §3.1 inert-gate witness**: this cultivar now has an
+                // axis, so its per-cycle Python `advance()` is no longer a
+                // no-op. Disqualify the idle-batch path from here on (NEVER
+                // decremented). Mirrors the boot-time axis_registered:* count.
+                state.axis_register_count = state.axis_register_count.saturating_add(1);
                 let _ = save_dag_state(state);
             }
             // M7: persist gradient state after a mutation.

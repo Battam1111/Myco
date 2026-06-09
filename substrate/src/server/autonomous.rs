@@ -36,6 +36,77 @@ fn self_driven_cycle_advance_enabled() -> bool {
     }
 }
 
+/// **P04 §3.1 batch-summarized idle advance** — maximum number of inert
+/// self-driven no-op cycles to accumulate before forcing a real metabolic
+/// cycle (which flushes the pending span).
+///
+/// Strictly LESS than the P02 hunger-request threshold (10 cycles), so a batch
+/// can never straddle a hunger/starvation boundary: a real `handle_advance`
+/// runs at least every `SELF_DRIVEN_BATCH_MAX` cycles, evaluating hunger within
+/// `≤ SELF_DRIVEN_BATCH_MAX` of any P02 threshold (closes review hole H2). The
+/// prune-scan boundary (every `PRUNE_SCAN_DEEP_CYCLE_INTERVAL` = 100) is closed
+/// separately by the `prune_boundary` guard in `do_autonomous_tick` (H1).
+const SELF_DRIVEN_BATCH_MAX: u64 = 9;
+
+/// **P04 §3.1** — is this cultivar provably inert, so its idle self-driven
+/// cycles can be batch-summarized rather than emitting one DAG node per cycle?
+///
+/// Conservative by construction: ANY axis ever registered, ANY migration in
+/// flight, OR ANY federation activity disqualifies batching. This is correct,
+/// not over-conservative: DAG replay applies exactly ONE Python `advance()` per
+/// `cycle_advanced` node, so batching a cultivar WITH a decay axis would
+/// under-decay the re-derived gradient (live ran N advances; replay would run
+/// 1). An axis-free cultivar's Python `advance()` is a true no-op, so its idle
+/// cycles produce no per-cycle state change and are safe to batch.
+fn is_provably_inert_for_batch(state: &ServerState) -> bool {
+    !crate::cultivation::is_archived(state)
+        && state.migration_candidate.is_none()
+        && state.axis_register_count == 0
+        && state.federation.listener.is_none()
+        && state.federation.peers.is_empty()
+}
+
+/// **P04 §3.1** — flush any accumulated inert idle no-op span: advance the
+/// cycle counter by the pending span, emit ONE spanning
+/// `cycle_advanced(prior, prior + span)` DAG node, and persist.
+///
+/// No-op (and resets pending to 0) when there is nothing pending OR the
+/// substrate is alive::archived (metabolism halted; the pending span, if any,
+/// is discarded — an archived substrate must not advance its counter).
+///
+/// The flush deliberately does NOT call `handle_advance` / Python `advance()`:
+/// it is only ever reached with `axis_register_count == 0` accumulated spans
+/// (the gate guarantees zero axes for everything counted into `pending`), and
+/// an axis-free Python `advance()` is a true no-op — so re-deriving the
+/// gradient via one `advance()` per the single spanning node (replay) agrees
+/// with the live path trivially (closes review hole H3). The counter only moves
+/// here, at a persist boundary, keeping live and replay in lockstep (no C32
+/// skew). Invariant after return: `pending_self_driven_noop_cycles == 0`.
+pub(super) fn flush_pending_self_driven(
+    state: &mut ServerState,
+) -> Result<(), SubstrateError> {
+    if state.pending_self_driven_noop_cycles == 0 || crate::cultivation::is_archived(state) {
+        state.pending_self_driven_noop_cycles = 0;
+        return Ok(());
+    }
+    let prior = state.cycle_counter();
+    let span = state.pending_self_driven_noop_cycles;
+    let new = prior.saturating_add(span);
+    state.set_cycle_counter(new);
+    let event_content = crate::events::encode_cycle_advanced(prior, new);
+    let _ = emit_substrate_event(
+        state,
+        crate::events::NODE_TYPE_CYCLE_ADVANCED.to_string(),
+        event_content,
+    );
+    state.pending_self_driven_noop_cycles = 0;
+    // Persist the exact same triple as the real cycle path's bookkeeping.
+    state.save_manifest()?;
+    save_python_state(state)?;
+    save_dag_state(state)?;
+    Ok(())
+}
+
 /// **v3.1.1 Sprint 3** — perform one cycle advance from the autonomous-
 /// tick path (no operator request involved).
 ///
@@ -134,16 +205,59 @@ pub(super) fn do_autonomous_tick(state: &mut ServerState) -> Result<(), Substrat
         && state.handshake_complete
         && !crate::cultivation::is_archived(state)
     {
-        // Best-effort: failures here propagate as immune events via the
-        // C31 cycle_step_failed path inside handle_advance, but don't
-        // crash the substrate. The next tick retries.
-        // **COV06 T7**: an alive::archived substrate halts metabolism — the
-        // self-driven scheduler skips cycle advance (state_dir cold-readable).
-        if let Err(e) = execute_self_driven_cycle_advance(state) {
-            let _ = writeln!(
-                std::io::stderr(),
-                "self-driven cycle advance error: {e}"
-            );
+        // **P04 §3.1 batch-summarized idle advance.** A provably-inert idle
+        // cultivar (no axes, no migration, no federation) ticks continuously
+        // per P04 but every tick is a true no-op. Rather than emit one
+        // `cycle_advanced` node + persist per tick (bloating the eternal DAG),
+        // accumulate the no-op cycles in memory and summarize them into ONE
+        // spanning node at a flush boundary. P04 is honored (it never stops
+        // iterating; the advance is batch-summarized, which §3.1 explicitly
+        // permits); C59 is honored (sum-of-spans == cycle_counter).
+        //
+        // `next_post_cycle` is the post-cycle counter the NEXT real cycle would
+        // land on (current counter + already-pending span + this tick). Two
+        // hard boundaries force a real cycle instead of batching:
+        //  - H1 prune-scan boundary: a real `handle_advance` must run the F26
+        //    应朽 prune-scan at every `PRUNE_SCAN_DEEP_CYCLE_INTERVAL` (= 100);
+        //    a batch must never straddle it. `should_run_prune_scan` is the SSoT
+        //    for that cadence (crate::prune).
+        //  - cap: `SELF_DRIVEN_BATCH_MAX` (= 9) bounds the span; this also
+        //    closes H2 (P02 hunger evaluated within ≤9 of any threshold).
+        let next_post_cycle = state
+            .cycle_counter()
+            .saturating_add(state.pending_self_driven_noop_cycles)
+            .saturating_add(1);
+        let prune_boundary = crate::prune::should_run_prune_scan(next_post_cycle);
+        if is_provably_inert_for_batch(state)
+            && state.pending_self_driven_noop_cycles + 1 < SELF_DRIVEN_BATCH_MAX
+            && !prune_boundary
+        {
+            // Inert no-op: accumulate ONLY. No handle_advance, no Python
+            // advance, no DAG node, no persist. The span is summarized at the
+            // next flush (a meaningful/boundary/cap cycle, an operator request,
+            // or shutdown). Keeps the eternal DAG bounded for an idle cultivar.
+            state.pending_self_driven_noop_cycles += 1;
+        } else {
+            // Meaningful / boundary / cap / non-inert: flush the accumulated
+            // span (seals it into ONE spanning cycle_advanced before any real
+            // node so C59 has no gap), then run ONE real metabolic cycle.
+            if let Err(e) = flush_pending_self_driven(state) {
+                let _ = writeln!(
+                    std::io::stderr(),
+                    "self-driven idle-batch flush error: {e}"
+                );
+            }
+            // Best-effort: failures here propagate as immune events via the
+            // C31 cycle_step_failed path inside handle_advance, but don't
+            // crash the substrate. The next tick retries.
+            // **COV06 T7**: an alive::archived substrate halts metabolism — the
+            // self-driven scheduler skips cycle advance (state_dir cold-readable).
+            if let Err(e) = execute_self_driven_cycle_advance(state) {
+                let _ = writeln!(
+                    std::io::stderr(),
+                    "self-driven cycle advance error: {e}"
+                );
+            }
         }
     }
 
@@ -557,6 +671,233 @@ mod tests {
             .iter_in_insertion_order()
             .filter(|n| n.node_type.starts_with("immune:") && n.node_type.contains(detector_substr))
             .count()
+    }
+
+    // ----------------------------------------------------------------------
+    // **P04 §3.1 batch-summarized idle advance** — gate tests.
+    //
+    // The self-driven scheduler reads the process-global env var
+    // `MYCO_SELF_DRIVEN_CYCLE_ADVANCE`; cargo runs unit tests in parallel, so
+    // these tests serialize through TEST_LOCK and set/clear the var under it.
+    // The batch path never calls Python (it only accumulates), so these tests
+    // run without a Python worker — they exercise the inert-batch arm of
+    // `do_autonomous_tick` and `flush_pending_self_driven` directly.
+    // ----------------------------------------------------------------------
+    static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Count `cycle_advanced` DAG nodes.
+    fn count_cycle_advanced_nodes(state: &ServerState) -> usize {
+        state
+            .dag
+            .iter_in_insertion_order()
+            .filter(|n| n.node_type == crate::events::NODE_TYPE_CYCLE_ADVANCED)
+            .count()
+    }
+
+    /// Sum the spans (`new_cycle − prior_cycle`) of every `cycle_advanced`
+    /// node — the C59 invariant LHS (mirrors integrity::decode_cycle_advanced_span).
+    fn sum_cycle_advanced_spans(state: &ServerState) -> u64 {
+        use myco_kernel_shared::canonical_bytes::{decode as cb_decode, Value};
+        state
+            .dag
+            .iter_in_insertion_order()
+            .filter(|n| n.node_type == crate::events::NODE_TYPE_CYCLE_ADVANCED)
+            .map(|n| {
+                let decoded = match cb_decode(n.content_canonical_bytes.as_ref()) {
+                    Ok(Value::Map(m)) => m,
+                    _ => return 1u64, // legacy per-node assumption
+                };
+                let prior = match decoded.get("prior_cycle") {
+                    Some(Value::Uint(u)) => *u,
+                    _ => return 1u64,
+                };
+                let new = match decoded.get("new_cycle") {
+                    Some(Value::Uint(u)) => *u,
+                    _ => return 1u64,
+                };
+                new.saturating_sub(prior)
+            })
+            .fold(0u64, |acc, span| acc.saturating_add(span))
+    }
+
+    /// **Gate test 1** — for a provably-inert cultivar, driving N self-driven
+    /// idle ticks emits FEWER cycle_advanced nodes than N (batching), yet the
+    /// C59 invariant (Σ spans == cycle_counter) still holds after a flush.
+    ///
+    /// We drive exactly `SELF_DRIVEN_BATCH_MAX - 1` ticks: the gate batches a
+    /// tick iff `pending + 1 < SELF_DRIVEN_BATCH_MAX`, so these all take the
+    /// pure-accumulation arm (no `execute_self_driven_cycle_advance`, hence no
+    /// Python worker needed in this unit test). The cap arm IS exercised in the
+    /// full e2e harness (it runs a real metabolic cycle, which needs Python);
+    /// here we isolate the batching invariant. The N-1 idle ticks collapse into
+    /// ONE spanning node at the flush — the core P04 §3.1 reduction.
+    #[test]
+    fn inert_idle_ticks_batch_and_c59_holds() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        std::env::set_var("MYCO_SELF_DRIVEN_CYCLE_ADVANCE", "1");
+
+        let mut state = test_state();
+        state.handshake_complete = true;
+        assert!(
+            is_provably_inert_for_batch(&state),
+            "a fresh axis-free, migration-free, non-federated, non-archived \
+             genesis substrate must be eligible to batch"
+        );
+
+        // Stay strictly inside one batch window (no cap-forced real cycle) and
+        // well below the first prune boundary (cycle 100): every tick batches.
+        let n: u64 = SELF_DRIVEN_BATCH_MAX - 1; // = 8
+        for _ in 0..n {
+            do_autonomous_tick(&mut state).expect("tick");
+        }
+        // Mid-run, nothing is on disk yet: all n cycles are pending in memory,
+        // and ZERO cycle_advanced nodes exist (the whole point — no per-cycle
+        // DAG bloat for an idle cultivar).
+        assert_eq!(state.pending_self_driven_noop_cycles, n);
+        assert_eq!(
+            count_cycle_advanced_nodes(&state),
+            0,
+            "an inert idle cultivar emits NO cycle_advanced node until a flush"
+        );
+        assert_eq!(
+            state.cycle_counter(),
+            0,
+            "the counter does not move until a flush (live == replay)"
+        );
+
+        // Seal the in-memory span: n ticks → ONE spanning node, counter == n.
+        flush_pending_self_driven(&mut state).expect("flush");
+
+        std::env::remove_var("MYCO_SELF_DRIVEN_CYCLE_ADVANCE");
+
+        let nodes = count_cycle_advanced_nodes(&state) as u64;
+        assert!(
+            nodes < n,
+            "batching must emit fewer cycle_advanced nodes ({nodes}) than ticks ({n})"
+        );
+        assert_eq!(nodes, 1, "the whole inert batch collapses into ONE node");
+        // C59: sum of spans equals the cycle counter, AND both equal n (every
+        // idle tick accounted for, none lost).
+        assert_eq!(
+            sum_cycle_advanced_spans(&state),
+            state.cycle_counter(),
+            "C59 sum-of-spans must equal cycle_counter"
+        );
+        assert_eq!(state.cycle_counter(), n, "all n idle cycles accounted for");
+        assert_eq!(
+            state.pending_self_driven_noop_cycles, 0,
+            "pending must be 0 at the persist boundary"
+        );
+        // Observed reduction factor (for the report): n ticks → `nodes` node(s).
+        eprintln!(
+            "[batch-test] {n} idle ticks -> {nodes} cycle_advanced node ({n}x reduction)"
+        );
+    }
+
+    /// **Gate test 2** — a batch must never straddle the prune-scan boundary
+    /// (every PRUNE_SCAN_DEEP_CYCLE_INTERVAL = 100). The tick whose
+    /// `next_post_cycle` is a multiple of 100 must NOT take the batch arm; it
+    /// flushes the prior span (sealing the pre-boundary cycles) and falls
+    /// through to the real-cycle arm. We assert the gate decision directly
+    /// (the real-cycle arm needs Python; the BATCH decision does not).
+    #[test]
+    fn prune_boundary_is_never_batched() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+
+        // The boundary predicate the tick uses: next_post_cycle % 100 == 0.
+        assert!(
+            crate::prune::should_run_prune_scan(100),
+            "cycle 100 is a prune-scan boundary"
+        );
+        assert!(
+            !crate::prune::should_run_prune_scan(99),
+            "cycle 99 is not a boundary"
+        );
+
+        // Stand a cultivar at counter=98 with one already-pending no-op (so the
+        // next tick's next_post_cycle = 98 + 1 + 1 = 100, the boundary). Even
+        // though it is inert and under the cap, the boundary guard must FORCE
+        // the non-batch arm: assert the exact composite predicate the tick uses.
+        let mut state = test_state();
+        state.handshake_complete = true;
+        state.set_cycle_counter(98);
+        state.pending_self_driven_noop_cycles = 1;
+
+        let next_post_cycle = state
+            .cycle_counter()
+            .saturating_add(state.pending_self_driven_noop_cycles)
+            .saturating_add(1);
+        assert_eq!(next_post_cycle, 100);
+        let prune_boundary = crate::prune::should_run_prune_scan(next_post_cycle);
+        let would_batch = is_provably_inert_for_batch(&state)
+            && state.pending_self_driven_noop_cycles + 1 < SELF_DRIVEN_BATCH_MAX
+            && !prune_boundary;
+        assert!(
+            !would_batch,
+            "the tick landing on a %100 boundary must NOT batch (so the real \
+             cycle runs the F26 应朽 prune-scan)"
+        );
+
+        // One step below the boundary (next_post_cycle = 99) WOULD batch.
+        let mut state2 = test_state();
+        state2.handshake_complete = true;
+        state2.set_cycle_counter(97);
+        state2.pending_self_driven_noop_cycles = 1;
+        let npc2 = state2
+            .cycle_counter()
+            .saturating_add(state2.pending_self_driven_noop_cycles)
+            .saturating_add(1);
+        assert_eq!(npc2, 99);
+        let would_batch2 = is_provably_inert_for_batch(&state2)
+            && state2.pending_self_driven_noop_cycles + 1 < SELF_DRIVEN_BATCH_MAX
+            && !crate::prune::should_run_prune_scan(npc2);
+        assert!(would_batch2, "a non-boundary inert tick under the cap batches");
+    }
+
+    /// **Gate test 3** — `flush_pending_self_driven` is a no-op when pending==0
+    /// and when archived; after a real flush, pending==0 and the counter equals
+    /// the sum of cycle_advanced spans.
+    #[test]
+    fn flush_is_noop_when_empty_or_archived_and_seals_otherwise() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+
+        // (a) pending==0 → no node emitted, counter unchanged.
+        let mut state = test_state();
+        state.handshake_complete = true;
+        let counter_before = state.cycle_counter();
+        let nodes_before = count_cycle_advanced_nodes(&state);
+        flush_pending_self_driven(&mut state).expect("flush empty");
+        assert_eq!(state.cycle_counter(), counter_before);
+        assert_eq!(count_cycle_advanced_nodes(&state), nodes_before);
+        assert_eq!(state.pending_self_driven_noop_cycles, 0);
+
+        // (b) archived + pending>0 → no advance, pending reset to 0, no node.
+        let mut state = test_state();
+        state.handshake_complete = true;
+        state.cultivation_state = crate::cultivation::CultivationState::Archived;
+        state.pending_self_driven_noop_cycles = 5;
+        let counter_before = state.cycle_counter();
+        let nodes_before = count_cycle_advanced_nodes(&state);
+        flush_pending_self_driven(&mut state).expect("flush archived");
+        assert_eq!(
+            state.cycle_counter(),
+            counter_before,
+            "archived substrate must not advance its counter on flush"
+        );
+        assert_eq!(count_cycle_advanced_nodes(&state), nodes_before);
+        assert_eq!(state.pending_self_driven_noop_cycles, 0);
+
+        // (c) pending>0, not archived → one spanning node, counter advances by
+        // the span, pending reset, C59 holds.
+        let mut state = test_state();
+        state.handshake_complete = true;
+        let prior = state.cycle_counter();
+        state.pending_self_driven_noop_cycles = 7;
+        flush_pending_self_driven(&mut state).expect("flush span");
+        assert_eq!(state.cycle_counter(), prior + 7);
+        assert_eq!(state.pending_self_driven_noop_cycles, 0);
+        assert_eq!(count_cycle_advanced_nodes(&state), 1);
+        assert_eq!(sum_cycle_advanced_spans(&state), state.cycle_counter());
     }
 
     #[test]

@@ -18,7 +18,7 @@
 use std::collections::BTreeMap;
 
 use myco_kernel_bridge::protocol::{msg_type, Message};
-use myco_kernel_shared::canonical_bytes::{encode as cb_encode, Value};
+use myco_kernel_shared::canonical_bytes::{decode as cb_decode, encode as cb_encode, Value};
 
 use crate::server::{
     emit_immune_sporocarp, emit_substrate_event, hex_encode, save_dag_state,
@@ -548,19 +548,30 @@ fn check_genesis_event_uniqueness(state: &ServerState) -> (bool, String, Vec<u8>
     }
 }
 
-/// **C59 manifest_cycle_vs_dag_advance_count**, count cycle_advanced events
-/// and compare to manifest.cycle_counter; ±1 tolerance for the pre-first-cycle
-/// genesis case.
+/// **C59 manifest_cycle_vs_dag_advance_count**, sum the spans of cycle_advanced
+/// events (Σ `new_cycle − prior_cycle`) and compare to manifest.cycle_counter;
+/// ±1 tolerance for the pre-first-cycle genesis case.
+///
+/// **P04 §3.1 batch-summarized advance**: a single `cycle_advanced` node may
+/// span more than one cycle (a provably-inert idle cultivar batch-summarizes
+/// its no-op heartbeats into one node `prior → prior+N`). The metabolic-
+/// position invariant is therefore the SUM OF SPANS == cycle_counter, NOT the
+/// node COUNT (which would undercount any batched run). Backward-compatible: a
+/// pre-batch node spans exactly 1 (`new = prior + 1`), so the sum equals the
+/// old count for every legacy DAG. A node whose content cannot be decoded as
+/// `{prior_cycle, new_cycle}` conservatively contributes a span of 1 (the
+/// legacy per-node assumption).
 fn check_manifest_cycle_vs_dag_advance_count(
     state: &ServerState,
 ) -> (bool, String, Vec<u8>) {
-    let advance_count: u64 = state
+    let advance_span_sum: u64 = state
         .dag
         .iter_in_insertion_order()
         .filter(|n| n.node_type == crate::events::NODE_TYPE_CYCLE_ADVANCED)
-        .count() as u64;
+        .map(|n| decode_cycle_advanced_span(n).unwrap_or(1))
+        .fold(0u64, |acc, span| acc.saturating_add(span));
     let counter = state.cycle_counter();
-    let diff = counter.abs_diff(advance_count);
+    let diff = counter.abs_diff(advance_span_sum);
     let passed = diff <= 1;
     let witness = {
         let mut m = BTreeMap::new();
@@ -569,8 +580,8 @@ fn check_manifest_cycle_vs_dag_advance_count(
             Value::Uint(counter),
         );
         m.insert(
-            "dag_cycle_advanced_count".to_string(),
-            Value::Uint(advance_count),
+            "dag_cycle_advanced_span_sum".to_string(),
+            Value::Uint(advance_span_sum),
         );
         cb_encode(&Value::Map(m))
             .map(|cb| cb.0)
@@ -580,7 +591,7 @@ fn check_manifest_cycle_vs_dag_advance_count(
         (
             true,
             format!(
-                "ok (manifest_cycle_counter={counter}, dag_cycle_advanced_count={advance_count})"
+                "ok (manifest_cycle_counter={counter}, dag_cycle_advanced_span_sum={advance_span_sum})"
             ),
             witness,
         )
@@ -588,13 +599,34 @@ fn check_manifest_cycle_vs_dag_advance_count(
         (
             false,
             format!(
-                "manifest_cycle_counter={counter} but DAG has {advance_count} cycle_advanced \
-                 events (diff={diff}, exceeds tolerance 1; either manifest mutated without DAG \
-                 emission or DAG truncated)"
+                "manifest_cycle_counter={counter} but DAG cycle_advanced spans sum to \
+                 {advance_span_sum} (diff={diff}, exceeds tolerance 1; either manifest mutated \
+                 without DAG emission or DAG truncated)"
             ),
             witness,
         )
     }
+}
+
+/// Decode a `cycle_advanced` node's span (`new_cycle − prior_cycle`). Returns
+/// `None` if the content is not the expected `{prior_cycle, new_cycle}` map;
+/// C59 then treats the node as the legacy span of 1. Decodes identically to
+/// `derived_state::apply_cycle_advanced` (same canonical-bytes map fields).
+fn decode_cycle_advanced_span(node: &myco_kernel_schema::dag::DagNode) -> Option<u64> {
+    let decoded = cb_decode(node.content_canonical_bytes.as_ref()).ok()?;
+    let map = match decoded {
+        Value::Map(m) => m,
+        _ => return None,
+    };
+    let prior = match map.get("prior_cycle")? {
+        Value::Uint(u) => *u,
+        _ => return None,
+    };
+    let new = match map.get("new_cycle")? {
+        Value::Uint(u) => *u,
+        _ => return None,
+    };
+    Some(new.saturating_sub(prior))
 }
 
 /// **v3.1.1 C55 silent_internal_mortality** detection.

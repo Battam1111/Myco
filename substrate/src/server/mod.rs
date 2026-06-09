@@ -345,6 +345,31 @@ pub(crate) struct ServerState {
     /// `C66_WINDOW_EXCEEDED_COOLDOWN_CYCLES`. Same per-detector cooldown
     /// discipline as the C54/C63/C64/C65 detectors. `None` = never emitted.
     pub(crate) last_migration_window_exceeded_emitted_at_cycle: Option<u64>,
+    /// **P04 §3.1 batch-summarized idle advance.** Number of self-driven
+    /// no-op cycles ticked since the last flush, NOT yet applied to
+    /// `cycle_counter` nor emitted as a `cycle_advanced` DAG node. A provably
+    /// inert idle cultivar (no DAG-emitting work in the metabolic step) ticks
+    /// and accumulates here WITHOUT touching disk; at a flush (a meaningful
+    /// cycle, the `SELF_DRIVEN_BATCH_MAX` cap, an operator request, or shutdown)
+    /// `cycle_counter` advances by this span and ONE
+    /// `cycle_advanced(prior, prior+span)` node is emitted + persisted. This
+    /// keeps the eternal DAG bounded for a continuously-iterating idle cultivar
+    /// while honoring P04 (it never stops iterating, the advance is
+    /// batch-summarized per §3.1) and C59 (sum-of-spans == cycle_counter). The
+    /// counter only moves at a flush, so live and replay agree (no C32 skew).
+    /// Invariant: 0 at every persist boundary.
+    pub(crate) pending_self_driven_noop_cycles: u64,
+    /// **P04 §3.1 batch-summarized idle advance — inert-gate witness.**
+    /// Cumulative count of `axis_registered:*` DAG events ever observed
+    /// (NEVER decremented). Hydrated at boot by counting matching DAG nodes;
+    /// bumped on each REGISTER_AXIS dispatch. The idle-batch gate
+    /// (`is_provably_inert_for_batch`) refuses to batch when this is non-zero:
+    /// a cultivar that ever registered a (decay) axis runs a real Python
+    /// `advance()` per cycle, so batching would under-decay the re-derived
+    /// gradient on replay (replay applies exactly ONE `advance()` per
+    /// `cycle_advanced` node). An axis-free cultivar's `advance()` is a true
+    /// no-op, so its idle cycles are safe to batch.
+    pub(crate) axis_register_count: u64,
     /// **COV06 §3.2.A (F21)**, the cultivation_successor_chain, mirrored from
     /// `DerivedState::successor_chain`. Hydrated at boot from a full DAG
     /// re-derivation (NOT snapshot.cb, byte-compat additive). The succession
@@ -505,6 +530,16 @@ impl ServerState {
             // restarted mid-window resumes its migration.
             migration_candidate: None,
             last_migration_window_exceeded_emitted_at_cycle: None,
+            // P04 §3.1 batch-summarized idle advance: no pending no-op span at
+            // construction. The boot path loads cycle_counter from a flushed
+            // snapshot (pending is always 0 at a persist boundary), so resuming
+            // with 0 here is exactly correct.
+            pending_self_driven_noop_cycles: 0,
+            // P04 §3.1 inert-gate witness: hydrated at boot by counting
+            // axis_registered:* DAG nodes AFTER `new()` (mirrors
+            // observatory_history); 0 at construction so a fresh / axis-free
+            // substrate is eligible to batch.
+            axis_register_count: 0,
             // COV06: cultivation FSM mirrors start empty; the boot path
             // re-derives them from the full DAG AFTER `new()` (mirrors
             // observatory_history + migration_candidate). NOT persisted in
@@ -918,6 +953,19 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
     // start with an empty deque; the history then fills organically as
     // cycles tick. Cap is enforced on insert; we copy as-is here.
     state.observatory_history = derived.observatory_history.clone();
+    // **P04 §3.1 batch-summarized idle advance** — hydrate the inert-gate
+    // witness by counting every `axis_registered:*` DAG node. NEVER decremented
+    // thereafter; the REGISTER_AXIS dispatch arm bumps it. A non-zero count
+    // disqualifies the idle-batch path (a cultivar with any axis runs a real
+    // Python `advance()` per cycle; batching would under-decay on replay).
+    state.axis_register_count = state
+        .dag
+        .iter_in_insertion_order()
+        .filter(|n| {
+            n.node_type
+                .starts_with(crate::events::NODE_TYPE_AXIS_REGISTERED_PREFIX)
+        })
+        .count() as u64;
     // **v3.1.1 Sprint 8.G (P03 §10.4)**: resume an in-flight schema migration.
     // `derived.migration_candidate` is `Some` iff the DAG / snapshot carried a
     // `schema_migration_started:*` event without a matching terminal event.
@@ -1458,6 +1506,14 @@ pub fn run_loop() -> Result<u8, SubstrateError> {
             }
         };
 
+        // **P04 §3.1 batch-summarized idle advance** — seal any accumulated
+        // inert idle span BEFORE an operator-driven request runs. A no-op when
+        // nothing is pending (the common case), so cheap on every frame; when a
+        // span is pending it emits the ONE spanning cycle_advanced + persists,
+        // so any operator-driven cycle_advanced that follows cannot open a C59
+        // gap (idle span and operator span stay strictly ordered + summed).
+        autonomous::flush_pending_self_driven(&mut state)?;
+
         // Dispatch.
         let result = dispatch(&mut state, &request);
         match result {
@@ -1805,6 +1861,13 @@ fn write_error_response<W: Write>(
 }
 
 fn graceful_shutdown_python(state: &mut ServerState) {
+    // **P04 §3.1 batch-summarized idle advance** — persist the last accumulated
+    // inert idle span on EVERY exit path (SHUTDOWN, operator-gone / Disconnected,
+    // euthanasia, bet-retired). Best-effort: the helper early-returns when the
+    // substrate is archived or nothing is pending. This MUST precede the
+    // `python_client.take()` below, because the flush's `save_python_state`
+    // needs the live Python client to snapshot the gradient.
+    let _ = autonomous::flush_pending_self_driven(state);
     if let Some(client) = state.python_client.take() {
         let _ = client.shutdown();
     }
