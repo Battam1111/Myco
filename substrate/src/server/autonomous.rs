@@ -633,11 +633,19 @@ mod tests {
     };
 
     fn test_state() -> ServerState {
+        // Unique, on-disk state_dir per call: the flush tests below exercise
+        // flush_pending_self_driven, which persists (manifest/python/dag), so the
+        // dir MUST exist on a clean runner. The previous path was never created
+        // on disk and passed only when a stale temp dir happened to be present
+        // (it was on the dev box, not on a fresh CI runner -> CI red).
+        static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let state_dir = std::env::temp_dir().join(format!(
-            "myco-c66-unit-{}-{:x}",
+            "myco-autonomous-unit-{}-{}",
             std::process::id(),
-            &0u8 as *const u8 as usize as u64
+            seq
         ));
+        let _ = std::fs::create_dir_all(&state_dir);
         // Task #8i: seed the discrete identity fields from a fresh genesis
         // Manifest (random non-zero id ⇒ Some). cycle_counter starts at 0;
         // tests bump it via `set_cycle_counter`.
